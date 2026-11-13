@@ -26,3 +26,7 @@ jobs:
           node --check assets/dashboard.js
           node --check assets/overview.js
           node --check assets/reviewer.js
+      - name: Dashboard preview browser smoke test
+        env:
+          NOS_CHROME: /usr/bin/google-chrome
+        run: node tests/ui-check.mjs
