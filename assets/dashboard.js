@@ -436,7 +436,7 @@
       const d = segment.map(({x,y},i) => `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
       const first=segment[0],last=segment[segment.length-1];
       return `<path d="${d} L${last.x},60 L${first.x},60Z" fill="url(#g-${id})"/><path class="spark-line" d="${d}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>`;
-    }).join('') + points.filter(Boolean).map(({x,y}) => `<line x1="${x}" x2="${x}" y1="${y}" y2="56" stroke="currentColor" stroke-width="2" opacity=".24"/><circle class="spark-point" cx="${x}" cy="${y}" r="1.5" fill="currentColor"/>`).join('') + '<line class="spark-cursor" y1="4" y2="59" stroke="currentColor" stroke-dasharray="2 3" visibility="hidden"/>';
+    }).join('') + points.filter(Boolean).map(({x,y}) => `<line class="spark-zero-bar" x1="${x}" x2="${x}" y1="${y}" y2="56" stroke="currentColor" stroke-width="2" opacity=".24"/><circle class="spark-point" cx="${x}" cy="${y}" r="1.5" fill="currentColor"/>`).join('') + '<line class="spark-cursor" y1="4" y2="59" stroke="currentColor" stroke-dasharray="2 3" visibility="hidden"/>';
   }
 
   function chartTooltip(svg,index) {
