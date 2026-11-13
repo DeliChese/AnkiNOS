@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 tests/.tmp/
+
+# User-imported pictures belong to the local Anki installation, never Git.
+user_files/
