@@ -317,6 +317,20 @@ def refresh() -> None:
             success=success).failure(failure).run_in_background()
 
 
+def _stats_pdf() -> None:
+    """Export the currently visible AnkiNOS statistics page, not the legacy dialog."""
+    if mw.state != "deckBrowser" or not mw.col:
+        return
+    suggested = f"AnkiNOS-Thong-ke-{datetime.now():%Y-%m-%d}.pdf"
+    path, _ = QFileDialog.getSaveFileName(
+        mw, "Lưu báo cáo Thống kê AnkiNOS",
+        str(Path.home() / suggested), "Tệp PDF (*.pdf)")
+    if not path:
+        return
+    destination = str(Path(path).with_suffix(".pdf"))
+    mw.web.page().printToPdf(destination)
+
+
 def _stats_graphs(scope: str, days: int) -> None:
     """Fetch the native Anki graphs lazily, only while the Stats page is open."""
     global _stats_request_serial
@@ -613,8 +627,10 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         elif action == 'history_year':
             _history_year(int(command.get('year')))
         elif action == "graphs":
-            # Native Rust graph data: all 13 standard Anki statistics sections.
+            # Native Rust graph data: all standard Anki statistics sections.
             _stats_graphs(command.get("scope"), command.get("days"))
+        elif action == "stats_pdf":
+            _stats_pdf()
         elif action == "study":
             did = _deck_id(command.get("id"))
             _begin_navigation()
