@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AnkiNOS — Không gian ghi nhớ</title>
   <link rel="stylesheet" href="assets/dashboard.css">
+  <link rel="stylesheet" href="assets/media-studio.css">
   <link rel="stylesheet" href="assets/stats-page.css">
 </head>
 <body>
   <div id="nos-app" data-theme="dusk" data-page="home">
-    <div class="wallpaper" aria-hidden="true"></div>
+    <div class="wallpaper" aria-hidden="true"><img class="nos-wallpaper-image" alt="" decoding="async" hidden></div>
     <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
       <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></symbol>
       <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7Z"/></symbol>
@@ -141,7 +142,6 @@
             <button class="settings-nav-btn" data-settings-tab="dashboard"><svg class="icon small"><use href="#i-chart"/></svg>Dashboard</button>
             <button class="settings-nav-btn" data-settings-tab="goals"><svg class="icon small"><use href="#i-target"/></svg>Mục tiêu</button>
             <button class="settings-nav-btn" data-settings-tab="performance"><svg class="icon small"><use href="#i-bolt"/></svg>Hiệu năng</button>
-            <button class="settings-nav-btn" data-settings-tab="images"><svg class="icon small"><use href="#i-folder"/></svg>Thư viện ảnh</button>
             <button class="settings-nav-btn" data-settings-tab="shortcuts"><svg class="icon small"><use href="#i-link"/></svg>Phím tắt</button>
             <button class="settings-nav-btn" data-settings-tab="data"><svg class="icon small"><use href="#i-folder"/></svg>Dữ liệu</button>
           </nav>
@@ -284,77 +284,6 @@
               </div>
             </div>
 
-            <!-- Image library shared by Dashboard, Overview, Reviewer and Avatar -->
-            <div class="settings-tab-pane" id="stab-images" hidden>
-              <div class="settings-group-title">Hình nền và avatar từ máy tính</div>
-              <p class="image-library-help">Ảnh gốc được giữ nguyên trong user_files của AnkiNOS, lưu riêng theo hồ sơ và không đồng bộ qua AnkiWeb. Chọn cách hiển thị rồi nhấn Áp dụng.</p>
-              <div class="image-targets">
-                <div class="image-target-row">
-                  <label for="media-select-dashboard">Giao diện chính (Dashboard)</label>
-                  <div class="image-target-controls">
-                    <select id="media-select-dashboard" data-image-slot="image_dashboard" class="nos-select" aria-label="Chọn ảnh Giao diện chính (Dashboard)"><option value="">Ảnh nền mặc định</option></select>
-                    <select id="media-fit-dashboard" data-image-fit="image_fit_dashboard" class="nos-select" aria-label="Cách hiển thị Giao diện chính (Dashboard)">
-                      <option value="contain">Vừa khung · không cắt</option>
-                      <option value="cover">Phủ kín · có thể cắt</option>
-                    </select>
-                    <select id="media-position-dashboard" data-image-position="image_position_dashboard" class="nos-select" aria-label="Vị trí ảnh Giao diện chính (Dashboard)">
-                      <option value="center">Căn giữa</option><option value="top">Căn trên</option><option value="bottom">Căn dưới</option><option value="left">Căn trái</option><option value="right">Căn phải</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="image-target-row">
-                  <label for="media-select-overview">Chuẩn bị học</label>
-                  <div class="image-target-controls">
-                    <select id="media-select-overview" data-image-slot="image_overview" class="nos-select" aria-label="Chọn ảnh Chuẩn bị học"><option value="">Ảnh nền mặc định</option></select>
-                    <select id="media-fit-overview" data-image-fit="image_fit_overview" class="nos-select" aria-label="Cách hiển thị Chuẩn bị học">
-                      <option value="contain">Vừa khung · không cắt</option>
-                      <option value="cover">Phủ kín · có thể cắt</option>
-                    </select>
-                    <select id="media-position-overview" data-image-position="image_position_overview" class="nos-select" aria-label="Vị trí ảnh Chuẩn bị học">
-                      <option value="center">Căn giữa</option><option value="top">Căn trên</option><option value="bottom">Căn dưới</option><option value="left">Căn trái</option><option value="right">Căn phải</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="image-target-row">
-                  <label for="media-select-review">Lúc học / ôn tập</label>
-                  <div class="image-target-controls">
-                    <select id="media-select-review" data-image-slot="image_review" class="nos-select" aria-label="Chọn ảnh Lúc học / ôn tập"><option value="">Ảnh nền mặc định</option></select>
-                    <select id="media-fit-review" data-image-fit="image_fit_review" class="nos-select" aria-label="Cách hiển thị Lúc học / ôn tập">
-                      <option value="contain">Vừa khung · không cắt</option>
-                      <option value="cover">Phủ kín · có thể cắt</option>
-                    </select>
-                    <select id="media-position-review" data-image-position="image_position_review" class="nos-select" aria-label="Vị trí ảnh Lúc học / ôn tập">
-                      <option value="center">Căn giữa</option><option value="top">Căn trên</option><option value="bottom">Căn dưới</option><option value="left">Căn trái</option><option value="right">Căn phải</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="image-target-row">
-                  <label for="media-select-avatar">Ảnh đại diện (Avatar)</label>
-                  <div class="image-target-controls">
-                    <select id="media-select-avatar" data-image-slot="image_avatar" class="nos-select" aria-label="Chọn ảnh Ảnh đại diện (Avatar)"><option value="">Avatar chữ mặc định</option></select>
-                    <select id="media-fit-avatar" data-image-fit="image_fit_avatar" class="nos-select" aria-label="Cách hiển thị Ảnh đại diện (Avatar)">
-                      <option value="contain">Vừa khung · không cắt</option>
-                      <option value="cover">Phủ kín · có thể cắt</option>
-                    </select>
-                    <select id="media-position-avatar" data-image-position="image_position_avatar" class="nos-select" aria-label="Vị trí ảnh Ảnh đại diện (Avatar)">
-                      <option value="center">Căn giữa</option><option value="top">Căn trên</option><option value="bottom">Căn dưới</option><option value="left">Căn trái</option><option value="right">Căn phải</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div class="image-preview-panel">
-                <div class="image-preview-head"><strong>Xem trước cách hiển thị</strong><span id="image-preview-title">Dashboard</span></div>
-                <div class="image-preview-frame" id="image-preview-frame" role="img" aria-label="Ảnh xem trước không bị cắt"><span id="image-preview-placeholder">Chọn ảnh trong danh sách phía trên</span></div>
-                <p class="image-library-help">Vừa khung giữ trọn ảnh và có thể có khoảng trống hai bên; Phủ kín lấp đầy màn hình nhưng có thể cắt rìa. Có thể căn ảnh để giữ vùng quan trọng.</p>
-              </div>
-              <div class="image-library-toolbar">
-                <div><strong>Kho ảnh của bạn</strong><p id="image-library-count">Chưa có ảnh</p></div>
-                <button type="button" class="subtle-button" id="btn-image-add"><svg class="icon small"><use href="#i-plus"/></svg>Thêm ảnh từ máy</button>
-              </div>
-              <div id="image-library-grid" class="image-library-grid" aria-live="polite"></div>
-              <p class="image-library-help">PNG, JPG, WebP · tối đa 16 MB và 24 megapixel mỗi ảnh · tối đa 100 ảnh. Ảnh mới có thumbnail riêng; ảnh cũ vẫn dùng được. Xóa trong kho sẽ xóa bản sao của AnkiNOS, không xóa ảnh gốc trên máy.</p>
-            </div>
-
             <!-- TAB 5: Phím tắt -->
             <div class="settings-tab-pane" id="stab-shortcuts" hidden>
               <div class="settings-group-title">Phím tắt nhanh AnkiNOS</div>
@@ -404,14 +333,75 @@
     </dialog>
 
 
+
+    <dialog id="studio-dialog" class="nos-studio-dialog" aria-labelledby="studio-title" aria-modal="true">
+      <div class="nos-studio-shell">
+        <header class="nos-studio-head">
+          <div class="nos-studio-heading"><span class="nos-studio-logo"><svg class="icon"><use href="#i-folder"/></svg></span>
+            <div><p class="nos-studio-kicker">ANKINOS / MEDIA STUDIO</p><h2 id="studio-title">Thư viện ảnh</h2><p>Ảnh gốc nguyên vẹn · tự động lưu thay đổi vào hồ sơ Anki</p></div>
+          </div>
+          <div class="nos-studio-head-actions"><button type="button" id="studio-add" class="nos-studio-import"><svg class="icon small"><use href="#i-plus"/></svg>Nhập ảnh từ máy</button>
+            <button type="button" id="studio-close" class="nos-studio-icon" aria-label="Đóng studio" title="Đóng studio"><svg class="icon small"><use href="#i-close"/></svg></button></div>
+        </header>
+        <div class="nos-studio-body">
+          <aside class="nos-studio-albums">
+            <div class="nos-studio-label">ALBUM CỦA BẠN</div>
+            <nav id="studio-albums" class="nos-studio-album-list" aria-label="Chọn album">
+              <button class="active" data-studio-album="all" type="button">Tất cả ảnh</button>
+              <button data-studio-album="unfiled" type="button">Chưa phân loại</button>
+            </nav>
+            <button class="nos-studio-add-album" id="studio-album-new" type="button"><svg class="icon small"><use href="#i-plus"/></svg>Album mới</button>
+            <div class="nos-studio-album-editor" id="studio-album-editor" hidden>
+              <label for="studio-album-title">Tên album</label><input id="studio-album-title" maxlength="80" placeholder="Ví dụ: Phong cảnh" autocomplete="off">
+              <div><button id="studio-album-confirm" type="button">Lưu</button><button id="studio-album-cancel" type="button">Hủy</button></div>
+            </div>
+            <div class="nos-studio-album-tools" id="studio-album-tools" hidden>
+              <button id="studio-album-rename" type="button">Đổi tên album</button><button id="studio-album-delete" type="button">Xóa album</button>
+            </div>
+            <p class="nos-studio-side-note">Xóa album không xóa ảnh. Ảnh sẽ trở về “Chưa phân loại”.</p>
+          </aside>
+          <section class="nos-studio-content" aria-label="Danh sách ảnh">
+            <div class="nos-studio-gallery-top"><div><h3 id="studio-gallery-title">Tất cả ảnh</h3><p id="studio-count">0 ảnh trong thư viện</p></div>
+              <label class="nos-studio-search"><svg class="icon small"><use href="#i-search"/></svg><input type="search" id="studio-search" placeholder="Tìm ảnh..." autocomplete="off" aria-label="Tìm ảnh"></label></div>
+            <div id="studio-gallery" class="nos-studio-gallery" aria-live="polite"></div>
+          </section>
+          <aside class="nos-studio-inspector">
+            <div class="nos-studio-label">XEM TRƯỚC</div>
+            <div class="nos-studio-preview" id="studio-preview">
+              <img id="studio-preview-image" alt="Ảnh đang chọn" decoding="async" hidden>
+              <p id="studio-preview-empty">Chọn một ảnh trong album để xem.</p>
+            </div>
+            <p id="studio-image-meta" class="nos-studio-meta">Ảnh nguyên gốc không bị cắt hoặc kéo giãn.</p>
+            <div id="studio-inspector-fields" hidden>
+              <label class="nos-studio-field-label" for="studio-image-name">Tên ảnh</label>
+              <div class="nos-studio-name-row"><input id="studio-image-name" maxlength="80" autocomplete="off"><button id="studio-rename" type="button">Lưu tên</button></div>
+              <label class="nos-studio-field-label" for="studio-image-album">Chuyển vào album</label>
+              <select id="studio-image-album"><option value="">Chưa phân loại</option></select>
+              <div class="nos-studio-divider"></div>
+              <div class="nos-studio-label">DÙNG ẢNH NÀY CHO</div>
+              <p class="nos-studio-hint">Nhấn chọn để lưu ngay. Nhấn lần nữa để bỏ ảnh về nền mặc định.</p>
+              <div id="studio-targets" class="nos-studio-targets">
+                <button type="button" data-studio-slot="image_dashboard">Dashboard <span>Chọn</span></button>
+                <button type="button" data-studio-slot="image_overview">Chuẩn bị học <span>Chọn</span></button>
+                <button type="button" data-studio-slot="image_review">Lúc ôn tập <span>Chọn</span></button>
+                <button type="button" data-studio-slot="image_avatar">Avatar <span>Chọn</span></button>
+              </div>
+              <button id="studio-remove-image" class="nos-studio-danger" type="button">Xóa ảnh khỏi thư viện</button>
+            </div>
+            <p id="studio-status" class="nos-studio-status" role="status" aria-live="polite">Thay đổi được lưu tự động · không có nút Áp dụng</p>
+          </aside>
+        </div>
+      </div>
+    </dialog>
     <section class="profile-panel glass" id="profile-panel" aria-labelledby="profile-name" hidden><div class="profile-header"><span class="avatar profile-avatar" id="profile-initials">A</span><div><h2 id="profile-name">Anki User</h2><span class="profile-subtitle">Hồ sơ Anki hiện tại</span></div><button class="icon-button small-button" data-action="profile" aria-label="Đóng hồ sơ"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="profile-stats"><div><span>🔥 Chuỗi học</span><strong id="profile-streak">—</strong></div><div><span><svg class="icon small"><use href="#i-target"/></svg>Ghi nhớ</span><strong id="profile-retention">—</strong></div><div><span><svg class="icon small"><use href="#i-layers"/></svg>Tổng số thẻ</span><strong id="profile-total">—</strong></div></div><button class="profile-goal" data-action="set_goal"><span>Mục tiêu hôm nay <strong id="profile-goal-text">0 / 200</strong></span><span class="progress-track"><span id="profile-goal-fill"></span></span><small>Nhấn để điều chỉnh mục tiêu</small></button><div class="profile-actions"><button data-action="preferences"><svg class="icon"><use href="#i-settings"/></svg><span>Cài đặt AnkiNOS</span><svg class="icon small"><use href="#i-chevron"/></svg></button><button data-action="theme"><svg class="icon"><use href="#i-moon"/></svg><span id="theme-label">Chuyển sang kính tối</span><svg class="icon small"><use href="#i-chevron"/></svg></button><button data-action="switch_profile"><svg class="icon"><use href="#i-out"/></svg>Chuyển hồ sơ<svg class="icon small"><use href="#i-chevron"/></svg></button></div></section>
 
-    <section class="launcher glass" id="launcher" aria-label="Tất cả chức năng" hidden><div class="launcher-heading"><span>Không gian AnkiNOS</span><button class="icon-button small-button" data-action="launcher" aria-label="Đóng menu"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="launcher-grid"><button data-action="library"><svg class="icon"><use href="#i-layers"/></svg>Bộ thẻ</button><button data-action="browse"><svg class="icon"><use href="#i-search"/></svg>Duyệt thẻ</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ</button><button data-action="import"><svg class="icon"><use href="#i-download"/></svg>Nhập thẻ</button><button data-action="export"><svg class="icon"><use href="#i-upload"/></svg>Xuất thẻ</button><button data-action="addons"><svg class="icon"><use href="#i-puzzle"/></svg>Tiện ích</button><button data-action="sync"><svg class="icon"><use href="#i-sync"/></svg>Đồng bộ</button><button data-action="shared"><svg class="icon"><use href="#i-external"/></svg>Bộ thẻ chia sẻ</button></div></section>
+    <section class="launcher glass" id="launcher" aria-label="Tất cả chức năng" hidden><div class="launcher-heading"><span>Không gian AnkiNOS</span><button class="icon-button small-button" data-action="launcher" aria-label="Đóng menu"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="launcher-grid"><button data-action="library"><svg class="icon"><use href="#i-layers"/></svg>Bộ thẻ</button><button data-action="browse"><svg class="icon"><use href="#i-search"/></svg>Duyệt thẻ</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ</button><button data-action="import"><svg class="icon"><use href="#i-download"/></svg>Nhập thẻ</button><button data-action="export"><svg class="icon"><use href="#i-upload"/></svg>Xuất thẻ</button><button data-action="addons"><svg class="icon"><use href="#i-puzzle"/></svg>Tiện ích</button><button data-action="studio" id="studio-launcher"><svg class="icon"><use href="#i-folder"/></svg>Thư viện ảnh</button><button data-action="sync"><svg class="icon"><use href="#i-sync"/></svg>Đồng bộ</button><button data-action="shared"><svg class="icon"><use href="#i-external"/></svg>Bộ thẻ chia sẻ</button></div></section>
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <div class="chart-tooltip" id="chart-tooltip" role="tooltip" hidden></div>
     <div class="heat-tooltip" id="heat-tooltip" role="tooltip" hidden></div>
   </div>
   <script src="assets/dashboard.js"></script>
+  <script src="assets/media-studio.js"></script>
   <script src="assets/stats-page.js"></script>
 </body>
 </html>

@@ -24,7 +24,7 @@ from .data import collect_snapshot, collect_overview_snapshot, collect_history_y
 from .graphs_data import collect_native_graphs
 from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
-                          valid_images, profile_dir)
+                          valid_images, valid_albums, MAX_ALBUMS, profile_dir)
 
 ROOT = Path(__file__).resolve().parent
 MODULE = __package__ or "NOS"
@@ -182,7 +182,7 @@ def settings() -> dict[str, Any]:
             "blur": True, "animations": True, "ui_scale": 100,
             "stat_retention": True, "stat_pace": True, "stat_time": True, "stat_studied": True,
             "heatmap_day": "monday", "heatmap_palette": "default",
-            "images": [], "image_dashboard": None, "image_overview": None,
+            "images": [], "image_albums": [], "image_dashboard": None, "image_overview": None,
             "image_review": None, "image_avatar": None,
             "image_fit_dashboard": "contain", "image_fit_overview": "contain",
             "image_fit_review": "contain", "image_fit_avatar": "cover",
@@ -195,17 +195,25 @@ def public_settings() -> dict[str, Any]:
     """Send only verified, existing local-image URLs to the WebView."""
     data = settings()
     package = mw.addonManager.addonFromModule(MODULE)
+    data["image_albums"] = valid_albums(data.get("image_albums"))
+    album_ids = {item["id"] for item in data["image_albums"]}
     data["images"] = public_images(ROOT, mw.pm.name, data.get("images"), str(package))
+    for entry in data["images"]:
+        if entry.get("album_id") not in album_ids:
+            entry.pop("album_id", None)
     return data
 
 
-def _image_add() -> None:
+def _image_add(album_id: str = "") -> None:
     paths, _ = QFileDialog.getOpenFileNames(
         mw, "Thêm ảnh vào thư viện AnkiNOS", "",
         "Ảnh (*.png *.jpg *.jpeg *.webp)")
     if not paths:
         return
     images = valid_images(settings().get("images"))
+    album_ids = {entry["id"] for entry in valid_albums(settings().get("image_albums"))}
+    if album_id not in album_ids:
+        album_id = ""
     added = 0
     errors: list[str] = []
     for path in paths:
@@ -252,6 +260,8 @@ def _image_add() -> None:
                 temporary.unlink(missing_ok=True)
                 (profile_dir(ROOT, mw.pm.name) / (entry["id"] + entry["ext"])).unlink(missing_ok=True)
                 raise
+            if album_id:
+                entry["album_id"] = album_id
             images.append(entry)
             added += 1
         except (OSError, ValueError) as error:
@@ -279,6 +289,88 @@ def _image_delete(identifier: str) -> None:
     save_settings(patch)
     send("settings", public_settings())
     send("image_library", {"message": "Đã xóa ảnh khỏi thư viện.", "errors": []})
+
+
+
+def _image_rename(identifier: str, title: Any) -> None:
+    if not isinstance(title, str):
+        return
+    title = title.strip()
+    if not 1 <= len(title) <= 80 or any(ord(char) < 32 for char in title):
+        send("image_library", {"message": "Tên ảnh không hợp lệ (1–80 ký tự).", "errors": []})
+        return
+    images = valid_images(settings().get("images"))
+    entry = next((item for item in images if item["id"] == identifier), None)
+    if not entry:
+        return
+    entry["name"] = title
+    save_settings({"images": images})
+    send("settings", public_settings())
+    send("image_library", {"message": "Đã đổi tên ảnh.", "errors": []})
+
+
+def _image_move(identifier: str, album_id: str) -> None:
+    albums = valid_albums(settings().get("image_albums"))
+    if album_id and album_id not in {item["id"] for item in albums}:
+        return
+    images = valid_images(settings().get("images"))
+    entry = next((item for item in images if item["id"] == identifier), None)
+    if not entry:
+        return
+    if album_id:
+        entry["album_id"] = album_id
+    else:
+        entry.pop("album_id", None)
+    save_settings({"images": images})
+    send("settings", public_settings())
+
+
+def _image_assign(slot: str, identifier: Any) -> None:
+    if slot not in SLOTS:
+        return
+    allowed = {item["id"] for item in public_settings()["images"]}
+    if identifier not in (None, "") and (not isinstance(identifier, str) or identifier not in allowed):
+        return
+    save_settings({slot: identifier or None})
+    send("settings", public_settings())
+    send("image_library", {"message": "Đã lưu ảnh cho giao diện.", "errors": []})
+
+
+def _album_action(action: str, identifier: str, title: Any) -> None:
+    albums = valid_albums(settings().get("image_albums"))
+    images = valid_images(settings().get("images"))
+    selected = next((item for item in albums if item["id"] == identifier), None)
+    if action == "album_delete":
+        if selected is None:
+            return
+        albums = [item for item in albums if item["id"] != identifier]
+        # Deleting an album never deletes original images.
+        for image in images:
+            if image.get("album_id") == identifier:
+                image.pop("album_id", None)
+        save_settings({"image_albums": albums, "images": images})
+    elif action in {"album_create", "album_rename"}:
+        if not isinstance(title, str):
+            return
+        title = title.strip()
+        if (not 1 <= len(title) <= 80 or any(ord(char) < 32 for char in title)
+                or any(item["name"].casefold() == title.casefold() and item["id"] != identifier for item in albums)):
+            send("image_library", {"message": "Tên album trống, trùng hoặc không hợp lệ.", "errors": []})
+            return
+        if action == "album_create":
+            if len(albums) >= MAX_ALBUMS:
+                send("image_library", {"message": "Chỉ được tạo tối đa 30 album.", "errors": []})
+                return
+            albums.append({"id": uuid.uuid4().hex, "name": title})
+        elif selected is not None:
+            selected["name"] = title
+        else:
+            return
+        save_settings({"image_albums": albums})
+    else:
+        return
+    send("settings", public_settings())
+    send("image_library", {"message": "Đã cập nhật album.", "errors": []})
 
 
 def save_settings(patch: dict[str, Any]) -> None:
@@ -458,6 +550,8 @@ def replace_content(content: Any, context: Any) -> None:
     if not overview:
         content.css.append(f"{base}/stats-page.css")
         content.js.append(f"{base}/stats-page.js")
+        content.css.append(f"{base}/media-studio.css")
+        content.js.append(f"{base}/media-studio.js")
 
 
 def _deck_id(raw: Any) -> int:
@@ -733,9 +827,17 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             _save_ui(command.get("values"))
             send("settings", public_settings())
         elif action == "image_add":
-            _image_add()
+            _image_add(str(command.get("album_id") or ""))
         elif action == "image_delete":
             _image_delete(str(command.get("id", "")))
+        elif action == "image_rename":
+            _image_rename(str(command.get("id", "")), command.get("name"))
+        elif action == "image_move":
+            _image_move(str(command.get("id", "")), str(command.get("album_id") or ""))
+        elif action == "image_assign":
+            _image_assign(str(command.get("slot", "")), command.get("id"))
+        elif action in {"album_create", "album_rename", "album_delete"}:
+            _album_action(action, str(command.get("id", "")), command.get("name"))
     except Exception as error:
         global _navigating
         _navigating = False

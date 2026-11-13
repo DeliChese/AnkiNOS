@@ -87,36 +87,24 @@ try {
   await click('.rail-bottom [data-action="preferences"]');
   assert.equal(await evaluate(`document.getElementById('settings-dialog').open`),true);
   assert.equal(await evaluate(`document.querySelectorAll('#launcher [data-action="preferences"]').length`),0,'Launcher must not duplicate Settings');
-  assert.equal(await evaluate(`document.querySelectorAll('#stab-images select[data-image-slot]').length`),4,'Every image target needs its own selector');
-  assert.equal(await evaluate(`document.querySelector('#image-library-grid .image-library-empty') !== null`),true,'Empty library should show a prompt');
-  assert.equal(await evaluate(`document.getElementById('btn-image-add') !== null`),true);
-  assert.equal(await evaluate(`document.getElementById('media-select-dashboard').value`),'');
-  assert.equal(await evaluate(`document.querySelectorAll('[data-image-fit]').length`),4);
-  assert.equal(await evaluate(`document.querySelectorAll('[data-image-position]').length`),4);
-  assert.equal(await evaluate(`document.getElementById('media-fit-dashboard').value`),'contain');
-  assert.equal(await evaluate(`document.getElementById('media-fit-avatar').value`),'cover');
-  await evaluate(`(()=>{const c=document.getElementById('media-fit-dashboard');c.value='cover';c.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-  await evaluate(`(()=>{const c=document.getElementById('media-position-dashboard');c.value='top';c.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-  assert.equal(await evaluate(`document.getElementById('image-preview-frame').style.backgroundSize`),'cover');
-  assert.equal(await evaluate(`document.getElementById('image-preview-frame').style.backgroundPosition`),'center top');
-  assert.equal(await evaluate(`document.getElementById('nos-app').style.getPropertyValue('--nos-bg-fit')`),'contain');
-  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),false,'Pending fit changes enable Apply');
+  assert.equal(await evaluate(`document.querySelectorAll('#settings-sidebar [data-settings-tab="images"]').length`),0,
+    'Image Studio must be separate from Settings');
+  assert.equal(await evaluate(`document.querySelector('[data-image-fit],[data-image-position]') === null`),true,
+    'No image crop or alignment controls');
+  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
+
   await click('[data-set-theme="night"]');
   assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),false);
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.theme`),'dusk','Draft must not repaint the dashboard until Apply');
   await click('#btn-apply-settings');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.theme`),'night');
   assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
-  assert.equal(await evaluate(`document.getElementById('nos-app').style.getPropertyValue('--nos-bg-fit')`),'cover');
-  assert.equal(await evaluate(`document.getElementById('nos-app').style.getPropertyValue('--nos-bg-position')`),'top');
   const closePoint=await evaluate(`(()=>{const r=document.getElementById('settings-close').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',...closePoint,button:'left',clickCount:1});
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...closePoint,button:'left',clickCount:1});
   assert.equal(await evaluate(`document.getElementById('settings-dialog').open`),false);
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('settings-dialog')).display`),'none','Closed settings dialog must not remain visible');
   await click('.rail-bottom [data-action="preferences"]');
-  assert.equal(await evaluate(`document.getElementById('media-fit-dashboard').value`),'cover');
-  assert.equal(await evaluate(`document.getElementById('media-position-dashboard').value`),'top');
   await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
   assert.equal(await evaluate(`document.getElementById('settings-dialog').open`),false);
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('settings-dialog')).display`),'none');
@@ -124,6 +112,49 @@ try {
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:4,y:4,button:'left',clickCount:1});
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:4,y:4,button:'left',clickCount:1});
   assert.equal(await evaluate(`document.getElementById('settings-dialog').open`),false);
+  // Media Studio belongs in the six-dot launcher, not Settings.
+  assert.equal(await evaluate(`document.querySelectorAll('#launcher [data-action="studio"]').length`),1);
+  await click('#launcher-toggle');
+  await click('#studio-launcher');
+  assert.equal(await evaluate(`document.getElementById('studio-dialog').open`),true);
+  assert.equal(await evaluate(`document.getElementById('studio-gallery').textContent.includes('Chưa có ảnh')`),true);
+  assert.equal(await evaluate(`document.querySelectorAll('#studio-targets [data-studio-slot]').length`),4);
+  assert.equal(await evaluate(`document.querySelectorAll('#studio-dialog [data-image-fit],#studio-dialog [data-image-position]').length`),0);
+  await shot('media-studio-empty.png');
+  const photoId='a'.repeat(32), profileId='b'.repeat(20);
+  await evaluate(`(()=>{const data=window.AnkiNOS.getSettings();window.AnkiNOS.receive({
+    event:'settings',payload:{...data,
+    image_albums:[],images:[{id:'${photoId}',name:'Phong cảnh.png',ext:'.png',width:1400,height:900,
+    url:'/_addons/NOS/user_files/${profileId}/${photoId}.png',
+    thumb_url:'/_addons/NOS/user_files/${profileId}/${photoId}-thumb.png'}]}
+  })})()`);
+  assert.equal(await evaluate(`document.querySelectorAll('#studio-gallery .nos-studio-tile').length`),1);
+  await click('[data-photo-id="${photoId}"]');
+  assert.equal(await evaluate(`document.getElementById('studio-preview-image').hidden`),false,
+    'Selecting a picture previews immediately without Apply');
+  assert.equal(await evaluate(`getComputedStyle(document.getElementById('studio-preview-image')).objectFit`),'contain');
+  await click('[data-studio-slot="image_dashboard"]');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_dashboard`),photoId);
+  assert.equal(await evaluate(`document.querySelector('.nos-wallpaper-image').hidden`),false);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.nos-wallpaper-image')).objectFit`),'contain');
+  await click('[data-studio-slot="image_dashboard"]');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_dashboard`),null);
+  await evaluate(`document.getElementById('studio-image-name').value='Xe 350Z'`);
+  await click('#studio-rename');
+  assert.equal(await evaluate(`document.querySelector('.nos-studio-tile strong').textContent`),'Xe 350Z');
+  await click('#studio-album-new');
+  await evaluate(`document.getElementById('studio-album-title').value='Phong cảnh'`);
+  await click('#studio-album-confirm');
+  assert.equal(await evaluate(`document.getElementById('studio-gallery-title').textContent`),'Phong cảnh');
+  const newAlbumId=await evaluate(`window.AnkiNOS.getSettings().image_albums[0].id`);
+  await click('[data-studio-album="all"]');
+  await click('[data-photo-id="${photoId}"]');
+  await evaluate(`(()=>{const s=document.getElementById('studio-image-album');s.value='${newAlbumId}';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await click('[data-studio-album="${newAlbumId}"]');
+  assert.equal(await evaluate(`document.querySelectorAll('#studio-gallery .nos-studio-tile').length`),1,
+    'Moved photo must appear in chosen album');
+  await click('#studio-close');
+  assert.equal(await evaluate(`document.getElementById('studio-dialog').open`),false);
   await click('[data-action="collapse_activity"]');
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('activity-body')).display`),'none');
   await click('[data-action="collapse_activity"]');

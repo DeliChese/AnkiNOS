@@ -1,0 +1,86 @@
+/* AnkiNOS Media Studio — independent, responsive image organizer. */
+#nos-app .nos-studio-dialog:not([open]) { display:none !important; }
+#nos-app .nos-studio-dialog { position:fixed; inset:0; margin:auto; width:min(1180px,calc(100vw - 30px)); height:min(780px,calc(100dvh - 30px)); max-width:none; max-height:none; padding:0; border:1px solid #cce3ff4c; border-radius:22px; overflow:hidden; color:#eef5ff; background:#1e2d46; box-shadow:0 28px 95px #020916b3; }
+#nos-app .nos-studio-dialog::backdrop { background:#061224c7; backdrop-filter:blur(5px); }
+#nos-app .nos-studio-dialog * { box-sizing:border-box; }
+#nos-app .nos-studio-shell { height:100%; min-height:0; display:flex; flex-direction:column; }
+#nos-app .nos-studio-head { flex-shrink:0; padding:19px 23px; display:flex; gap:20px; align-items:center; justify-content:space-between; background:linear-gradient(115deg,#304567,#243550); border-bottom:1px solid #d9e9ff28; }
+#nos-app .nos-studio-heading { display:flex; gap:13px; align-items:center; min-width:0; }
+#nos-app .nos-studio-heading h2 { font-size:20px; font-weight:700; letter-spacing:-.4px; line-height:1.2; }
+#nos-app .nos-studio-heading p { font-size:10px; color:#c7d8f3; line-height:1.4; }
+#nos-app .nos-studio-heading .nos-studio-kicker { color:#a1d2ff; font-size:9px; letter-spacing:2px; font-weight:700; margin-bottom:5px; }
+#nos-app .nos-studio-logo { width:44px; height:44px; border-radius:14px; display:grid; place-items:center; color:#b7dcff; background:#89b8ff1c; border:1px solid #b6d8ff4d; flex-shrink:0; }
+#nos-app .nos-studio-head-actions { display:flex; gap:9px; align-items:center; flex-shrink:0; }
+#nos-app .nos-studio-head-actions .nos-studio-import { padding:10px 15px; font-size:11px; border-radius:10px; background:linear-gradient(125deg,#85baff,#4e8cf0); color:#101f37; font-weight:700; }
+#nos-app .nos-studio-head-actions .nos-studio-icon { display:grid; place-items:center; height:37px; width:37px; padding:0; border-radius:10px; border:1px solid #d6e8ff37; background:#c8dcff11; }
+#nos-app .nos-studio-body { flex:1; min-height:0; display:grid; grid-template-columns:180px minmax(0,1fr) 312px; }
+#nos-app .nos-studio-label { font-size:9px; font-weight:750; letter-spacing:1.6px; color:#a5bfdf; }
+#nos-app .nos-studio-albums { padding:21px 13px 17px; border-right:1px solid #d5e8ff21; display:flex; flex-direction:column; min-height:0; overflow-y:auto; background:#202f48; }
+#nos-app .nos-studio-album-list { display:flex; flex-direction:column; gap:5px; overflow-y:auto; flex:0 1 auto; max-height:48vh; margin:16px 0 10px; }
+#nos-app .nos-studio-album-list button { display:flex; justify-content:space-between; padding:10px 9px; border-radius:9px; font-size:11px; width:100%; text-align:left; white-space:normal; overflow-wrap:anywhere; }
+#nos-app .nos-studio-album-list button:hover { background:#afceff17; }
+#nos-app .nos-studio-album-list button.active { border:1px solid #aad0ff66; background:#97bfff25; color:#eaf4ff; }
+#nos-app .nos-studio-album-list small { color:#a9bfdb; font-size:10px; margin-left:8px; }
+#nos-app .nos-studio-add-album { width:100%; border:1px dashed #c4d9f96e; border-radius:9px; justify-content:flex-start; padding:10px; font-size:11px; }
+#nos-app .nos-studio-album-editor { padding:11px 0; }
+#nos-app .nos-studio-album-editor label { font-size:10px; color:#bacbe5; display:block; margin-bottom:5px; }
+#nos-app .nos-studio-album-editor input { display:block; width:100%; padding:9px; background:#122039; border:1px solid #a1c7ff65; border-radius:8px; font-size:11px; }
+#nos-app .nos-studio-album-editor > div { display:flex; gap:7px; margin-top:8px; }
+#nos-app .nos-studio-album-editor button { flex:1; border:1px solid #b2d0ff37; padding:7px; border-radius:7px; background:#a9ccff16; font-size:10px; }
+#nos-app .nos-studio-album-tools { display:flex; flex-wrap:wrap; gap:7px; margin:9px 0; }
+#nos-app .nos-studio-album-tools button { border:1px solid #a8c4ed33; padding:7px; border-radius:7px; font-size:10px; }
+#nos-app .nos-studio-side-note { font-size:10px; line-height:1.5; color:#96accb; margin-top:auto; padding:20px 4px 0; }
+#nos-app .nos-studio-content { min-width:0; display:flex; flex-direction:column; overflow:hidden; background:linear-gradient(145deg,#2b3c56,#26354d 65%,#24314a); }
+#nos-app .nos-studio-gallery-top { padding:22px 21px 15px; display:flex; gap:13px; flex-wrap:wrap; justify-content:space-between; align-items:center; flex-shrink:0; border-bottom:1px solid #d1e6ff21; }
+#nos-app .nos-studio-gallery-top h3 { font-size:17px; letter-spacing:-.3px; }
+#nos-app .nos-studio-gallery-top p { font-size:10px; color:#b2c8e4; margin-top:3px; }
+#nos-app .nos-studio-search { display:flex; align-items:center; gap:7px; width:min(190px,100%); padding:9px; background:#162641; border:1px solid #b4ceef39; border-radius:9px; }
+#nos-app .nos-studio-search input { min-width:0; width:100%; background:transparent; outline:0; border:0; font-size:11px; }
+#nos-app .nos-studio-search input::placeholder { color:#94accb; }
+#nos-app .nos-studio-gallery { flex:1; min-height:0; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(144px,1fr)); align-content:start; gap:13px; padding:19px 20px 25px; }
+#nos-app .nos-studio-gallery .nos-studio-tile { display:block; min-width:0; border:1px solid #c8daff29; background:#a1bfff0c; border-radius:12px; overflow:hidden; padding:0; text-align:left; transition:border-color .12s,transform .12s; }
+#nos-app .nos-studio-gallery .nos-studio-tile:hover { border-color:#b0d5ff95; transform:translateY(-1px); }
+#nos-app .nos-studio-gallery .nos-studio-tile.selected { border-color:#9fd1ff; box-shadow:inset 0 0 0 1px #9fd1ff; }
+#nos-app .nos-studio-tile img { width:100%; height:124px; display:block; object-fit:contain; background:#14233b; }
+#nos-app .nos-studio-tile-caption { display:block; padding:9px 10px; }
+#nos-app .nos-studio-tile-caption strong { display:block; font-size:10.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#nos-app .nos-studio-tile-caption small { display:block; font-size:9px; color:#a3b7d2; margin-top:3px; }
+#nos-app .nos-studio-gallery-empty { grid-column:1/-1; padding:50px 15px; text-align:center; color:#c6d6eb; font-size:12px; line-height:1.7; border:1px dashed #adc9f84d; border-radius:13px; }
+#nos-app .nos-studio-inspector { min-width:0; overflow-y:auto; padding:21px 20px; border-left:1px solid #d5e8ff25; background:linear-gradient(145deg,#253752,#1b2a41); }
+#nos-app .nos-studio-preview { position:relative; width:100%; aspect-ratio:16/10; border:1px solid #b9d5fc45; margin:12px 0 9px; border-radius:11px; background:linear-gradient(140deg,#485f82,#243652); overflow:hidden; display:grid; place-items:center; }
+#nos-app .nos-studio-preview img { display:block; width:100%; height:100%; object-fit:contain; object-position:center; }
+#nos-app .nos-studio-preview p { font-size:11px; text-align:center; color:#b0c2dd; padding:16px; }
+#nos-app .nos-studio-meta { color:#a8bfdb; font-size:10px; margin:8px 0 18px; }
+#nos-app .nos-studio-field-label { display:block; color:#c5d7ef; font-size:10px; font-weight:600; margin:14px 0 7px; }
+#nos-app .nos-studio-name-row { display:flex; gap:6px; }
+#nos-app .nos-studio-name-row input, #nos-app #studio-image-album { min-width:0; width:100%; padding:9px 10px; border-radius:9px; font-size:11px; border:1px solid #b0caff43; background:#172640; color:#eaf3ff; }
+#nos-app .nos-studio-name-row button { border:1px solid #b6d9ff66; padding:7px 9px; background:#89baff22; border-radius:8px; font-size:10px; flex-shrink:0; }
+#nos-app .nos-studio-divider { height:1px; background:#cfdefb2b; margin:20px 0 16px; }
+#nos-app .nos-studio-hint { font-size:10px; color:#afc2dc; margin:7px 0 10px; line-height:1.5; }
+#nos-app .nos-studio-targets { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+#nos-app .nos-studio-targets button { display:flex; flex-direction:column; align-items:flex-start; white-space:normal; padding:10px; border:1px solid #b9d2f746; border-radius:9px; background:#a8c7ff0e; text-align:left; font-size:10.5px; }
+#nos-app .nos-studio-targets button span { color:#aac6e9; font-size:9px; margin-top:5px; }
+#nos-app .nos-studio-targets button.active { border-color:#87dcb6; background:#73dda427; }
+#nos-app .nos-studio-targets button.active span { color:#92f3c1; }
+#nos-app .nos-studio-danger { width:100%; padding:10px; border:1px solid #ffacbc49; border-radius:9px; color:#ffc3cb; background:#f18a9c12; margin-top:15px; font-size:11px; }
+#nos-app .nos-studio-status { font-size:10px; line-height:1.5; color:#a6e5c7; margin-top:18px; }
+#nos-app .nos-studio-inspector input:focus-visible, #nos-app .nos-studio-inspector select:focus-visible { outline:2px solid #98c5ff; }
+@media(max-width:990px) {
+  #nos-app .nos-studio-body { grid-template-columns:155px minmax(0,1fr) 265px; }
+  #nos-app .nos-studio-head { padding:14px 17px; }
+  #nos-app .nos-studio-inspector { padding:17px 12px; }
+}
+@media(max-width:740px) {
+  #nos-app .nos-studio-dialog { width:calc(100vw - 16px); height:calc(100dvh - 16px); border-radius:16px; }
+  #nos-app .nos-studio-body { grid-template-columns:minmax(0,1fr); overflow-y:auto; }
+  #nos-app .nos-studio-albums { border:0; border-bottom:1px solid #c7def532; padding:11px 13px; overflow:visible; }
+  #nos-app .nos-studio-album-list { max-height:none; margin:8px 0; flex-direction:row; overflow-x:auto; }
+  #nos-app .nos-studio-album-list button { white-space:nowrap; width:auto; flex-shrink:0; }
+  #nos-app .nos-studio-side-note { display:none; }
+  #nos-app .nos-studio-content { overflow:visible; min-height:240px; }
+  #nos-app .nos-studio-gallery { min-height:190px; max-height:34vh; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); }
+  #nos-app .nos-studio-inspector { border-left:0; border-top:1px solid #d5e8ff25; overflow:visible; }
+  #nos-app .nos-studio-head-actions .nos-studio-import { padding:8px; }
+  #nos-app .nos-studio-heading h2 { font-size:16px; }
+  #nos-app .nos-studio-heading p:not(.nos-studio-kicker) { display:none; }
+}

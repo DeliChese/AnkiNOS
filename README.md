@@ -24,22 +24,19 @@ Thư mục này đã nằm trong `Anki2/addons21/NOS`. Khởi động lại Anki
 - Nhấn mục tiêu ngày để đổi số lượt ôn mong muốn. Màu, dấu sao, mục tiêu, tài nguyên và tùy chọn thu gọn lưu riêng theo tên profile trong cấu hình add-on. Các thiết lập và đường dẫn tài nguyên này không đồng bộ qua AnkiWeb.
 - Chế độ Năm/Tháng/Tuần hiển thị cùng lịch sử ôn thật. Tháng/Tuần theo thời điểm hiện tại trong năm đang chọn. Các năm có dữ liệu có thể chọn bằng mũi tên.
 
-## Thư viện ảnh cá nhân
+## Media Studio — album ảnh trong AnkiNOS
 
-**Ảnh nền không bị cắt:** Ở Cài đặt → Thư viện ảnh, mỗi vị trí có chế độ **Vừa khung** (giữ trọn ảnh, có thể có khoảng trống) và **Phủ kín** (lấp đầy nhưng có thể cắt rìa), kèm căn trên/dưới/trái/phải/giữa. Mặc định 3 hình nền là **Vừa khung**, avatar là **Phủ kín**. Xem trước rồi nhấn **Áp dụng**. Ảnh đã lưu trước đây tiếp tục dùng được, không cần nhập lại.
+Mở **menu 6 chấm → Thư viện ảnh** để quản lý kho ảnh riêng của từng hồ sơ Anki. Không còn mục chỉnh ảnh trong Settings hay nút **Áp dụng**.
 
-Ảnh nhập **mới** được giữ nguyên file gốc, lưu kích thước/dung lượng và tạo ảnh xem trước PNG riêng tối đa 480 px. Hình nền luôn dùng file gốc. Ảnh cũ thiếu thumbnail sẽ dùng file gốc cho ảnh xem trước, không bị chỉnh sửa. Xóa một ảnh trong kho sẽ xóa cả bản sao lẫn thumbnail, không ảnh hưởng ảnh nguồn trên máy.
+- **Nhập ảnh từ máy**: PNG/JPG/WebP; giới hạn 16 MB, 24 megapixel mỗi ảnh và 100 ảnh mỗi hồ sơ. Ảnh gốc được sao chép nguyên vẹn vào `user_files/<mã hồ sơ>/` của add-on, ảnh mới có thumbnail PNG nhỏ để thư viện hoạt động mượt.
+- **Album**: tạo album, đổi tên, xóa album, chuyển ảnh vào album. Xóa một album **không xóa ảnh** — ảnh được chuyển vào “Chưa phân loại”. Lọc ảnh theo album, tìm kiếm theo tên.
+- **Đổi tên**: chọn ảnh, thay tên tại bảng bên phải → **Lưu tên**. Không đổi tên file ảnh gốc nên không làm mất liên kết. **Xóa ảnh** vẫn yêu cầu xác nhận và chỉ xóa bản sao trong add-on.
+- **Xem trước ngay**: chọn ảnh trong lưới, ảnh đầy đủ hiển thị tại bảng xem trước nhỏ bên phải. Bấm **Dashboard**, **Chuẩn bị học**, **Lúc ôn tập** hoặc **Avatar** để lưu ảnh cho từng nơi tức thì; nhấn lại mục đang bật để trả về nền mặc định. **Không có nút Áp dụng.**
+- **Chỉ hiển thị vừa khung**: không có các nút crop/cover/căn trên/dưới/trái/phải. Hình nền được trình duyệt vẽ bằng phần tử ảnh `object-fit: contain`, giữ nguyên tỷ lệ, không lặp lại, không cắt rìa. Ảnh dọc/vuông sẽ có khoảng trống với nền theo theme; ảnh đại diện chuyển sang khung bo góc để hạn chế cắt góc ảnh.
+- **Ảnh cũ vẫn còn**: ảnh trong thư viện từ các phiên bản trước được giữ nguyên. Tùy chọn fit/căn cũ không còn tác động tới UI.
+- **Dữ liệu cục bộ**: file ảnh không chứa trong config.json hay bộ thẻ Anki, không sync AnkiWeb. Sao lưu `user_files` khi chuyển máy. Update add-on bình thường giữ lại `user_files`.
 
-
-Mở **Cài đặt AnkiNOS → Thư viện ảnh → Thêm ảnh từ máy** để sao chép ảnh vào kho riêng của add-on. Hỗ trợ **PNG, JPG, WebP** (tối đa 16 MB, 24 megapixel/ảnh và 100 ảnh/hồ sơ). Không cần giữ ảnh gốc ở đường dẫn cũ sau khi nhập.
-
-- Chọn độc lập ảnh nền cho **Dashboard**, **màn hình chuẩn bị học** và **màn hình ôn tập**, hoặc một ảnh **avatar** cho trang chủ/hồ sơ. Có thể chọn "mặc định" để bỏ hình riêng.
-- Nhấn **Áp dụng** để lưu các lựa chọn theo hồ sơ Anki. Chưa áp dụng thì các thay đổi lựa chọn chưa được lưu.
-- **Thêm ảnh** lưu vào kho ngay; **Xóa ảnh** xác nhận trước khi xóa bản sao trong kho. Nếu ảnh đang được chọn, add-on tự bỏ gán ở các vị trí tương ứng. Ảnh nguồn trên máy không bị xóa.
-- Ảnh nằm trong `user_files/<mã hồ sơ>/` thuộc thư mục add-on, **không commit lên Git**, không đưa vào bộ thẻ hoặc đồng bộ qua AnkiWeb. Các bản cập nhật add-on thông thường giữ lại thư mục `user_files`; nếu chuyển sang máy khác thì phải sao lưu/chuyển thư mục đó. File JSON cấu hình **không** chứa dữ liệu ảnh và không thể tự khôi phục ảnh đã xóa.
-- Add-on chỉ xuất bản các ảnh có ID nội bộ và đuôi định dạng hợp lệ qua Anki WebView; không mở URL hay tùy ý đọc file từ trình duyệt.
-
-Kiểm tra kho ảnh mà không cần Anki: `python -m unittest discover -s tests -p 'test_media.py'`. Kiểm thử chọn ảnh và khả năng giữ thiết lập qua khởi động lại nên thực hiện thêm trên hồ sơ Anki riêng.
+Kiểm tra cơ bản: `python -m unittest discover -s tests -p 'test_media.py'`, `node tests/ui-check.mjs`. Kiểm tra thực tế trong Anki trên hồ sơ thử trước khi phân phối rộng.
 
 ## Màn hình chuẩn bị học
 

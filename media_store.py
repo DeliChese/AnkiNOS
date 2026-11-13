@@ -14,6 +14,7 @@ from uuid import uuid4
 
 MAX_IMAGE_BYTES = 16 * 1024 * 1024
 MAX_IMAGES = 100
+MAX_ALBUMS = 30
 FORMATS = {"png": ".png", "jpeg": ".jpg", "jpg": ".jpg", "webp": ".webp"}
 SLOTS = ("image_dashboard", "image_overview", "image_review", "image_avatar")
 IMAGE_FITS = ("contain", "cover")
@@ -25,6 +26,27 @@ _ID = re.compile(r"[0-9a-f]{32}\Z")
 def profile_dir(root: Path, profile: str) -> Path:
     digest = sha256(profile.encode("utf-8")).hexdigest()[:20]
     return Path(root) / "user_files" / digest
+
+
+def valid_albums(entries: object) -> list[dict]:
+    """Sanitize profile-local album metadata. No filesystem paths accepted."""
+    if not isinstance(entries, list):
+        return []
+    result: list[dict] = []
+    seen: set[str] = set()
+    for item in entries[:MAX_ALBUMS]:
+        if not isinstance(item, dict):
+            continue
+        identifier, title = item.get("id"), item.get("name")
+        if (not isinstance(identifier, str) or not _ID.fullmatch(identifier)
+                or identifier in seen or not isinstance(title, str)):
+            continue
+        title = title.strip()
+        if not title or any(ord(char) < 32 for char in title):
+            continue
+        seen.add(identifier)
+        result.append({"id": identifier, "name": title[:80]})
+    return result
 
 
 def valid_images(entries: object) -> list[dict]:
@@ -54,6 +76,9 @@ def valid_images(entries: object) -> list[dict]:
         size = raw.get("size")
         if type(size) is int and 1 <= size <= MAX_IMAGE_BYTES:
             entry["size"] = size
+        album_id = raw.get("album_id")
+        if isinstance(album_id, str) and _ID.fullmatch(album_id):
+            entry["album_id"] = album_id
         result.append(entry)
     return result
 

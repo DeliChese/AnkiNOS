@@ -84,6 +84,19 @@ class ImageLibraryTests(unittest.TestCase):
         self.assertNotIn("height", clean)
         self.assertNotIn("size", clean)
 
+    def test_album_metadata_sanitization_and_photo_grouping(self):
+        from uuid import uuid4
+        first = uuid4().hex
+        album = {"id": first, "name": "  Phong cảnh  "}
+        self.assertEqual(media.valid_albums([album, album]), [{"id": first, "name": "Phong cảnh"}])
+        self.assertEqual(media.valid_albums([{"id":"../", "name":"Bad"}, {"id":first, "name":"\x00Bad"}]), [])
+        entry=media.add_image(self.root, "Alice", self.source, "png")
+        entry["album_id"]=first
+        stored=media.valid_images([entry])[0]
+        self.assertEqual(stored["album_id"],first)
+        self.assertEqual(media.public_images(self.root, "Alice", [stored], "NOS")[0]["album_id"],first)
+        self.assertFalse(any("album_id" in x for x in media.valid_images([{**entry, "album_id": "../evil"}])))
+
     def test_size_limit_format_and_unique_ids(self):
         with self.assertRaises(ValueError):
             media.add_image(self.root, "Alice", self.source, "svg")

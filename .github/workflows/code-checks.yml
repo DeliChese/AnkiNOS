@@ -28,6 +28,7 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check assets/dashboard.js
+          node --check assets/media-studio.js
           node --check assets/stats-page.js
           node --check assets/overview.js
           node --check assets/reviewer.js

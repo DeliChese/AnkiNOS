@@ -593,20 +593,29 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 
 /* Profile-local wallpaper and avatar images. Custom backgrounds override the
    light/OLED built-in theme gradients only when an image is selected. */
+#nos-app .wallpaper { overflow: hidden; }
+#nos-app .wallpaper .nos-wallpaper-image {
+  display: block; position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: contain; object-position: center;
+  pointer-events: none; user-select: none; background: transparent;
+}
+#nos-app .wallpaper .nos-wallpaper-image[hidden] { display:none !important; }
 #nos-app[data-custom-background="true"] .wallpaper {
-  background-image: linear-gradient(125deg,rgba(15,27,51,.33),rgba(16,28,50,.16)),var(--nos-custom-background) !important;
-  background-position: center, var(--nos-bg-position, center);
-  /* First layer shades content; second is the unmodified original. */
-  background-size: cover, var(--nos-bg-fit, contain);
-  background-repeat: no-repeat;
-  background-color: #384b70;
+  background-image: linear-gradient(130deg,#344c73,#233450) !important;
+}
+#nos-app[data-theme="light"][data-custom-background="true"] .wallpaper {
+  background-image: linear-gradient(130deg,#e6eefb,#d7e9fc) !important;
+}
+#nos-app[data-theme="oled"][data-custom-background="true"] .wallpaper {
+  background-image: none !important; background-color:#000 !important;
 }
 #nos-app .avatar.has-image {
   color: transparent !important;
   background-color: rgba(25,38,62,.5);
-  background-size: var(--nos-avatar-fit, cover);
-  background-position: var(--nos-avatar-position, center);
+  background-size: contain !important;
+  background-position: center !important;
   background-repeat: no-repeat;
+  border-radius: 12px; /* no rounded-circle corner crop */
 }
 #nos-app .image-library-help { margin: 9px 0 16px; font-size: 11px; line-height: 1.6; color: var(--muted); }
 #nos-app .image-targets { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); gap: 10px 14px; align-items: center; margin: 14px 0 24px; }

@@ -31,7 +31,7 @@ def _content(content: Any, context: Any) -> None:
                    "background_fit": current_settings.get("image_fit_review", "contain"),
                    "background_position": current_settings.get("image_position_review", "center")}
         content.body = (
-            '<div id="nos-review-shell"><div class="nos-review-wallpaper" aria-hidden="true"></div>'
+            '<div id="nos-review-shell"><div class="nos-review-wallpaper" aria-hidden="true"><img class="nos-review-wallpaper-image" alt="" hidden></div>'
             '<header id="nos-review-header"></header><main id="nos-review-stage">'
             '<section id="nos-review-card" aria-label="Nội dung thẻ">' + content.body + '</section></main></div>'
             '<textarea id="nos-review-bootstrap" hidden>' + html.escape(json.dumps(initial,ensure_ascii=True)) + '</textarea>'

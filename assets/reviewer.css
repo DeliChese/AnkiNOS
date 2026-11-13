@@ -48,10 +48,14 @@ html.nos-review-page body { margin: 0; padding: 0; }
 }
 
 /* Optional personal wallpaper is outside #qa: card template CSS remains native. */
-#nos-review-shell[data-custom-background="true"] .nos-review-wallpaper {
-  background-image: linear-gradient(115deg,rgba(20,32,55,.26),rgba(25,38,63,.12)),var(--nos-review-background) !important;
-  background-size: cover, var(--nos-review-fit, contain);
-  background-position: center, var(--nos-review-position, center);
-  background-repeat: no-repeat;
-  background-color: #253857;
+#nos-review-shell .nos-review-wallpaper { overflow: hidden; }
+#nos-review-shell .nos-review-wallpaper-image {
+  position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+  object-fit: contain; object-position: center; pointer-events: none;
+  background: transparent;
+}
+#nos-review-shell .nos-review-wallpaper-image[hidden] { display:none !important; }
+#nos-review-shell .nos-review-wallpaper::after {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(115deg,rgba(17,28,50,.23),rgba(19,27,49,.10));
 }
