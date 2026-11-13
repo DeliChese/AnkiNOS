@@ -683,6 +683,10 @@
 
   function receive({event, payload}) {
     const previousGoal=state.settings.goal;
+    const previousLibrarySettings = JSON.stringify([
+      state.settings.favorites, state.settings.colors, state.settings.resources,
+      state.settings.view, state.settings.sidebar_collapsed
+    ]);
     if(event==='history_year'&&state.snapshot){
       const {year,days}=payload;
       historyPending.delete(year);
@@ -726,6 +730,12 @@
     if (event === 'snapshot') renderHeatmap();
     if (event === 'snapshot') {
       updateLibraryData(true);
+      renderLibrary();
+    } else if (event === 'settings' && JSON.stringify([
+      state.settings.favorites, state.settings.colors, state.settings.resources,
+      state.settings.view, state.settings.sidebar_collapsed
+    ]) !== previousLibrarySettings) {
+      updateLibraryData();
       renderLibrary();
     }
     if(event==='snapshot'&&payload.library_focus) {
