@@ -59,7 +59,7 @@ def main():
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "data.py", "reviewer_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html"):
+    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "media_store.py", "reviewer_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
     set_lang("en_US")
@@ -146,6 +146,18 @@ def main():
     col.add_note(note, did)
     aqt.mw.moveToState("deckBrowser")
     until("document.getElementById('library-footer-copy')?.textContent.includes('1 thẻ')")
+    # Statistics must reuse Anki's native Rust graph data, without opening a dialog.
+    js("(()=>{document.getElementById('stats-toggle').click();return true})()")
+    assert js("document.getElementById('stats-page').hidden") is False
+    until("document.querySelectorAll('#stats-report .stats-native-card').length >= 11")
+    assert not js("document.getElementById('stats-loading').textContent.includes('Không thể')")
+    js("(()=>{const x=document.getElementById('stats-scope');x.value='collection';x.dispatchEvent(new Event('change',{bubbles:true}));return true})()")
+    until("document.getElementById('stats-metric-scope').textContent.includes('toàn bộ bộ sưu tập')")
+    js("(()=>{const x=document.getElementById('stats-period');x.value='0';x.dispatchEvent(new Event('change',{bubbles:true}));return true})()")
+    until("document.getElementById('stats-metric-scope').textContent.includes('toàn bộ lịch sử')")
+    assert js("document.querySelectorAll('#stats-report .stats-native-card').length >= 11")
+    js("(()=>{document.querySelector('.rail-main [data-action=page][data-value=home]').click();return true})()")
+    assert js("document.getElementById('stats-page').hidden") is True
     # Exercise settings over the actual native bridge and check disk-backed config.
     js("(()=>{document.querySelector('[data-action=collapse_activity]').click();return true})()")
     wait(150)
@@ -295,7 +307,8 @@ def main():
     report.update(anchored_library_popup=True,parent_to_child_navigation=True,studied_child_separately=True)
     report.update(native_flip_and_ratings_ms=flip_ready_ms,full_card_animation_removed=True)
     report.update(rapid_dashboard_redraw_ms=redraw_times,heatmap_present_after_navigation=True)
-    report.update(native_scheduler_queried_once=True,archive_heatmap_loaded_via_native_bridge=True)
+    report.update(native_scheduler_queried_once=True,archive_heatmap_loaded_via_native_bridge=True,
+                  native_graphs_inline_and_scoped=True,statistics_no_legacy_popup=True)
     (ROOT / "previews" / "anki-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print("PASS: " + json.dumps(report),flush=True)
     aqt.mw.unloadProfileAndExit()

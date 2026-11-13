@@ -129,7 +129,7 @@
   }
 
   function closePopups(restoreFocus = false) {
-    for (const [id, toggle] of [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle'],['info-panel','info-toggle']]) {
+    for (const [id, toggle] of [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle']]) {
       if (!$(id).hidden && restoreFocus) $(toggle).focus();
       setPopup(id, toggle, false);
     }
@@ -757,7 +757,9 @@
     closeLibrary(false);
     state.page = page;
     app.dataset.page = page;
+    $('stats-page').hidden = page !== 'stats';
     app.scrollTop=0;
+    if (page === 'stats') window.NOSStats?.open();
     app.querySelectorAll('.rail-main [data-action="page"]').forEach(button => {
       button.classList.toggle('active', button.dataset.value === page);
       if (button.dataset.value === page) button.setAttribute('aria-current','page');
@@ -784,6 +786,10 @@
       $('heatmap').setAttribute('aria-busy','false');
       $('activity-summary').textContent='Không thể tải lịch sử. Nhấn Làm mới để thử lại.';
       toast(payload.message);return;
+    }
+    if (event === 'graphs' || event === 'graphs_error') {
+      window.NOSStats?.receive(event, payload);
+      return;
     }
     if (event === 'image_library') {
       toast([payload.message, ...(payload.errors || [])].filter(Boolean).join(' '));
@@ -818,7 +824,10 @@
     if (!state.snapshot) return;
     applySettings();
     if ($('settings-dialog').open && (event === 'settings' || event === 'snapshot')) renderMediaLibrary();
-    if(event==='snapshot'||state.settings.goal!==previousGoal)renderStats();
+    if(event==='snapshot'||state.settings.goal!==previousGoal) {
+      renderStats();
+      if (state.page === 'stats') window.NOSStats?.refreshMetrics();
+    }
     if (event === 'snapshot') renderHeatmap();
     if (event === 'snapshot') {
       updateLibraryData(true);
@@ -862,12 +871,6 @@
     if (action === 'open_anki_prefs') { closeSettings(); return command('preferences'); }
     if (action === 'profile') return togglePopup('profile-panel','profile-toggle');
     if (action === 'launcher') return togglePopup('launcher','launcher-toggle');
-    if (action === 'info') {
-      closeLibrary(false);
-      const anchor=$('info-toggle').getBoundingClientRect();
-      $('info-panel').style.top=innerWidth<=720?'auto':`${Math.max(16,Math.min(anchor.top-12,innerHeight-130))}px`;
-      return togglePopup('info-panel','info-toggle');
-    }
     if (action === 'add_menu') return togglePopup('add-menu','add-toggle');
     if (action === 'library') return $('library-dialog').open?closeLibrary():openLibrary();
     if (action === 'close_library') return closeLibrary();
@@ -899,7 +902,7 @@
   });
 
   document.addEventListener('click', event => {
-    for (const [id,toggle] of [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle'],['info-panel','info-toggle']]) {
+    for (const [id,toggle] of [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle']]) {
       if (!$(id).contains(event.target) && !$(toggle).contains(event.target)) setPopup(id,toggle,false);
     }
   });
