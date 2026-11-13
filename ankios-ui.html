@@ -113,6 +113,7 @@
             <button class="settings-nav-btn" data-settings-tab="dashboard"><svg class="icon small"><use href="#i-chart"/></svg>Dashboard</button>
             <button class="settings-nav-btn" data-settings-tab="goals"><svg class="icon small"><use href="#i-target"/></svg>Mục tiêu</button>
             <button class="settings-nav-btn" data-settings-tab="performance"><svg class="icon small"><use href="#i-bolt"/></svg>Hiệu năng</button>
+            <button class="settings-nav-btn" data-settings-tab="images"><svg class="icon small"><use href="#i-folder"/></svg>Thư viện ảnh</button>
             <button class="settings-nav-btn" data-settings-tab="shortcuts"><svg class="icon small"><use href="#i-link"/></svg>Phím tắt</button>
             <button class="settings-nav-btn" data-settings-tab="data"><svg class="icon small"><use href="#i-folder"/></svg>Dữ liệu</button>
           </nav>
@@ -253,6 +254,28 @@
                   <button class="scale-btn" data-scale="120">120%</button>
                 </div>
               </div>
+            </div>
+
+            <!-- Image library shared by Dashboard, Overview, Reviewer and Avatar -->
+            <div class="settings-tab-pane" id="stab-images" hidden>
+              <div class="settings-group-title">Hình nền và avatar từ máy tính</div>
+              <p class="image-library-help">Ảnh được sao chép vào thư mục user_files của AnkiNOS, lưu riêng theo hồ sơ và không đồng bộ qua AnkiWeb. Thay đổi hình nền có hiệu lực khi nhấn Áp dụng.</p>
+              <div class="image-targets">
+                <label for="media-select-dashboard">Giao diện chính (Dashboard)</label>
+                <select id="media-select-dashboard" data-image-slot="image_dashboard" class="nos-select"><option value="">Ảnh nền mặc định</option></select>
+                <label for="media-select-overview">Chuẩn bị học</label>
+                <select id="media-select-overview" data-image-slot="image_overview" class="nos-select"><option value="">Ảnh nền mặc định</option></select>
+                <label for="media-select-review">Lúc học / ôn tập</label>
+                <select id="media-select-review" data-image-slot="image_review" class="nos-select"><option value="">Ảnh nền mặc định</option></select>
+                <label for="media-select-avatar">Ảnh đại diện (Avatar)</label>
+                <select id="media-select-avatar" data-image-slot="image_avatar" class="nos-select"><option value="">Avatar chữ mặc định</option></select>
+              </div>
+              <div class="image-library-toolbar">
+                <div><strong>Kho ảnh của bạn</strong><p id="image-library-count">Chưa có ảnh</p></div>
+                <button type="button" class="subtle-button" id="btn-image-add"><svg class="icon small"><use href="#i-plus"/></svg>Thêm ảnh từ máy</button>
+              </div>
+              <div id="image-library-grid" class="image-library-grid" aria-live="polite"></div>
+              <p class="image-library-help">PNG, JPG, WebP · tối đa 16 MB và 24 megapixel mỗi ảnh · tối đa 100 ảnh. Xóa ảnh trong kho sẽ xóa bản sao của AnkiNOS và bỏ gán ảnh khỏi mọi vị trí.</p>
             </div>
 
             <!-- TAB 5: Phím tắt -->

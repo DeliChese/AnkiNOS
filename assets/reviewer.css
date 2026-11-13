@@ -46,3 +46,11 @@ html.nos-review-page body { margin: 0; padding: 0; }
   #nos-review-card { min-height: 230px; border-radius: 18px; }
   #nos-review-card #qa { padding: 30px 22px; }
 }
+
+/* Optional personal wallpaper is outside #qa: card template CSS remains native. */
+#nos-review-shell[data-custom-background="true"] .nos-review-wallpaper {
+  background-image: linear-gradient(115deg,rgba(20,32,55,.26),rgba(25,38,63,.12)),var(--nos-review-background) !important;
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat;
+}

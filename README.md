@@ -22,6 +22,18 @@ Thư mục này đã nằm trong `Anki2/addons21/NOS`. Khởi động lại Anki
 - Nhấn mục tiêu ngày để đổi số lượt ôn mong muốn. Màu, dấu sao, mục tiêu, tài nguyên và tùy chọn thu gọn lưu riêng theo tên profile trong cấu hình add-on. Các thiết lập và đường dẫn tài nguyên này không đồng bộ qua AnkiWeb.
 - Chế độ Năm/Tháng/Tuần hiển thị cùng lịch sử ôn thật. Tháng/Tuần theo thời điểm hiện tại trong năm đang chọn. Các năm có dữ liệu có thể chọn bằng mũi tên.
 
+## Thư viện ảnh cá nhân
+
+Mở **Cài đặt AnkiNOS → Thư viện ảnh → Thêm ảnh từ máy** để sao chép ảnh vào kho riêng của add-on. Hỗ trợ **PNG, JPG, WebP** (tối đa 16 MB, 24 megapixel/ảnh và 100 ảnh/hồ sơ). Không cần giữ ảnh gốc ở đường dẫn cũ sau khi nhập.
+
+- Chọn độc lập ảnh nền cho **Dashboard**, **màn hình chuẩn bị học** và **màn hình ôn tập**, hoặc một ảnh **avatar** cho trang chủ/hồ sơ. Có thể chọn "mặc định" để bỏ hình riêng.
+- Nhấn **Áp dụng** để lưu các lựa chọn theo hồ sơ Anki. Chưa áp dụng thì các thay đổi lựa chọn chưa được lưu.
+- **Thêm ảnh** lưu vào kho ngay; **Xóa ảnh** xác nhận trước khi xóa bản sao trong kho. Nếu ảnh đang được chọn, add-on tự bỏ gán ở các vị trí tương ứng. Ảnh nguồn trên máy không bị xóa.
+- Ảnh nằm trong `user_files/<mã hồ sơ>/` thuộc thư mục add-on, **không commit lên Git**, không đưa vào bộ thẻ hoặc đồng bộ qua AnkiWeb. Các bản cập nhật add-on thông thường giữ lại thư mục `user_files`; nếu chuyển sang máy khác thì phải sao lưu/chuyển thư mục đó. File JSON cấu hình **không** chứa dữ liệu ảnh và không thể tự khôi phục ảnh đã xóa.
+- Add-on chỉ xuất bản các ảnh có ID nội bộ và đuôi định dạng hợp lệ qua Anki WebView; không mở URL hay tùy ý đọc file từ trình duyệt.
+
+Kiểm tra kho ảnh mà không cần Anki: `python -m unittest discover -s tests -p 'test_media.py'`. Kiểm thử chọn ảnh và khả năng giữ thiết lập qua khởi động lại nên thực hiện thêm trên hồ sơ Anki riêng.
+
 ## Màn hình chuẩn bị học
 
 Khi chọn một bộ thẻ, AnkiNOS hiển thị tên và mô tả, ba ô Mới / Đang học / Cần ôn, nút **Học ngay** và bảng **Hôm nay của bạn**. Số liệu của bảng bên phải chỉ gồm bộ thẻ đang chọn và các bộ con. Mô tả dài có thể mở rộng/thu gọn; nội dung mô tả hiển thị dạng văn bản để không chạy mã HTML từ bộ thẻ nhập vào.

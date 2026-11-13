@@ -590,3 +590,35 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .settings-footer #btn-apply-settings { padding: 9px 19px; border-radius: 10px; background: var(--blue); color: #14233b; font-weight: 700; }
 #nos-app .settings-footer #btn-apply-settings:disabled { opacity: .45; cursor: default; }
 #nos-app .settings-open .settings-panel { transform: translateZ(0); }
+
+/* Profile-local wallpaper and avatar images. Custom backgrounds override the
+   light/OLED built-in theme gradients only when an image is selected. */
+#nos-app[data-custom-background="true"] .wallpaper {
+  background-image: linear-gradient(125deg,rgba(15,27,51,.33),rgba(16,28,50,.16)),var(--nos-custom-background) !important;
+  background-position: center, center;
+  background-size: cover, cover;
+  background-repeat: no-repeat;
+}
+#nos-app .avatar.has-image {
+  color: transparent !important;
+  background-color: rgba(25,38,62,.5);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+#nos-app .image-library-help { margin: 9px 0 16px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+#nos-app .image-targets { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); gap: 10px 14px; align-items: center; margin: 14px 0 24px; }
+#nos-app .image-targets label { font-size: 12px; font-weight: 550; }
+#nos-app .image-targets select { width: 100%; min-width: 0; }
+#nos-app .image-library-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 12px; }
+#nos-app .image-library-toolbar strong { display: block; font-size: 13px; }
+#nos-app .image-library-toolbar p { font-size: 11px; color: var(--muted); }
+#nos-app .image-library-toolbar .subtle-button { padding: 8px 12px; border: 1px solid var(--edge); border-radius: 9px; font-size: 11px; }
+#nos-app .image-library-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(136px,1fr)); gap: 12px; padding: 0 0 8px; }
+#nos-app .image-library-card { min-width: 0; overflow: hidden; border-radius: 11px; background: rgba(215,229,255,.065); border: 1px solid var(--edge); }
+#nos-app .image-library-thumb { width: 100%; height: 92px; display: block; object-fit: cover; background: rgba(17,28,50,.2); }
+#nos-app .image-library-info { padding: 8px 9px; }
+#nos-app .image-library-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 550; }
+#nos-app .image-library-delete { margin-top: 8px !important; border-radius: 7px !important; padding: 4px 7px !important; background: rgba(255,110,130,.09) !important; color: #ffc2cd !important; font-size: 10px !important; }
+#nos-app .image-library-empty { padding: 24px 12px; border: 1px dashed var(--edge); border-radius: 12px; font-size: 12px; color: var(--muted); grid-column: 1/-1; text-align: center; }
+@media(max-width:650px) { #nos-app .image-targets { grid-template-columns: minmax(0,1fr); gap: 6px; } #nos-app .image-targets label:not(:first-child) { margin-top: 7px; } }

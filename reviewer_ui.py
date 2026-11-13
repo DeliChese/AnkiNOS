@@ -20,7 +20,14 @@ def _content(content: Any, context: Any) -> None:
     base = f"/_addons/{package}/assets"
     if isinstance(context, Reviewer):
         deck = mw.col.decks.current()
-        initial = {"deck": deck["name"], "theme": _settings().get("theme", "dusk"), "answered": _answered}
+        current_settings = _settings()
+        selected = current_settings.get("image_review")
+        background = next(
+            (image["url"] for image in current_settings.get("images", []) if image["id"] == selected),
+            None,
+        )
+        initial = {"deck": deck["name"], "theme": current_settings.get("theme", "dusk"),
+                   "answered": _answered, "background": background}
         content.body = (
             '<div id="nos-review-shell"><div class="nos-review-wallpaper" aria-hidden="true"></div>'
             '<header id="nos-review-header"></header><main id="nos-review-stage">'
