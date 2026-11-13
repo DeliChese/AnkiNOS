@@ -3,7 +3,7 @@ name: AnkiNOS code and image library checks
 on:
   push:
     branches:
-      - feat/local-image-library-wallpapers-avatar
+      - master
   pull_request:
 
 jobs:
