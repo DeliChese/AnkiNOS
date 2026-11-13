@@ -98,7 +98,7 @@ try {
   await evaluate(`(()=>{const c=document.getElementById('media-fit-dashboard');c.value='cover';c.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   await evaluate(`(()=>{const c=document.getElementById('media-position-dashboard');c.value='top';c.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   assert.equal(await evaluate(`document.getElementById('image-preview-frame').style.backgroundSize`),'cover');
-  assert.equal(await evaluate(`document.getElementById('image-preview-frame').style.backgroundPosition`),'top');
+  assert.equal(await evaluate(`document.getElementById('image-preview-frame').style.backgroundPosition`),'center top');
   assert.equal(await evaluate(`document.getElementById('nos-app').style.getPropertyValue('--nos-bg-fit')`),'contain');
   assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
   await click('[data-set-theme="night"]');
