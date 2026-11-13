@@ -66,3 +66,26 @@
 @media(max-width:1100px) { #nos-app .stats-report { grid-template-columns: minmax(0,1fr); } #nos-app .stats-native-card.stats-card-wide { grid-column: span 1; } #nos-app .stats-native-card .stats-wide-flex { grid-template-columns: minmax(0,1fr); } }
 @media(max-width:1200px) { #nos-app .stats-page { margin-left: 104px; width: calc(100% - 126px); } }
 @media(max-width:720px) { #nos-app .stats-page { margin: 0 16px; width: calc(100% - 32px); padding: 20px 0 115px; } #nos-app .stats-page-head { flex-wrap: wrap; gap: 12px; } #nos-app .stats-page-head h1 { font-size: 26px; } #nos-app .stats-native-card { padding: 15px 12px; } #nos-app .stats-native-filters { width: 100%; } #nos-app .stats-native-filters select { min-width: 110px; flex: 1; } #nos-app .stats-native-card .stats-today-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } #nos-app .stats-native-card .stats-today-value strong { font-size: 21px; } }
+
+@media print {
+  @page { size: A4 portrait; margin: 13mm; }
+  html, body, #nos-app { background: #fff !important; color: #16233a !important;
+    height: auto !important; min-height: 0 !important; overflow: visible !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #nos-app .rail, #nos-app .workspace, #nos-app .wallpaper, #nos-app .stats-head-actions,
+  #nos-app .stats-native-filters, #nos-app #stats-loading, #nos-app .settings-popover,
+  #nos-app .library-popover, #nos-app .profile-panel, #nos-app .launcher, #nos-app .toast { display: none !important; }
+  #nos-app .stats-page { display: block !important; width: 100% !important; max-width: none !important;
+    padding: 0 !important; margin: 0 !important; min-height: 0 !important; }
+  #nos-app .stats-page-head, #nos-app .stats-overview { page-break-inside: avoid; }
+  #nos-app .stats-report { display: block !important; }
+  #nos-app .stats-native-card { display: block; box-shadow: none !important; break-inside: avoid;
+    page-break-inside: avoid; background: #fff !important; color: #17243b !important;
+    border: 1px solid #bdcce1 !important; margin-bottom: 12mm; }
+  #nos-app .stats-native-card h3, #nos-app .stats-native-card .stats-card-foot strong { color: #17243b !important; }
+  #nos-app .stats-native-card .stats-card-caption, #nos-app .stats-native-card .stats-legend,
+  #nos-app .stats-native-card .stats-note, #nos-app .stats-native-card .stats-card-foot { color: #354c69 !important; }
+  #nos-app .stats-native-card .stats-chart .stats-axis-txt { fill: #435976 !important; }
+  #nos-app .stats-native-card .stats-chart .stats-plot-grid { stroke: #dce5f0 !important; }
+  #nos-app .stats-native-card .stats-mini-table th, #nos-app .stats-native-card .stats-mini-table td { border-color: #cdd8e5 !important; color: #223754 !important; }
+}
