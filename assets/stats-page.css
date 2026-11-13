@@ -1,0 +1,68 @@
+/* AnkiNOS statistics workspace. Native graph figures are loaded on demand. */
+#nos-app[data-page="stats"] > .workspace { display: none !important; }
+#nos-app .stats-page { width: calc(100% - 128px); max-width: 1600px; margin: 0 24px 0 104px; min-height: 100vh; padding: 26px 0 46px; }
+#nos-app .stats-page[hidden] { display: none !important; }
+#nos-app .stats-page-head { display: flex; justify-content: space-between; align-items: center; gap: 22px; padding: 8px 0 25px; margin-bottom: 23px; border-bottom: 1px solid #edf4ff29; }
+#nos-app .stats-page-head h1 { font-size: clamp(26px,2.2vw,38px); font-weight: 650; margin: 5px 0 4px; letter-spacing: -.7px; }
+#nos-app .stats-eyebrow { color: #bad8ff; font-size: 10px; letter-spacing: 1.7px; font-weight: 650; }
+#nos-app .stats-page-head p, #nos-app .stats-section-caption p, #nos-app .stats-native-toolbar p { font-size: 11px; color: var(--muted); }
+#nos-app .stats-head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#nos-app .stats-head-actions button { padding: 9px 14px; font-size: 11px; border: 1px solid #dbedff37; border-radius: 10px; background: rgba(180,215,255,.08); }
+#nos-app .stats-section-caption { display: flex; justify-content: space-between; padding: 0 0 13px; }
+#nos-app .stats-page h2 { font-size: 19px; font-weight: 620; margin-bottom: 4px; }
+#nos-app .stats-overview { margin-bottom: 30px; }
+#nos-app .stats-overview .stats-grid { margin: 0; }
+#nos-app .stats-native-toolbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 22px; flex-wrap: wrap; margin-bottom: 18px; }
+#nos-app .stats-native-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#nos-app .stats-native-filters label { color: var(--muted); font-size: 11px; }
+#nos-app .stats-native-filters select { min-width: 138px; font-size: 11px; border-radius: 9px; border: 1px solid #ebf3ff44; padding: 9px 12px; color: var(--text); background: #334c75; }
+#nos-app .stats-native-filters option { background: #344c72; }
+#nos-app .stats-load-message { padding: 26px 20px; font-size: 12px; border: 1px dashed #e7eeff40; border-radius: 14px; color: var(--muted); }
+#nos-app .stats-report { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 17px; padding-bottom: 15px; }
+#nos-app .stats-native-card { min-width: 0; display: flex; flex-direction: column; background: rgba(34,49,78,.67); border: 1px solid #d7e8ff39; border-radius: 19px; padding: 19px 20px 17px; box-shadow: 0 10px 27px #0f1c3a17; }
+#nos-app .stats-native-card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 620; color: var(--text); }
+#nos-app .stats-native-card .stats-card-caption { color: var(--muted); font-size: 10.5px; margin-bottom: 13px; line-height: 1.5; }
+#nos-app .stats-native-card .stats-card-foot { display: flex; gap: 11px; align-items: center; flex-wrap: wrap; font-size: 10px; color: #d2e5ffbf; margin-top: 10px; }
+#nos-app .stats-native-card .stats-card-foot strong { color: #eaf5ff; font-size: 12px; }
+#nos-app .stats-native-card .stats-chart { display: block; width: 100%; min-height: 155px; max-height: 235px; overflow: visible; }
+#nos-app .stats-native-card .stats-chart .stats-plot-grid { stroke: #e6f0ff19; stroke-width: 1; }
+#nos-app .stats-native-card .stats-chart .stats-axis-txt { fill: #dde9ffb4; font-size: 9px; font-family: 'Segoe UI',sans-serif; }
+#nos-app .stats-native-card .stats-chart .stats-bar { fill: #9ec9ff; transition: opacity 120ms; }
+#nos-app .stats-native-card .stats-chart .stats-bar:hover, #nos-app .stats-native-card .stats-chart .stats-slice:hover { opacity: .77; }
+#nos-app .stats-native-card .stats-chart .stats-line { fill: none; stroke: #ffd996; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#nos-app .stats-native-card .stats-legend { display: flex; flex-wrap: wrap; gap: 7px 13px; margin-top: 12px; font-size: 10px; color: var(--muted); }
+#nos-app .stats-native-card .stats-legend span { display: flex; gap: 5px; align-items: center; }
+#nos-app .stats-native-card .stats-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+#nos-app .stats-native-card .stats-donut-shell { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 20px; }
+#nos-app .stats-native-card .stats-donut-shell .stats-chart { width: min(210px,100%); min-height: 170px; }
+#nos-app .stats-native-card .stats-donut-shell .stats-donut-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 140px; font-size: 11px; }
+#nos-app .stats-native-card .stats-donut-legend li { display: flex; align-items: center; gap: 8px; }
+#nos-app .stats-native-card .stats-donut-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; }
+#nos-app .stats-native-card .stats-donut-legend strong { margin-left: auto; padding-left: 8px; }
+#nos-app .stats-native-card .stats-note { margin: auto 0; padding: 36px 10px; text-align: center; color: var(--muted); font-size: 12px; }
+#nos-app .stats-native-card .stats-mini-table { border-collapse: collapse; width: 100%; margin-top: 7px; font-size: 11px; font-variant-numeric: tabular-nums; }
+#nos-app .stats-native-card .stats-mini-table th, #nos-app .stats-native-card .stats-mini-table td { padding: 8px 7px; text-align: right; border-bottom: 1px solid #e9f3ff20; }
+#nos-app .stats-native-card .stats-mini-table th:first-child, #nos-app .stats-native-card .stats-mini-table td:first-child { text-align: left; }
+#nos-app .stats-native-card .stats-mini-table th { color: #b5c9e8; font-size: 10px; font-weight: 550; }
+#nos-app .stats-native-card.stats-card-wide { grid-column: span 2; }
+#nos-app .stats-native-card .stats-wide-flex { display: grid; grid-template-columns: minmax(0,1fr) minmax(190px,.42fr); gap: 18px; align-items: center; }
+#nos-app .stats-native-card .stats-wide-flex .stats-chart { max-height: 200px; }
+#nos-app .stats-native-card .stats-today-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 8px; }
+#nos-app .stats-native-card .stats-today-value { padding: 15px 13px; border-radius: 12px; background: #c6dcff0b; }
+#nos-app .stats-native-card .stats-today-value strong { display: block; font-size: 24px; font-weight: 650; }
+#nos-app .stats-native-card .stats-today-value span { color: var(--muted); font-size: 10.5px; }
+#nos-app .stats-native-card .stats-chart title { pointer-events: none; }
+#nos-app .stats-native-card .stats-control-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: -1px 0 11px; }
+#nos-app .stats-native-card .stats-control-row label { font-size: 10px; color: var(--muted); }
+#nos-app .stats-native-card .stats-control-row select { color: var(--text); background: #334c75; border: 1px solid #edf4ff3a; border-radius: 7px; padding: 5px 9px; font-size: 11px; }
+#nos-app .stats-native-card .stats-chart rect { shape-rendering: geometricPrecision; }
+#nos-app .stats-card-muted { opacity: .7; }
+#nos-app[data-theme="light"] .stats-native-card { background: rgba(255,255,255,.91); color: #1e293b; border-color: rgba(92,112,158,.25); }
+#nos-app[data-theme="light"] .stats-native-card h3 { color: #17233b; }
+#nos-app[data-theme="light"] .stats-native-card .stats-card-foot strong { color: #25395e; }
+#nos-app[data-theme="light"] .stats-native-card .stats-plot-grid { stroke: rgba(36,60,99,.14); }
+#nos-app[data-theme="light"] .stats-native-card .stats-chart .stats-axis-txt { fill: #587197; }
+#nos-app[data-theme="light"] .stats-native-card .stats-today-value { background: #b8d5ff33; }
+@media(max-width:1100px) { #nos-app .stats-report { grid-template-columns: minmax(0,1fr); } #nos-app .stats-native-card.stats-card-wide { grid-column: span 1; } #nos-app .stats-native-card .stats-wide-flex { grid-template-columns: minmax(0,1fr); } }
+@media(max-width:1200px) { #nos-app .stats-page { margin-left: 104px; width: calc(100% - 126px); } }
+@media(max-width:720px) { #nos-app .stats-page { margin: 0 16px; width: calc(100% - 32px); padding: 20px 0 115px; } #nos-app .stats-page-head { flex-wrap: wrap; gap: 12px; } #nos-app .stats-page-head h1 { font-size: 26px; } #nos-app .stats-native-card { padding: 15px 12px; } #nos-app .stats-native-filters { width: 100%; } #nos-app .stats-native-filters select { min-width: 110px; flex: 1; } #nos-app .stats-native-card .stats-today-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } #nos-app .stats-native-card .stats-today-value strong { font-size: 21px; } }
