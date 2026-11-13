@@ -101,11 +101,13 @@
 
   function applySettingsDraft() {
     if (!settingsDraft || !settingsDirty) return;
+    const previousView = state.settings.view;
     state.settings = {...settingsDraft};
     settingsDirty = false;
     applySettings();
     if (state.snapshot) {
       renderStats();
+      if (previousView !== state.settings.view) renderLibrary();
       heatmapKey = '';
       renderHeatmap();
     }
@@ -707,6 +709,7 @@
       snapshotPending=false;
       state.snapshot = payload;
       state.settings = payload.settings || {};
+      if ($('settings-dialog').open && !settingsDirty) settingsDraft = {...state.settings};
       fullscreenState(native ? !!payload.fullscreen : !!document.fullscreenElement);
       state.year ??= Number(payload.today.slice(0,4));
       clearTimeout(refreshTimer);
