@@ -382,7 +382,7 @@
       return {date, ...(data.days[date] || {reviews:0, milliseconds:0, tested:0, passed:0})};
     });
     for (const [id,key,unit,value] of [
-      ['retention','retention','%', d => d.tested ? Math.max(0,Math.min(100,d.passed / d.tested * 100)) : 0],
+      ['retention','retention','%', d => d.tested ? Math.max(0,Math.min(100,d.passed / d.tested * 100)) : null],
       ['pace','pace','lượt/giờ', d => d.milliseconds > 0 ? Math.max(0,d.reviews / (d.milliseconds / 3600000)) : 0],
       ['time','milliseconds','phút', d => d.milliseconds / 60000],
       ['studied','reviews','lượt ôn', d => d.reviews],
