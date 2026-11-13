@@ -579,3 +579,14 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 /* Lite mode & Reduce motion */
 #nos-app.lite-mode .glass, #nos-app.no-blur .glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 #nos-app.reduce-motion * { animation: none !important; transition: none !important; }
+
+/* Keep settings cheap to compose: the large blurred modal backdrop was
+   repainting the entire WebView whenever a checkbox or page scale changed. */
+#nos-app .settings-popover::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
+#nos-app .settings-panel { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; contain: layout style; }
+#nos-app .settings-popover .nos-slider { transition: background-color 180ms ease; }
+#nos-app .settings-popover .nos-slider::before { transition: transform 180ms cubic-bezier(.2,.8,.2,1); will-change: transform; }
+#nos-app .settings-popover .nos-switch input:focus-visible + .nos-slider { outline: 2px solid var(--blue); outline-offset: 3px; }
+#nos-app .settings-footer #btn-apply-settings { padding: 9px 19px; border-radius: 10px; background: var(--blue); color: #14233b; font-weight: 700; }
+#nos-app .settings-footer #btn-apply-settings:disabled { opacity: .45; cursor: default; }
+#nos-app .settings-open .settings-panel { transform: translateZ(0); }
