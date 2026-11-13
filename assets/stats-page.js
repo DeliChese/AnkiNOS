@@ -92,6 +92,28 @@
       const label=String(r.label??r.x);
       svg+='<rect class="stats-bar" x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+Math.max(1.7,bw*.74).toFixed(2)+'" height="'+height.toFixed(2)+'" rx="1.8" fill="'+esc(opts.color||colors[0])+'"><title>'+esc(label+': '+(opts.tooltip ? opts.tooltip(v) : fmt(v)))+'</title></rect>';
     });
+    if(opts.percentLine && Array.isArray(opts.percentLine) && rows.length === opts.percentLine.length) {
+      let path='', active=false;
+      opts.percentLine.forEach((ratio,i) => {
+        if(ratio===null || !Number.isFinite(Number(ratio))) {active=false;return;}
+        const x=L+(i+.5)*bw, y=T+h-Math.max(0,Math.min(100,Number(ratio)))/100*h;
+        path+=(active?' L':' M')+x.toFixed(1)+' '+y.toFixed(1);
+        active=true;
+      });
+      svg+='<path class="stats-line" d="'+path+'" stroke="'+(opts.lineColor||'#ffd996')+'"/>';
+      svg+='<text class="stats-axis-txt" text-anchor="end" x="'+(W-R)+'" y="'+(T+9)+'">100%</text>';
+    }
+    if(opts.cumulative) {
+      let accumulated=0;
+      const all=sum(rows.map(r=>r.value))||1;
+      let points='';
+      rows.forEach((r,i)=>{
+        accumulated+=num(r.value);
+        const x=L+(i+.5)*bw,y=T+h-accumulated/all*h;
+        points+=(i?' L':'M')+x.toFixed(1)+' '+y.toFixed(1);
+      });
+      svg+='<path class="stats-line" d="'+points+'" stroke="#e8f1ff" opacity=".65"/>';
+    }
     for(let i=0;i<Math.min(6,rows.length);i++){
       const idx=Math.round(i*(rows.length-1)/Math.max(1,Math.min(6,rows.length)-1));
       const x=L+(idx+.5)*bw;
@@ -163,7 +185,7 @@
     if (backlog) for(let day=-30;day<0;day++) list.push({x:day,label:String(day),value:getField(d,String(day))});
     for(let day=0;day<=range;day++) list.push({x:day,label:day===0?'Hôm nay':'+'+day,value:getField(d,String(day))});
     return frame('Dự báo đến hạn','Ước tính lịch ôn sắp tới theo scheduler của Anki. Không bao gồm thẻ học mới chưa lên lịch.',
-      barPlot(list,{color:colors[1],aria:'Lượt ôn đến hạn trong 30 ngày'}),'<span>Khối lượng/ngày: <strong>'+fmt(getField(f,'daily_load'))+' thẻ</strong></span>'+
+      barPlot(list,{color:colors[1],cumulative:true,aria:'Lượt ôn đến hạn và tổng cộng dồn 30 ngày'}),'<span>Khối lượng/ngày: <strong>'+fmt(getField(f,'daily_load'))+' thẻ</strong></span>'+
       (backlog?'<span>Có thẻ tồn đọng</span>':''),true);
   }
   const TYPES = [
@@ -239,9 +261,11 @@
     const rows=Array.from({length:24},(_,i)=>({x:i,label:i+'h',value:getField(arr[i],'total')}));
     const total=sum(rows.map(r=>r.value));
     if(!total)return frame('Giờ học hiệu quả','Số lượt ôn theo từng khung giờ, tính bằng dữ liệu Anki.',empty());
-    let chart=barPlot(rows,{color:colors[0],maxBars:24,aria:'Lượt ôn theo giờ'});
-    const ratios=arr.map(d=>getField(d,'total')?getField(d,'correct')/getField(d,'total')*100:null).filter(x=>x!==null);
-    return frame('Giờ học hiệu quả','Số lượt ôn theo giờ; tỷ lệ trả lời đạt được thống kê riêng bởi Anki.',chart,
+    const ratios=Array.from({length:24},(_,i)=>getField(arr[i],'total')>0?
+      getField(arr[i],'correct')/getField(arr[i],'total')*100:null);
+    const chart=barPlot(rows,{color:colors[0],maxBars:24,percentLine:ratios,
+      aria:'Lượt ôn theo giờ và tỷ lệ đúng (%)'});
+    return frame('Giờ học hiệu quả','Cột xanh: lượt ôn theo giờ. Đường vàng: tỷ lệ trả lời đạt.',chart,
       '<span>Đã ghi: <strong>'+fmt(total)+' lượt</strong></span>'+
       '<span>Tỷ lệ trả lời đạt: <strong>'+percent(sum(arr.map(d=>getField(d,'correct'))),total-sum(arr.map(d=>getField(d,'correct'))))+'</strong></span>');
   }
@@ -389,5 +413,13 @@
   $('stats-scope')?.addEventListener('change',()=>request(false));
   $('stats-period')?.addEventListener('change',()=>request(false));
   $('stats-refresh')?.addEventListener('click',reload);
+  $('stats-save-pdf')?.addEventListener('click',()=>{
+    if(!native) {
+      $('stats-loading').hidden=false;
+      $('stats-loading').textContent='Lưu PDF chỉ hỗ trợ trong Anki. Đây là bản xem trước.';
+      return;
+    }
+    if(typeof window.pycmd==='function') window.pycmd('nos:'+JSON.stringify({action:'stats_pdf'}));
+  });
   window.NOSStats={open,reload,receive,refreshMetrics};
 })();
