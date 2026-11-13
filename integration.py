@@ -105,10 +105,16 @@ def config() -> dict[str, Any]:
 
 def _config_updated(values: dict[str, Any]) -> None:
     global _config_cache
+    previous_enabled = config().get("enabled", True)
     _config_cache = values
     _sync_chrome()
+    # Changing profile appearance must not recreate the entire WebView.
+    # A native redraw is only needed when the add-on itself was toggled.
     if mw.col and mw.state in {"deckBrowser", "overview"}:
-        mw.moveToState(mw.state)
+        if previous_enabled != values.get("enabled", True):
+            mw.moveToState(mw.state)
+        elif values.get("enabled", True):
+            send("settings", settings())
 
 
 @lru_cache(maxsize=3)
@@ -177,7 +183,10 @@ def settings() -> dict[str, Any]:
 def save_settings(patch: dict[str, Any]) -> None:
     conf = config()
     profiles = conf.setdefault("profiles", {})
-    profiles[mw.pm.name] = {**settings(), **patch}
+    updated = {**settings(), **patch}
+    if profiles.get(mw.pm.name) == updated:
+        return
+    profiles[mw.pm.name] = updated
     mw.addonManager.writeConfig(MODULE, conf)
 
 
@@ -428,16 +437,30 @@ def _favorite(did: str) -> None:
 
 
 def _save_ui(values: Any) -> None:
+    """Persist only supported profile settings; ignore malformed WebView data."""
     if not isinstance(values, dict):
         return
     patch: dict[str, Any] = {}
-    for key in ("activity_collapsed", "library_collapsed", "sidebar_collapsed"):
-        if key in values and isinstance(values[key], bool):
+    for key in (
+        "activity_collapsed", "library_collapsed", "sidebar_collapsed", "blur",
+        "animations", "lite_mode", "stat_retention", "stat_pace",
+        "stat_time", "stat_studied",
+    ):
+        if type(values.get(key)) is bool:
             patch[key] = values[key]
-    if values.get("theme") in {"dusk", "night"}:
-        patch["theme"] = values["theme"]
-    if values.get("view") in {"list", "grid"}:
-        patch["view"] = values["view"]
+    for key, allowed in {
+        "theme": {"dusk", "night", "oled", "light"},
+        "accent": {"blue", "cyan", "mint", "purple", "amber", "pink"},
+        "view": {"list", "grid"},
+        "heatmap_day": {"monday", "sunday"},
+        "heatmap_palette": {"default", "green", "orange", "purple"},
+    }.items():
+        if values.get(key) in allowed:
+            patch[key] = values[key]
+    if type(values.get("goal")) is int and 1 <= values["goal"] <= 100_000:
+        patch["goal"] = values["goal"]
+    if type(values.get("ui_scale")) is int and values["ui_scale"] in {85, 90, 100, 110, 120}:
+        patch["ui_scale"] = values["ui_scale"]
     if patch:
         save_settings(patch)
 
@@ -535,6 +558,11 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             menu.exec(QCursor.pos())
         elif action == "save_ui":
             _save_ui(command.get("values"))
+        elif action == "apply_settings":
+            # The explicit Apply action saves every allowed value and confirms
+            # the effective, persisted config back to the UI.
+            _save_ui(command.get("values"))
+            send("settings", settings())
     except Exception as error:
         global _navigating
         _navigating = False
