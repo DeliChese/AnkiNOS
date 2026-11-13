@@ -129,7 +129,7 @@ try {
     thumb_url:'/_addons/NOS/user_files/${profileId}/${photoId}-thumb.png'}]}
   })})()`);
   assert.equal(await evaluate(`document.querySelectorAll('#studio-gallery .nos-studio-tile').length`),1);
-  await click('[data-photo-id="${photoId}"]');
+  await click(`[data-photo-id="${photoId}"]`);
   assert.equal(await evaluate(`document.getElementById('studio-preview-image').hidden`),false,
     'Selecting a picture previews immediately without Apply');
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('studio-preview-image')).objectFit`),'contain');
@@ -148,9 +148,9 @@ try {
   assert.equal(await evaluate(`document.getElementById('studio-gallery-title').textContent`),'Phong cảnh');
   const newAlbumId=await evaluate(`window.AnkiNOS.getSettings().image_albums[0].id`);
   await click('[data-studio-album="all"]');
-  await click('[data-photo-id="${photoId}"]');
+  await click(`[data-photo-id="${photoId}"]`);
   await evaluate(`(()=>{const s=document.getElementById('studio-image-album');s.value='${newAlbumId}';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-  await click('[data-studio-album="${newAlbumId}"]');
+  await click(`[data-studio-album="${newAlbumId}"]`);
   assert.equal(await evaluate(`document.querySelectorAll('#studio-gallery .nos-studio-tile').length`),1,
     'Moved photo must appear in chosen album');
   await click('#studio-close');
