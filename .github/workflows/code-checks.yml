@@ -1,4 +1,4 @@
-name: AnkiNOS code and image library checks
+name: AnkiNOS code, images and native graphs checks
 
 on:
   push:
@@ -18,12 +18,17 @@ jobs:
         with:
           node-version: '22'
       - name: Python syntax
-        run: python -m compileall -q integration.py reviewer_ui.py media_store.py data.py
+        run: python -m compileall -q integration.py reviewer_ui.py media_store.py data.py graphs_data.py
       - name: Local image library tests
         run: python -m unittest discover -s tests -p 'test_media.py'
+      - name: Install Anki backend
+        run: python -m pip install "anki>=25.02,<27"
+      - name: Native statistics backend tests
+        run: python -m unittest discover -s tests -p 'test_graphs_data.py'
       - name: JavaScript syntax
         run: |
           node --check assets/dashboard.js
+          node --check assets/stats-page.js
           node --check assets/overview.js
           node --check assets/reviewer.js
       - name: Dashboard preview browser smoke test
