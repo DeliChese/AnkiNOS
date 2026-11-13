@@ -45,6 +45,15 @@ try {
   for(let i=0;i<100;i++){if(await evaluate(`!!document.getElementById('nos-app') && !!window.AnkiNOS && document.getElementById('connection').textContent.includes('Bản xem trước')`))break;await new Promise(r=>setTimeout(r,100));}
   assert(await evaluate(`document.querySelectorAll('#deck-list > .deck-group').length`) === 4);
   assert.equal(await evaluate(`document.getElementById('library-dialog').open`),false);
+  // Updating hidden library preferences must not recreate all deck rows.
+  await evaluate(`(()=>{window.__nosOldDeck=document.querySelector('#deck-list > .deck-group');
+    window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),view:'grid'}});
+  })()`);
+  assert.equal(await evaluate(`window.__nosOldDeck === document.querySelector('#deck-list > .deck-group')`),true,
+    'Do not rebuild hidden library on settings updates');
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),view:'list'}})`);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.activity-panel')).backdropFilter`),'none',
+    'Offscreen glass panels should not trigger expensive blur repaints');
   assert.equal(await evaluate(`document.querySelectorAll('.workspace #library-panel').length`),0,'Library is not duplicated on the home page');
   assert.equal(await evaluate(`document.querySelectorAll('#library-panel').length`),1);
   assert.equal(await evaluate(`document.querySelectorAll('[data-action="collapse_library"],[data-value="activity"]').length`),0);
@@ -69,6 +78,7 @@ try {
     'All native Anki graph sections must be available inline');
   assert.equal(await evaluate(`document.querySelectorAll('#stats-report .stats-native-card h3').length >= 13`),true);
   assert.equal(await evaluate(`document.getElementById('stats-loading').hidden`),true);
+  await evaluate(`window.__nosStatsNode = document.querySelector('#stats-report .stats-native-card')`);
   await evaluate(`document.getElementById('spark-studied').dispatchEvent(new PointerEvent('pointermove',{clientX:document.getElementById('spark-studied').getBoundingClientRect().right,bubbles:true}))`);
   await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
   assert.equal(await evaluate(`document.getElementById('chart-tooltip').hidden`),false);
@@ -76,6 +86,19 @@ try {
   await evaluate(`document.getElementById('spark-studied').dispatchEvent(new Event('pointerleave'))`);
   await click('.rail-main [data-action="page"][data-value="home"]');
   assert.equal(await evaluate(`document.getElementById('stats-page').hidden`),true);
+  const statsSwitchMs = await evaluate(`(()=>{
+    const start=performance.now();
+    for(let i=0;i<12;i++){
+      document.getElementById('stats-toggle').click();
+      document.querySelector('.rail-main [data-action="page"][data-value="home"]').click();
+    }
+    return Math.round(performance.now()-start);
+  })()`);
+  console.log('Performance: 12 cached Stats round trips:',statsSwitchMs,'ms');
+  await click('#stats-toggle');
+  assert.equal(await evaluate(`window.__nosStatsNode === document.querySelector('#stats-report .stats-native-card')`),true,
+    'Cached Stats should keep the same SVG DOM nodes on reopen');
+  await click('.rail-main [data-action="page"][data-value="home"]');
   await mkdir(join(root,'previews'),{recursive:true});
   async function shot(name) {const result=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(join(root,'previews',name),Buffer.from(result.data,'base64'));}
   await shot('dashboard.png');
@@ -129,11 +152,16 @@ try {
     thumb_url:'/_addons/NOS/user_files/${profileId}/${photoId}-thumb.png'}]}
   })})()`);
   assert.equal(await evaluate(`document.querySelectorAll('#studio-gallery .nos-studio-tile').length`),1);
+  await evaluate(`window.__nosThumb = document.querySelector('#studio-gallery .nos-studio-tile')`);
   await click(`[data-photo-id="${photoId}"]`);
+  assert.equal(await evaluate(`window.__nosThumb === document.querySelector('#studio-gallery .nos-studio-tile')`),true,
+    'Selecting a photo must keep existing thumbnail DOM and decoded image');
   assert.equal(await evaluate(`document.getElementById('studio-preview-image').hidden`),false,
     'Selecting a picture previews immediately without Apply');
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('studio-preview-image')).objectFit`),'contain');
   await click('[data-studio-slot="image_dashboard"]');
+  assert.equal(await evaluate(`window.__nosThumb === document.querySelector('#studio-gallery .nos-studio-tile')`),true,
+    'Assigning a wallpaper must not rebuild the entire photo gallery');
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_dashboard`),photoId);
   assert.equal(await evaluate(`document.querySelector('.nos-wallpaper-image').hidden`),false);
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.nos-wallpaper-image')).objectFit`),'contain');

@@ -13,6 +13,7 @@
   const state={snapshot:null,settings:{},started:false};
   const loadedAt=performance.now();
   let toastTimer;
+  let snapshotPending=false, lastSnapshotAt=0;
 
   function toast(message) {
     $('overview-toast').textContent=message;
@@ -45,6 +46,10 @@
       if (performance.now()-loadedAt<15000) setTimeout(()=>command(action,args),50);
       else receive({event:'error',payload:'Cầu nối Anki chưa sẵn sàng. Nhấn Thử lại để kết nối.'});
       return;
+    }
+    if (action==='snapshot') {
+      if (snapshotPending) return;
+      snapshotPending=true;
     }
     window.pycmd(`nos:${JSON.stringify({action,...args})}`);
   }
@@ -116,6 +121,7 @@
   function receive({event,payload}) {
     if (event==='fullscreen') {fullscreen(payload);return;}
     if (event==='error') {
+      snapshotPending=false;
       state.started=false;
       if (state.snapshot?.available) $('study').disabled=false;
       if (state.snapshot) toast(payload);
@@ -126,7 +132,11 @@
       }
       return;
     }
-    if (event==='overview_snapshot') {state.snapshot=payload;state.settings=payload.settings||{};render();}
+    if (event==='overview_snapshot') {
+      snapshotPending=false;
+      lastSnapshotAt=performance.now();
+      state.snapshot=payload;state.settings=payload.settings||{};render();
+    }
     else if (event==='settings') {state.settings=payload;theme();}
   }
   window.AnkiNOS={receive};
@@ -178,7 +188,15 @@
   if (native && bootstrap) {
     try {receive({event:'overview_snapshot',payload:JSON.parse(bootstrap.textContent)});}
     catch {command('snapshot');}
-    setTimeout(()=>{if(!state.started)command('snapshot');},250);
+    // Paint the bootstrap immediately. Fetch the heavier live stats only after
+    // the initial view has settled, rather than blocking the first interaction.
+    const fetchFull=()=>{if(!state.started && !document.hidden)command('snapshot');};
+    if ('requestIdleCallback' in window)
+      requestIdleCallback(fetchFull,{timeout:1200});
+    else setTimeout(fetchFull,600);
   } else command('snapshot');
-  if (native) setInterval(()=>{if(!document.hidden&&!state.started)command('snapshot');},60000);
+  if (native) setInterval(()=>{
+    if(!document.hidden && !state.started && !snapshotPending &&
+       performance.now()-lastSnapshotAt>150000) command('snapshot');
+  },180000);
 })();

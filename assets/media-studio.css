@@ -1,7 +1,7 @@
 /* AnkiNOS Media Studio — independent, responsive image organizer. */
 #nos-app .nos-studio-dialog:not([open]) { display:none !important; }
 #nos-app .nos-studio-dialog { position:fixed; inset:0; margin:auto; width:min(1180px,calc(100vw - 30px)); height:min(780px,calc(100dvh - 30px)); max-width:none; max-height:none; padding:0; border:1px solid #cce3ff4c; border-radius:22px; overflow:hidden; color:#eef5ff; background:#1e2d46; box-shadow:0 28px 95px #020916b3; }
-#nos-app .nos-studio-dialog::backdrop { background:#061224c7; backdrop-filter:blur(5px); }
+#nos-app .nos-studio-dialog::backdrop { background:#061224d6; backdrop-filter:none; -webkit-backdrop-filter:none; }
 #nos-app .nos-studio-dialog * { box-sizing:border-box; }
 #nos-app .nos-studio-shell { height:100%; min-height:0; display:flex; flex-direction:column; }
 #nos-app .nos-studio-head { flex-shrink:0; padding:19px 23px; display:flex; gap:20px; align-items:center; justify-content:space-between; background:linear-gradient(115deg,#304567,#243550); border-bottom:1px solid #d9e9ff28; }
@@ -83,4 +83,11 @@
   #nos-app .nos-studio-head-actions .nos-studio-import { padding:8px; }
   #nos-app .nos-studio-heading h2 { font-size:16px; }
   #nos-app .nos-studio-heading p:not(.nos-studio-kicker) { display:none; }
+}
+
+/* Offscreen thumbnails remain searchable without being repainted on every
+   selection or album change. */
+#nos-app .nos-studio-gallery .nos-studio-tile {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 174px;
 }

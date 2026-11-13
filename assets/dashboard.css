@@ -652,3 +652,18 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
   #nos-app .image-target-controls { grid-template-columns: repeat(2,minmax(0,1fr)); }
   #nos-app .image-target-controls [data-image-slot] { grid-column: 1/-1; }
 }
+
+
+/* Performance: blur on every card repaints the entire large wallpaper when a
+   modal appears or the scroll container moves. Keep a small glass highlight on
+   the navigation chrome only, while preserving the existing translucent fill. */
+#nos-app .glass { backdrop-filter: none; -webkit-backdrop-filter: none; }
+#nos-app:not(.lite-mode):not(.no-blur) .rail.glass,
+#nos-app:not(.lite-mode):not(.no-blur) .topbar.glass {
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+/* Skip layout and rasterization for long sections outside the viewport. */
+#nos-app .activity-panel {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 450px;
+}

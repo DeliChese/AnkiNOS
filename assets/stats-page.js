@@ -24,6 +24,9 @@
   const cache = new Map();
   let loading = false, metricData = null;
   let reportedKey = '';
+  let renderedKey = '';
+  let paintingKey = '';
+  let renderEpoch = 0;
   const scope = () => $('stats-scope').value;
   const days = () => Number($('stats-period').value);
   const cacheKey = () => scope() + '/' + days();
@@ -289,37 +292,66 @@
   function render(payload) {
     const g=payload?.data||{}, period=payload.days;
     const fsrs=!!g.fsrs;
-    const cards=[
-      todaySection(g),
-      futureSection(g),
-      reviewSection(g,false,period),
-      reviewSection(g,true,period),
-      countSection(g),
-      distribution('Khoảng cách ôn','Phân bố số ngày đến lượt ôn tiếp theo.',
+    const key=payload.scope+'/'+payload.days;
+    // Defer expensive SVG generation into small batches on the Anki WebView.
+    // Existing DOM is kept when reopening a report with identical filters.
+    const sections=[
+      () => todaySection(g),
+      () => futureSection(g),
+      () => reviewSection(g,false,period),
+      () => reviewSection(g,true,period),
+      () => countSection(g),
+      () => distribution('Khoảng cách ôn','Phân bố số ngày đến lượt ôn tiếp theo.',
         g.intervals?.intervals,colors[0],' ngày'),
       ...(fsrs?[
-        distribution('Độ ổn định FSRS','Số ngày để khả năng nhớ giảm xuống 90% theo mô hình FSRS.',
+        () => distribution('Độ ổn định FSRS','Số ngày để khả năng nhớ giảm xuống 90% theo mô hình FSRS.',
           g.stability?.intervals,colors[1],' ngày'),
       ]:[]),
-      distribution('Độ dễ của thẻ','Độ dễ SM-2, tính theo phần trăm.',
+      () => distribution('Độ dễ của thẻ','Độ dễ SM-2, tính theo phần trăm.',
         g.eases?.eases,colors[2],'%',g.eases?.average),
       ...(fsrs?[
-        distribution('Độ khó FSRS','Phân bố độ khó của thẻ do FSRS ước lượng.',
+        () => distribution('Độ khó FSRS','Phân bố độ khó của thẻ do FSRS ước lượng.',
           g.difficulty?.eases,colors[3],'%',g.difficulty?.average),
-        distribution('Khả năng nhớ FSRS','Retrievability là xác suất ghi nhớ được FSRS tính.',
+        () => distribution('Khả năng nhớ FSRS','Retrievability là xác suất ghi nhớ được FSRS tính.',
           g.retrievability?.retrievability,colors[4],'%',g.retrievability?.average),
       ]:[]),
-      trueRetentionSection(g,period),
-      hoursSection(g,period),
-      buttonsSection(g,period),
-      addedSection(g,period)
+      () => trueRetentionSection(g,period),
+      () => hoursSection(g,period),
+      () => buttonsSection(g,period),
+      () => addedSection(g,period)
     ];
-    $('stats-report').innerHTML=cards.join('');
-    $('stats-loading').hidden=true;
+    const epoch=++renderEpoch;
+    renderedKey='';
+    paintingKey=key;
+    const report=$('stats-report');
+    report.replaceChildren();
     $('stats-metric-scope').textContent=
       'Đang xem '+(payload.scope==='deck'?'bộ thẻ hiện tại và các bộ con':'toàn bộ bộ sưu tập')+
       ' · '+(period===0?'toàn bộ lịch sử':'12 tháng');
+    // Update the numeric summary immediately; graphs paint incrementally.
     updateMetricCards(g);
+    if (native) {
+      $('stats-loading').hidden=false;
+      $('stats-loading').textContent='Đang vẽ biểu đồ…';
+    }
+    let offset=0;
+    const paintBatch=()=>{
+      if (epoch!==renderEpoch || key!==cacheKey()) return;
+      const end=native?Math.min(offset+2,sections.length):sections.length;
+      let markup='';
+      for (;offset<end;offset++) markup+=sections[offset]();
+      report.insertAdjacentHTML('beforeend',markup);
+      if (offset<sections.length) {
+        requestAnimationFrame(paintBatch);
+      } else {
+        renderedKey=key;
+        paintingKey='';
+        $('stats-loading').hidden=true;
+        if (!native) $('stats-metric-scope').textContent+=' · Dữ liệu minh họa';
+      }
+    };
+    if(native) requestAnimationFrame(paintBatch);
+    else paintBatch();
   }
   function updateMetricCards(g) {
     metricData=g;
@@ -366,21 +398,26 @@
   function request(force=false) {
     const key=cacheKey();
     if (!force && cache.has(key)) {
-      render(cache.get(key));
+      loading=false;
+      if (renderedKey !== key && paintingKey !== key) render(cache.get(key));
       return;
     }
     if (loading && reportedKey===key && !force) return;
     loading=true;
     reportedKey=key;
+    ++renderEpoch; // Cancel a previous chart batch if the filters changed.
+    renderedKey='';
+    paintingKey='';
     $('stats-loading').hidden=false;
     $('stats-loading').textContent='Đang tổng hợp toàn bộ biểu đồ từ Anki…';
-    $('stats-report').innerHTML='';
+    // Keep the prior report visible during a manual refresh; replacing it
+    // every time makes switching a view feel like a full-page flash.
+    if (!force) $('stats-report').replaceChildren();
     if(!native) {
       const payload=preview();
       cache.set(key,payload);
       loading=false;
       render(payload);
-      $('stats-metric-scope').textContent+=' · Dữ liệu minh họa';
       return;
     }
     if(typeof window.pycmd!=='function') {
@@ -417,6 +454,11 @@
     if(!native) {
       $('stats-loading').hidden=false;
       $('stats-loading').textContent='Lưu PDF chỉ hỗ trợ trong Anki. Đây là bản xem trước.';
+      return;
+    }
+    if (loading || renderedKey !== cacheKey()) {
+      $('stats-loading').hidden=false;
+      $('stats-loading').textContent='Đang hoàn thiện biểu đồ. Thử xuất PDF sau khi tải xong.';
       return;
     }
     if(typeof window.pycmd==='function') window.pycmd('nos:'+JSON.stringify({action:'stats_pdf'}));

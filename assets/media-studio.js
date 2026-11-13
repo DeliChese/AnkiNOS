@@ -21,6 +21,9 @@
   };
   let selected = null, album = 'all', editing = null, pendingAlbumName = '';
   let searchText = '';
+  let gallerySignature = '';
+  let albumsSignature = '';
+  let searchFrame = 0;
   const getData = () => window.AnkiNOS?.getSettings?.() || {};
   const photos = () => (getData().images || []).filter(p => p && UUID.test(p.id) && ORIGINAL.test(p.url || ''));
   const albums = () => (getData().image_albums || []).filter(a => a && UUID.test(a.id) && typeof a.name === 'string');
@@ -115,7 +118,11 @@
       $('studio-image-meta').textContent = 'Ảnh nguyên gốc luôn vừa khung, không bị cắt hoặc kéo giãn.';
       return;
     }
-    preview.src = image.url;
+    // Reassigning src on every settings event decodes the full image again.
+    // The Studio inspector is intentionally small: decode the 480px thumbnail,
+    // never a 24MP wallpaper on each click. Originals remain used by pages.
+    const previewUrl = PREVIEW.test(image.thumb_url || '') ? image.thumb_url : image.url;
+    if (preview.getAttribute('src') !== previewUrl) preview.src = previewUrl;
     preview.hidden = false;
     placeholder.hidden = true;
     const meta = [];
@@ -123,11 +130,16 @@
     if (image.size) meta.push((image.size / 1024 / 1024).toFixed(2) + ' MB');
     meta.push(image.ext.toUpperCase().replace('.',''));
     $('studio-image-meta').textContent = meta.join(' · ') + ' · Không cắt';
-    $('studio-image-name').value = image.name;
+    if (document.activeElement !== $('studio-image-name'))
+      $('studio-image-name').value = image.name;
     const select = $('studio-image-album');
-    select.replaceChildren(new Option('Chưa phân loại',''));
-    for(const a of albums()) select.append(new Option(a.name,a.id));
-    select.value = image.album_id || '';
+    const optionsKey = JSON.stringify(albums());
+    if (select.dataset.optionsKey !== optionsKey) {
+      select.replaceChildren(new Option('Chưa phân loại',''));
+      for(const a of albums()) select.append(new Option(a.name,a.id));
+      select.dataset.optionsKey = optionsKey;
+    }
+    if (select.value !== (image.album_id || '')) select.value = image.album_id || '';
     for (const button of $('studio-targets').querySelectorAll('[data-studio-slot]')) {
       const active = getData()[button.dataset.studioSlot] === image.id;
       button.classList.toggle('active',active);
@@ -141,8 +153,18 @@
       if (found) {album = found.id;pendingAlbumName = '';}
     }
     if (selected && !photos().some(image => image.id === selected)) selected = null;
-    showAlbums();
-    showGallery();
+    const pictures = photos();
+    const groupKey = JSON.stringify([album,albums(),pictures.map(p=>[p.id,p.album_id])]);
+    if (albumsSignature !== groupKey) {
+      showAlbums();
+      albumsSignature = JSON.stringify([album,albums(),pictures.map(p=>[p.id,p.album_id])]);
+    }
+    const nextGallery = JSON.stringify([album,searchText,
+      pictures.map(p=>[p.id,p.name,p.thumb_url,p.url,p.album_id,p.width,p.height])]);
+    if (gallerySignature !== nextGallery) {
+      showGallery();
+      gallerySignature = nextGallery;
+    }
     showInspector();
   }
   function open() {
@@ -154,6 +176,7 @@
   }
   function close() {
     if (!dialog.open) return;
+    if (searchFrame) { cancelAnimationFrame(searchFrame); searchFrame=0; }
     dialog.close();
     stopEditing();
     const trigger = $('studio-launcher');
@@ -179,8 +202,14 @@
     render();
   }
   function selectImage(identifier) {
+    if (selected === identifier) return;
     selected = identifier;
-    showGallery();
+    // Only flip two selection classes; keep thumbnail nodes and decoded images.
+    for (const tile of $('studio-gallery').querySelectorAll('.nos-studio-tile')) {
+      const active = tile.dataset.photoId === identifier;
+      tile.classList.toggle('selected', active);
+      tile.setAttribute('aria-pressed', String(active));
+    }
     showInspector();
   }
   dialog.addEventListener('cancel',event => {event.preventDefault();close();});
@@ -291,7 +320,11 @@
   });
   $('studio-search').addEventListener('input',event=>{
     searchText=event.target.value.trim().toLocaleLowerCase();
-    showGallery();
+    if (searchFrame) cancelAnimationFrame(searchFrame);
+    searchFrame = requestAnimationFrame(() => {
+      searchFrame=0;
+      render();
+    });
   });
   $('studio-image-name').addEventListener('keydown',event=>{
     if(event.key==='Enter'){event.preventDefault();renamePhoto();}

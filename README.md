@@ -71,6 +71,15 @@ Bản xem trước: `ankios-review.html`. Mọi thời gian hẹn ôn trong bả
 - Sau khi trả lời, chỉ tổng hợp lại ngày thay đổi và ghi nhớ 30 ngày; không quét toàn bộ lịch sử mỗi lần quay về dashboard. Với 20.000 thẻ / 600.000 lượt ôn giả, đo được khoảng 107 ms tải đầu, 1 ms làm mới dữ liệu không đổi và 12 ms sau khi ôn. Số đo chi tiết ở `previews/data-performance-after.json`; trước tối ưu ở `previews/data-performance-before.json`.
 - Đo Chromium với 12.300 deck giả (300 cha × 40 con): trước tối ưu khoảng 389 ms mở popup lần đầu, 191 ms mở lại, 320 ms mở nhánh. Kết quả sau tối ưu nằm tại `previews/performance-after.json`; kiểm tra Anki thật nằm tại `previews/anki-report.json`. Đây là số đo dữ liệu thử, phụ thuộc máy, collection và add-on khác; không cam kết mọi thao tác đều tức thì.
 
+### Giảm giật khi đổi tab (đợt tối ưu mới)
+
+- Thống kê giữ nguyên DOM/SVG khi trở lại cùng bộ lọc. Truy vấn lần đầu vẫn lấy dữ liệu thật từ Anki trong luồng nền; đồ thị gốc được dựng theo từng nhóm nhỏ qua `requestAnimationFrame`, tránh một lần xử lý dài trên WebView. Nút **Làm mới báo cáo** vẫn đọc lại kết quả.
+- Thư viện bộ thẻ không dựng lại cây DOM khi bảng đang đóng và chỉ cập nhật khi mở nếu dữ liệu/bộ lọc đã thay đổi. Heatmap dùng bộ đếm phiên bản thay vì `JSON.stringify` toàn bộ lịch sử từng lần.
+- Studio giữ các phần tử thumbnail, ảnh đã giải mã và chỉ thay trạng thái chọn. Bảng xem trước dùng thumbnail khi có (không giải mã bản gốc 24 megapixel để hiện trong ô xem nhỏ).
+- Giảm `backdrop-filter` trên các panel lớn, giữ hiệu ứng kính nhẹ trên thanh điều hướng và dùng `content-visibility` cho các biểu đồ/thumbnail chưa thấy. Khi xuất PDF thống kê, mọi biểu đồ được hiện đầy đủ.
+- Cập nhật Settings được gộp theo khung hình; khi đổi cửa sổ Anki, chỉ đọc lại collection nếu đã quá 90 giây từ bản cập nhật gần nhất. Màn hình chuẩn bị học không truy vấn trùng; cập nhật nền tối đa khoảng 3 phút khi không học.
+- `tests/ui-check.mjs` kiểm tra tái sử dụng DOM của Thống kê, Thư viện và Studio, đồng thời in thời gian 12 lượt đổi trang Thống kê trong Chromium. Kết quả đó chỉ là bài thử trình duyệt, không đại diện cho FPS thực tế của Anki/Qt trên mọi máy.
+
 ## Ý nghĩa thống kê
 
 **Ghi nhớ:** tỷ lệ lượt trả lời Hard/Good/Easy trên tổng lượt ôn đến hạn (`revlog.type = 1`) trong 30 ngày học gần nhất. Đây là tỷ lệ trả lời đúng, không phải xác suất ghi nhớ do FSRS dự đoán. Không có lượt ôn đến hạn thì hiển thị `—`.

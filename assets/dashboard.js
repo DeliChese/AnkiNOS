@@ -23,6 +23,11 @@
   let toastTimer;
   let settingsDraft = null;
   let settingsDirty = false;
+  let settingsSyncFrame = 0;
+  let lastAppliedSettings = '';
+  let lastSnapshotAt = 0;
+  let heatmapRevision = 0;
+  let libraryRenderedOnce = false;
   let refreshTimer;
   let snapshotPending=false;
   const historyPending=new Set();
@@ -89,7 +94,10 @@
     if (settingsDraft) {
       Object.assign(settingsDraft, patch);
       settingsDirty = true;
-      syncSettingsForm(settingsDraft);
+      if (!settingsSyncFrame) settingsSyncFrame = requestAnimationFrame(() => {
+        settingsSyncFrame = 0;
+        if (settingsDraft) syncSettingsForm(settingsDraft);
+      });
       $('btn-apply-settings').disabled = false;
       $('settings-save-status').textContent = 'Có thay đổi chưa áp dụng';
       return;
@@ -101,15 +109,17 @@
 
   function applySettingsDraft() {
     if (!settingsDraft || !settingsDirty) return;
-    const previousView = state.settings.view;
+    const previous = state.settings;
     state.settings = {...settingsDraft};
     settingsDirty = false;
     applySettings();
     if (state.snapshot) {
-      renderStats();
-      if (previousView !== state.settings.view) renderLibrary();
-      heatmapKey = '';
-      renderHeatmap();
+      if (previous.goal !== state.settings.goal) renderStats();
+      if (previous.view !== state.settings.view) {
+        libraryRenderKey = '';
+        if ($('library-dialog').open) renderLibrary();
+      }
+      if (previous.heatmap_day !== state.settings.heatmap_day) renderHeatmap();
     }
     // Never send the image gallery (or large resource lists) back over pycmd.
     const keys = ['goal','theme','accent','blur','animations','lite_mode','ui_scale',
@@ -125,7 +135,10 @@
   }
 
   function setPopup(id, toggle, show) {
-    $(id).hidden = !show;
+    const popup = $(id);
+    // Repeated hidden assignments can trigger invalidation of popup descendants.
+    if (popup.hidden === !show) return;
+    popup.hidden = !show;
     $(toggle).setAttribute('aria-expanded', String(show));
   }
 
@@ -177,12 +190,13 @@
           state.expanded.add(deck.id);state.collapsed.delete(deck.id);
         }
       }
-      renderLibrary(focusDeck);
     }
     const dialog=$('library-dialog');
     // Set the final geometry before showModal's first layout/focus pass.
     positionLibrary(true);
     if(!dialog.open)dialog.showModal();
+    // Reuse the existing DOM on reopen; only rebuild when underlying data changed.
+    renderLibrary(focusDeck);
     app.classList.add('library-open');
     $('library-toggle').setAttribute('aria-expanded','true');
     $('library-toggle').classList.add('popover-active');
@@ -317,6 +331,16 @@
 
   function applySettings() {
     const s = state.settings;
+    const signature = JSON.stringify([
+      s.theme,s.accent,s.blur,s.animations,s.lite_mode,s.ui_scale,
+      s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
+      s.heatmap_palette,s.activity_collapsed,s.sidebar_collapsed,s.view,
+      s.image_dashboard,s.image_avatar,
+      (s.images || []).find(image => image.id === s.image_dashboard)?.url,
+      (s.images || []).find(image => image.id === s.image_avatar)?.url
+    ]);
+    if (signature === lastAppliedSettings) return;
+    lastAppliedSettings = signature;
     app.dataset.theme = s.theme || 'dusk';
     const background = mediaUrl('image_dashboard', s);
     app.dataset.customBackground = background ? 'true' : 'false';
@@ -372,7 +396,7 @@
       button.classList.toggle('selected', selected);
       button.setAttribute('aria-pressed', String(selected));
     });
-    if (!settingsDirty) syncSettingsForm();
+    if (!settingsDirty && $('settings-dialog').open) syncSettingsForm();
   }
 
   function duration(ms) {
@@ -503,7 +527,9 @@
 
   function renderHeatmap() {
     const data=state.snapshot||{days:{},today:loadingToday};
-    const key=JSON.stringify([!!state.snapshot,data.days,data.today,data.history_start_year,data.history_loaded_years,state.period,state.year]);
+    // O(1) invalidation instead of serializing 365+ historical day objects.
+    const key=JSON.stringify([heatmapRevision,!!state.snapshot,data.today,
+      state.period,state.year,state.settings.heatmap_day]);
     if(key===heatmapKey)return;
     heatmapKey=key;
     const target = $('heatmap'), today = parseDate(data.today), year = state.year??today.getFullYear();
@@ -644,6 +670,11 @@
 
   function renderLibrary(branch=null) {
     if (!state.snapshot) return;
+    if (!$('library-dialog').open && libraryRenderedOnce) {
+      // Keep the hidden tree intact. Rebuild once when it is next opened.
+      libraryRenderKey = '';
+      return;
+    }
     const treeKey=JSON.stringify([libraryRevision,state.filter,state.color,state.query,state.sort]);
     const renderKey=JSON.stringify([treeKey,state.settings.view,[...state.expanded],[...state.collapsed]]);
     if(renderKey===libraryRenderKey)return;
@@ -694,6 +725,7 @@
       $('deck-section').hidden = false;
       $('deck-list').innerHTML = `<div class="resource-empty">${icon('folder')}<span>Bộ sưu tập chưa có bộ thẻ.</span><button class="subtle-button" data-action="create_deck">Tạo bộ thẻ</button></div>`;
     }
+    libraryRenderedOnce = true;
   }
   function flattenFiltered(nodes) {
     return nodes.flatMap(node=>[node,...flattenFiltered(node.visibleChildren||[])]);
@@ -726,6 +758,7 @@
       historyPending.delete(year);
       state.snapshot.days={...Object.fromEntries(Object.entries(state.snapshot.days).filter(([date])=>!date.startsWith(`${year}-`))),...days};
       state.snapshot.history_loaded_years=[...new Set([...(state.snapshot.history_loaded_years||[]),year])];
+      heatmapRevision++;
       renderHeatmap();return;
     }
     if(event==='history_error'){
@@ -755,6 +788,8 @@
     }
     if (event === 'snapshot') {
       snapshotPending=false;
+      lastSnapshotAt = performance.now();
+      heatmapRevision++;
       state.snapshot = payload;
       state.settings = payload.settings || {};
       if ($('settings-dialog').open && !settingsDirty) settingsDraft = {...state.settings};
@@ -982,6 +1017,13 @@
       pollTimer = setTimeout(pollSnapshot, 300000);
     };
     pollTimer = setTimeout(pollSnapshot, 300000);
-    window.addEventListener('focus', () => command('snapshot'), {passive:true});
+    window.addEventListener('focus', () => {
+      // Qt focus transitions occur when opening native dialogs/windows. Do not
+      // queue another collection scan every time the user switches a tab.
+      const anyDialogOpen = ['library-dialog','settings-dialog','studio-dialog']
+        .some(id => $(id)?.open);
+      if (!anyDialogOpen && !document.hidden && performance.now() - lastSnapshotAt > 90000)
+        command('snapshot');
+    }, {passive:true});
   }
 })();

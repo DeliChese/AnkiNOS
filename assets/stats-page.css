@@ -89,3 +89,17 @@
   #nos-app .stats-native-card .stats-chart .stats-plot-grid { stroke: #dce5f0 !important; }
   #nos-app .stats-native-card .stats-mini-table th, #nos-app .stats-native-card .stats-mini-table td { border-color: #cdd8e5 !important; color: #223754 !important; }
 }
+
+/* Native graph reports can contain hundreds of SVG paths. Only rasterize
+   visible cards; PDF printing forces full materialization below. */
+#nos-app .stats-native-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 270px;
+}
+@media print {
+  #nos-app .stats-native-card,
+  #nos-app .activity-panel {
+    content-visibility: visible !important;
+    contain-intrinsic-size: none !important;
+  }
+}
