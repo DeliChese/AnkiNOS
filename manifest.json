@@ -1,0 +1,9 @@
+{
+  "name": "AnkiNOS — Glass Dashboard",
+  "package": "NOS",
+  "author": "AnkiNOS",
+  "version": "0.1.0",
+  "min_point_version": 250200,
+  "homepage": "",
+  "conflicts": []
+}

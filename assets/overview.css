@@ -1,0 +1,123 @@
+/* The selected-deck view shares the dashboard's glass, wallpaper and icons. */
+#nos-app.nos-overview { display: flex; flex-direction: column; }
+#nos-app .overview-topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-shrink: 0; height: 84px; margin: 0 40px; border-bottom: 1px solid #e8f0ff24; }
+#nos-app .overview-brand { font-size: 23px; font-weight: 650; letter-spacing: -.8px; gap: 11px; border-radius: 10px; }
+#nos-app .overview-brand .icon { width: 28px; height: 28px; fill: #b3d8ff; stroke: #e0eeff; filter: drop-shadow(0 0 9px #67a3ff); }
+#nos-app .overview-brand > span > span { font-weight: 350; }
+#nos-app .overview-top-caption { font-size: 9px; font-weight: 500; letter-spacing: 2.5px; color: #e4edff9c; margin-left: 32px; }
+#nos-app .overview-top-actions { display: flex; align-items: center; gap: 15px; }
+#nos-app .overview-connection { display: flex; align-items: center; gap: 7px; font-size: 10px; color: var(--muted); }
+#nos-app .overview-top-actions .launcher-button { width: 39px; height: 39px; border-radius: 13px; }
+#nos-app .overview-top-actions .nine-dots { font-size: 27px; }
+#nos-app .overview-stage { width: 100%; display: flex; align-items: center; justify-content: center; padding: 30px 44px 52px; flex: 1; }
+#nos-app .overview-layout { width: 100%; max-width: 1130px; display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 20px; }
+#nos-app .overview-breadcrumb { grid-column: 1/-1; display: flex; align-items: center; gap: 13px; color: #e2ebfcbd; font-size: 11px; padding: 0 4px; margin-bottom: 1px; min-width: 0; }
+#nos-app .overview-breadcrumb button { gap: 8px; padding: 5px 0; border-radius: 5px; color: #f2f5ff; }
+#nos-app .overview-breadcrumb > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#nos-app .breadcrumb-divider { color: #d0def77a; }
+#nos-app .overview-hero { padding: 34px 36px 0; background-color: rgba(51,68,106,.52); min-width: 0; overflow: hidden; border-radius: 25px; }
+#nos-app .overview-hero-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+#nos-app .overview-deck-icon { width: 48px; height: 48px; border-radius: 15px; border: 1px solid #cfe4ff50; background: linear-gradient(145deg,#aecfff4d,#88afff0f); display: grid; place-items: center; box-shadow: 0 4px 20px #89b5ff14; }
+#nos-app .overview-deck-icon .icon { width: 28px; height: 28px; color: #e4f0ff; }
+#nos-app .overview-deck-type { font-size: 9px; letter-spacing: 1.5px; color: #e2edffc4; }
+#nos-app .overview-ready { display: flex; align-items: center; gap: 6px; font-size: 9px; color: #c3f6df; background: #73cba816; border: 1px solid #a1efcf3d; padding: 5px 9px; border-radius: 20px; margin-left: auto; white-space: nowrap; }
+#nos-app .overview-ready i { width: 4px; height: 4px; border-radius: 50%; background: #adf1d2; }
+#nos-app .overview-hero h1 { font-size: clamp(26px,2.7vw,36px); font-weight: 550; line-height: 1.25; letter-spacing: -.8px; overflow-wrap: anywhere; margin-bottom: 13px; max-width: 100%; }
+#nos-app .overview-description { color: #d8e3f5; font-size: 12px; line-height: 1.85; white-space: pre-line; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+#nos-app .overview-description.expanded { display: block; }
+#nos-app .overview-description-toggle { gap: 4px; font-size: 10px; color: #b5d7ff; border-radius: 5px; padding: 3px 0; margin-top: 4px; }
+#nos-app .overview-description-toggle[aria-expanded="true"] .icon { transform: rotate(180deg); }
+#nos-app .overview-intro { color: var(--muted); font-size: 12px; line-height: 1.8; }
+#nos-app .overview-counts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 29px 0 31px; }
+#nos-app .overview-count { display: flex; flex-direction: column; align-items: flex-start; padding: 17px 17px 15px; background: linear-gradient(145deg,#d7e5ff12,#d7e5ff03); border: 1px solid #e5efff29; border-radius: 15px; min-width: 0; }
+#nos-app .count-new { --queue-color: #b0d7ff; }
+#nos-app .count-learn { --queue-color: #ffc2d6; }
+#nos-app .count-review { --queue-color: #b3f0d5; }
+#nos-app .count-label { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--queue-color); }
+#nos-app .count-label .icon { width: 15px; height: 15px; }
+#nos-app .overview-count > strong { color: var(--queue-color); font-size: 36px; font-weight: 550; line-height: 1.45; font-variant-numeric: tabular-nums; letter-spacing: -1px; margin-top: 5px; }
+#nos-app .count-caption { font-size: 9px; color: #d5e2f6ad; white-space: nowrap; }
+#nos-app .overview-start-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid #edf3ff29; margin: 0 -36px; padding: 23px 36px; background: #23365313; }
+#nos-app .overview-start-row strong { font-size: 12px; font-weight: 550; }
+#nos-app .overview-start-row p { margin-top: 5px; font-size: 9px; color: #cfdef3a3; }
+#nos-app .overview-view-children { display: flex; gap: 6px; padding: 4px 0; margin-top: 5px; border-radius: 5px; color: #b7d9ff; font-size: 10px; }
+#nos-app .overview-view-children:hover { color: #ebf6ff; text-decoration: underline; }
+#nos-app .overview-start { padding: 13px 17px; border: 1px solid #b4d4ff91; background: linear-gradient(140deg,#82acff,#5289f1); border-radius: 13px; font-size: 13px; color: #fff; box-shadow: inset 0 1px 0 #ffffff42,0 5px 18px #3463c926; font-weight: 550; gap: 9px; }
+#nos-app .overview-start:hover { background: linear-gradient(140deg,#98bcff,#6598f6); box-shadow: 0 5px 22px #4778db36; }
+#nos-app .overview-start .icon { width: 13px; height: 13px; fill: currentColor; stroke: none; }
+#nos-app .start-shortcut { font-size: 8px; margin-left: 6px; color: #f3f7ffc9; padding: 2px 4px; border: 1px solid #edf5ff3b; border-radius: 4px; font-weight: 400; }
+#nos-app .overview-today { border-radius: 25px; padding: 27px 25px 24px; background-color: rgba(45,62,99,.53); display: flex; flex-direction: column; }
+#nos-app .overview-today-heading { display: flex; gap: 9px; align-items: center; }
+#nos-app .overview-today-heading h2 { font-size: 14px; font-weight: 550; }
+#nos-app .overview-today-icon { display: flex; color: #ded8ff; }
+#nos-app .overview-today-icon .icon { width: 18px; height: 18px; }
+#nos-app .overview-today-context { color: #d0dff2b5; font-size: 10px; padding-top: 6px; }
+#nos-app .overview-completed { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 2px; }
+#nos-app .overview-completed > strong { font-size: 52px; letter-spacing: -2px; line-height: 1.1; font-weight: 500; color: #f1f6ff; font-variant-numeric: tabular-nums; }
+#nos-app .overview-completed > span { font-size: 11px; color: var(--muted); }
+#nos-app .overview-today-message { min-height: 36px; font-size: 10px; color: #d9e4f5bd; line-height: 1.7; margin: 12px 0 18px; }
+#nos-app .overview-day-stat { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; font-size: 10px; border-top: 1px solid #dfebff1a; }
+#nos-app .overview-day-stat > span { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+#nos-app .overview-day-stat small { font-size: 8px; opacity: .7; }
+#nos-app .overview-day-stat strong { font-size: 11px; font-weight: 550; color: #c2e6ff; }
+#nos-app .overview-collection-total { border-top: 1px solid #dfebff29; padding-top: 17px; margin-top: 5px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+#nos-app .overview-collection-total strong { font-size: 11px; font-weight: 550; color: #f0f5ff; }
+#nos-app .overview-collection-total small { font-size: 9px; color: #d5e3f5a6; grid-column: 1/-1; }
+#nos-app .overview-quiet-note { margin-top: auto; padding-top: 22px; display: flex; align-items: center; gap: 11px; color: #e0e7f69c; }
+#nos-app .overview-quiet-note > span { font-size: 20px; color: #e0e6ffb3; }
+#nos-app .overview-quiet-note p { font-size: 10px; line-height: 1.8; }
+#nos-app .overview-footer { grid-column: 1/-1; display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: #dce7fac4; gap: 16px; padding: 0 5px; }
+#nos-app .overview-footer > span:first-child { display: flex; gap: 7px; align-items: center; }
+#nos-app .overview-error { margin-bottom: 20px; border-top: 1px solid #ffd0d550; padding-top: 14px; color: #ffd7df; font-size: 12px; }
+#nos-app .overview-error button { margin-top: 10px; }
+#nos-app .overview-menu { position: fixed; right: 38px; top: 73px; z-index: 60; width: 278px; padding: 12px; border-radius: 18px; background-color: rgba(41,58,89,.94); max-height: calc(100vh - 100px); overflow-y: auto; }
+#nos-app .overview-menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 6px 9px; border-bottom: 1px solid #dfebff29; margin-bottom: 5px; }
+#nos-app .overview-menu-heading strong { font-size: 12px; font-weight: 550; }
+#nos-app .overview-menu-items { display: flex; flex-direction: column; gap: 2px; }
+#nos-app .overview-menu-items > button { width: 100%; justify-content: flex-start; padding: 9px 10px; border-radius: 9px; font-size: 11px; gap: 11px; }
+#nos-app .overview-menu-items .icon { color: #cfdef8; width: 17px; height: 17px; }
+#nos-app .overview-menu-items kbd { margin-left: auto; }
+#nos-app .overview-menu-items .overview-delete { color: #ffc2d2; }
+#nos-app .overview-menu-divider { height: 1px; background: #dfebff24; margin: 5px 7px; }
+@media (min-width:1600px) { #nos-app .overview-layout { max-width: 1190px; grid-template-columns: minmax(0,1fr) 315px; gap: 24px; } #nos-app .overview-hero { padding: 40px 44px 0; } #nos-app .overview-start-row { margin: 0 -44px; padding: 27px 44px; } #nos-app .overview-counts { margin-top: 33px; margin-bottom: 38px; } }
+@media (max-width:1000px) { #nos-app .overview-stage { padding: 25px 28px 35px; } #nos-app .overview-layout { grid-template-columns: minmax(0,1fr) 255px; gap: 16px; } #nos-app .overview-hero { padding: 27px 25px 0; } #nos-app .overview-hero h1 { font-size: 29px; } #nos-app .overview-start-row { margin: 0 -25px; padding: 21px 25px; gap: 12px; } #nos-app .overview-counts { gap: 8px; } #nos-app .overview-count { padding: 13px 11px; } #nos-app .count-caption { font-size: 8px; } #nos-app .overview-today { padding: 25px 21px; } #nos-app .overview-top-caption { display: none; } #nos-app .start-shortcut { display: none; } }
+@media (max-width:760px) {
+  #nos-app .overview-topbar { height: 72px; margin: 0 20px; gap: 12px; }
+  #nos-app .overview-top-actions { gap: 9px; }
+  #nos-app .overview-connection { display: none; }
+  #nos-app .overview-brand { font-size: 21px; }
+  #nos-app .overview-stage { padding: 20px 18px 30px; align-items: flex-start; }
+  #nos-app .overview-layout { grid-template-columns: minmax(0,1fr); gap: 15px; max-width: 570px; }
+  #nos-app .overview-hero { padding: 25px 23px 0; border-radius: 21px; }
+  #nos-app .overview-hero-heading { margin-bottom: 22px; gap: 9px; }
+  #nos-app .overview-deck-icon { width: 40px; height: 40px; border-radius: 13px; }
+  #nos-app .overview-deck-icon .icon { width: 24px; height: 24px; }
+  #nos-app .overview-deck-type { font-size: 8px; letter-spacing: .8px; }
+  #nos-app .overview-ready { font-size: 8px; padding: 4px 7px; }
+  #nos-app .overview-hero h1 { font-size: 27px; }
+  #nos-app .overview-description, #nos-app .overview-intro { font-size: 11px; }
+  #nos-app .overview-counts { margin: 24px 0; gap: 8px; }
+  #nos-app .overview-count { padding: 12px 10px; }
+  #nos-app .count-label { font-size: 10px; gap: 5px; }
+  #nos-app .count-label .icon { width: 13px; height: 13px; }
+  #nos-app .overview-count > strong { font-size: 32px; }
+  #nos-app .count-caption { display: none; }
+  #nos-app .overview-start-row { margin: 0 -23px; padding: 20px 23px; }
+  #nos-app .overview-start-row > div { min-width: 0; }
+  #nos-app .overview-start-row strong { font-size: 11px; }
+  #nos-app .overview-start-row p { font-size: 8px; max-width: 155px; }
+  #nos-app .overview-start { padding: 12px 13px; font-size: 12px; }
+  #nos-app .overview-today { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; padding: 23px; border-radius: 21px; }
+  #nos-app .overview-today-heading, #nos-app .overview-today-context { grid-column: 1/-1; }
+  #nos-app .overview-completed { margin-top: 21px; grid-row: 3/5; flex-direction: column; align-items: flex-start; gap: 3px; }
+  #nos-app .overview-completed > strong { font-size: 44px; }
+  #nos-app .overview-today-message { grid-row: 5; grid-column: 1/-1; min-height: 0; margin: 13px 0 18px; }
+  #nos-app .overview-day-stat { grid-column: 2; font-size: 9px; flex-wrap: wrap; gap: 4px; }
+  #nos-app .overview-day-stat strong { font-size: 10px; }
+  #nos-app .overview-day-stat small { display: none; }
+  #nos-app .overview-collection-total { grid-column: 1/-1; margin: 0; }
+  #nos-app .overview-quiet-note { display: none; }
+  #nos-app .overview-footer { font-size: 8px; flex-wrap: wrap; gap: 7px; }
+  #nos-app .overview-menu { right: 18px; top: 65px; max-width: calc(100vw - 36px); }
+}
+@media (max-height:750px) and (min-width:761px) { #nos-app .overview-stage { align-items: flex-start; padding-top: 24px; } #nos-app .overview-hero-heading { margin-bottom: 20px; } #nos-app .overview-counts { margin: 22px 0; } }

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AnkiNOS — Chuẩn bị học</title>
+  <link rel="stylesheet" href="assets/dashboard.css">
+  <link rel="stylesheet" href="assets/overview.css">
+</head>
+<body>
+  <div id="nos-app" class="nos-overview" data-theme="dusk">
+    <div class="wallpaper" aria-hidden="true"></div>
+    <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7Z"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h14"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-8Z"/></symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 7a9 9 0 0 0-15-2L2 8m0-5v5h5m-3 9a9 9 0 0 0 15 2l3-3m0 5v-5h-5"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8Z"/></symbol>
+      <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M9 4v6m6 4v6"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20v-6h3v6Zm7 0V8h3v12Zm7 0V3h3v17Z"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H5a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8Zm0 0v6h6M8 13h8M8 17h5"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.7 14A9 9 0 0 1 10 3.3 9 9 0 1 0 20.7 14Z"/></symbol>
+    </defs></svg>
+
+    <header class="overview-topbar">
+      <button class="overview-brand" data-action="back" aria-label="AnkiNOS — Về danh sách bộ thẻ"><svg class="icon"><use href="#i-spark"/></svg><span>Anki<span>NOS</span></span></button>
+      <span class="overview-top-caption">KHÔNG GIAN HỌC TẬP</span>
+      <div class="overview-top-actions"><span class="overview-connection" id="overview-connection"><span class="status-dot"></span>Bộ sưu tập Anki</span><button class="icon-button" id="overview-fullscreen" data-action="fullscreen" aria-label="Toàn màn hình" aria-pressed="false" title="Toàn màn hình"><svg class="icon"><use href="#i-fullscreen"/></svg></button><button class="launcher-button" id="overview-menu-toggle" data-action="menu" aria-label="Chức năng bộ thẻ" aria-expanded="false" aria-controls="overview-menu" title="Chức năng bộ thẻ"><span class="nine-dots" aria-hidden="true">⠿</span></button></div>
+    </header>
+
+    <main class="overview-stage">
+      <div class="overview-layout">
+        <nav class="overview-breadcrumb" aria-label="Vị trí bộ thẻ"><button data-action="back"><svg class="icon small"><use href="#i-back"/></svg>Tất cả bộ thẻ</button><span class="breadcrumb-divider">/</span><span id="overview-parent">Chuẩn bị học</span></nav>
+
+        <section class="overview-hero glass" aria-labelledby="overview-name">
+          <div class="overview-hero-heading"><span class="overview-deck-icon"><svg class="icon"><use href="#i-layers"/></svg></span><span class="overview-deck-type" id="overview-type">BỘ THẺ CỦA BẠN</span><span class="overview-ready"><i></i>Sẵn sàng học</span></div>
+          <h1 id="overview-name">Đang mở bộ thẻ…</h1>
+          <div class="overview-description-wrap" id="overview-description-wrap" hidden><p id="overview-description" class="overview-description"></p><button class="overview-description-toggle" id="overview-description-toggle" data-action="description_toggle" aria-expanded="false" aria-controls="overview-description" hidden>Xem thêm<svg class="icon small"><use href="#i-down"/></svg></button></div>
+          <p class="overview-intro" id="overview-intro">Một khoảng tập trung cho những điều bạn muốn nhớ.</p>
+
+          <div class="overview-counts" aria-label="Số thẻ sẵn sàng trong phiên học" aria-live="polite">
+            <article class="overview-count count-new"><span class="count-label"><svg class="icon"><use href="#i-plus"/></svg>Thẻ mới</span><strong id="overview-new">—</strong><span class="count-caption">Khám phá điều mới</span></article>
+            <article class="overview-count count-learn"><span class="count-label"><svg class="icon"><use href="#i-bolt"/></svg>Đang học</span><strong id="overview-learn">—</strong><span class="count-caption">Củng cố từng chút</span></article>
+            <article class="overview-count count-review"><span class="count-label"><svg class="icon"><use href="#i-sync"/></svg>Cần ôn</span><strong id="overview-review">—</strong><span class="count-caption">Giữ kiến thức lâu hơn</span></article>
+          </div>
+
+          <div class="overview-start-row"><div><strong id="overview-available">Đang đọc lịch học…</strong><button class="overview-view-children" id="overview-children-button" data-action="show_children" hidden>Xem deck con <svg class="icon small"><use href="#i-layers"/></svg></button><p>Số thẻ theo giới hạn học hôm nay.</p></div><button class="overview-start" id="study" data-action="start" disabled><svg class="icon"><use href="#i-play"/></svg>Học ngay<span class="start-shortcut">Enter</span></button></div>
+          <div class="overview-error" id="overview-error" role="alert" hidden><p id="overview-error-copy"></p><button class="subtle-button" data-action="snapshot">Thử lại</button></div>
+        </section>
+
+        <aside class="overview-today glass" aria-labelledby="overview-today-title"><div class="overview-today-heading"><span class="overview-today-icon"><svg class="icon"><use href="#i-spark"/></svg></span><h2 id="overview-today-title">Hôm nay của bạn</h2></div><p class="overview-today-context">Trong bộ thẻ này</p><div class="overview-completed"><strong id="overview-today-reviews">—</strong><span>lượt đã ôn</span></div><p class="overview-today-message" id="overview-today-message">Dành một chút thời gian cho trí nhớ.</p><div class="overview-day-stat"><span><svg class="icon small"><use href="#i-clock"/></svg>Thời gian học</span><strong id="overview-today-time">—</strong></div><div class="overview-day-stat"><span><svg class="icon small"><use href="#i-target"/></svg>Ghi nhớ <small>30 ngày</small></span><strong id="overview-retention">—</strong></div><div class="overview-collection-total"><span>Tổng trong bộ thẻ</span><strong id="overview-total">— thẻ</strong><small id="overview-children"></small></div><div class="overview-quiet-note"><span>✦</span><p>Mỗi lần ôn tập,<br>thêm một điều ở lại.</p></div></aside>
+
+        <footer class="overview-footer"><span><span class="status-dot"></span><span id="overview-footnote">Dữ liệu từ bộ sưu tập Anki của bạn</span></span><span>AnkiNOS <span class="footer-dot">·</span> Học theo nhịp của bạn.</span></footer>
+      </div>
+    </main>
+
+    <section class="overview-menu glass" id="overview-menu" aria-label="Chức năng bộ thẻ" hidden><div class="overview-menu-heading"><strong>Không gian bộ thẻ</strong><button class="icon-button small-button" data-action="menu" aria-label="Đóng menu"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="overview-menu-items"><button data-action="native" data-command="opts"><svg class="icon"><use href="#i-settings"/></svg>Tùy chọn bộ thẻ<kbd>O</kbd></button><button data-action="native" data-command="studymore" id="overview-custom-study"><svg class="icon"><use href="#i-bolt"/></svg>Học tùy biến<kbd>C</kbd></button><button data-action="native" data-command="description" id="overview-edit-description"><svg class="icon"><use href="#i-file"/></svg>Chỉnh sửa mô tả</button><button data-action="browse"><svg class="icon"><use href="#i-search"/></svg>Duyệt thẻ</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ</button><button data-action="stats"><svg class="icon"><use href="#i-chart"/></svg>Thống kê Anki</button><div class="overview-menu-divider"></div><button data-action="delete_deck" class="overview-delete">X&#243;a b&#7897; th&#7867;...</button><button data-action="native" data-command="refresh" id="overview-rebuild" hidden><svg class="icon"><use href="#i-sync"/></svg>Tạo lại bộ lọc<kbd>R</kbd></button><button data-action="native" data-command="empty" id="overview-empty-filtered" hidden><svg class="icon"><use href="#i-layers"/></svg>Làm trống bộ lọc<kbd>E</kbd></button><button data-action="native" data-command="unbury" id="overview-unbury" hidden><svg class="icon"><use href="#i-layers"/></svg>Bỏ chôn thẻ<kbd>U</kbd></button><button data-action="theme"><svg class="icon"><use href="#i-moon"/></svg><span id="overview-theme-label">Chuyển sang kính tối</span></button><button data-action="sync"><svg class="icon"><use href="#i-sync"/></svg>Đồng bộ AnkiWeb</button></div></section>
+    <div class="toast" id="overview-toast" role="status" aria-live="polite" hidden></div>
+  </div>
+  <script src="assets/overview.js"></script>
+</body>
+</html>

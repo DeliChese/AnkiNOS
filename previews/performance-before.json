@@ -1,0 +1,12 @@
+{
+  "decks": 12300,
+  "initial_js_ms": 95,
+  "settings_js_ms": 63,
+  "unchanged_rows_retained": false,
+  "unchanged_chart_retained": false,
+  "first_popup_frame_ms": 389,
+  "reopen_median_ms": 191,
+  "expand_frame_ms": 320,
+  "sibling_retained": false,
+  "child_buttons": 40
+}

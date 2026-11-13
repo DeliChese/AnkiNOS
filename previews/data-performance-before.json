@@ -1,0 +1,8 @@
+{
+  "cards": 20000,
+  "revlog_rows": 600000,
+  "cold_ms": 202.8,
+  "unchanged_refresh_ms": 0.0,
+  "after_review_ms": 230.3,
+  "history_days": 730
+}

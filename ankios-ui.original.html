@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AnkiOS – Hệ điều hành cho việc ghi nhớ</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    :root {
+      --glass-bg: rgba(15, 23, 42, 0.72);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-highlight: rgba(255, 255, 255, 0.04);
+      --accent-blue: #3b82f6;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #a855f7;
+      --accent-pink: #ec4899;
+      --accent-cyan: #06b6d4;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --surface-1: rgba(30, 41, 59, 0.85);
+      --surface-2: rgba(51, 65, 85, 0.6);
+      --surface-3: rgba(71, 85, 105, 0.4);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Background */
+    .bg-scene {
+      position: fixed;
+      inset: 0;
+      background: 
+        linear-gradient(180deg, 
+          rgba(15, 23, 42, 0.3) 0%,
+          rgba(30, 20, 50, 0.2) 20%,
+          rgba(120, 60, 30, 0.15) 40%,
+          rgba(200, 100, 50, 0.1) 55%,
+          rgba(30, 60, 90, 0.3) 70%,
+          rgba(15, 23, 42, 0.6) 100%
+        ),
+        linear-gradient(135deg, #1e1b4b 0%, #312e81 25%, #7c3aed 40%, #f97316 55%, #0ea5e9 70%, #064e3b 100%);
+      z-index: 0;
+    }
+
+    .bg-scene::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse 800px 400px at 50% 55%, rgba(251, 146, 60, 0.15), transparent),
+        radial-gradient(ellipse 600px 300px at 30% 60%, rgba(147, 51, 234, 0.1), transparent),
+        radial-gradient(ellipse 600px 300px at 70% 50%, rgba(14, 165, 233, 0.08), transparent);
+    }
+
+    .bg-scene::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 40%;
+      background: linear-gradient(to top, rgba(15, 23, 42, 0.8), transparent);
+    }
+
+    /* Mountains silhouette */
+    .mountains {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 45%;
+      z-index: 1;
+    }
+    .mountains svg { width: 100%; height: 100%; }
+
+    /* Stars */
+    .stars {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 3s ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      0% { opacity: 0.2; }
+      100% { opacity: 0.8; }
+    }
+
+    /* Glass card */
+    .glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid var(--glass-border);
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .glass-light {
+      background: rgba(30, 41, 59, 0.5);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .glass-darker {
+      background: rgba(10, 18, 35, 0.8);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Stat card glow */
+    .stat-card {
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      border-radius: 999px;
+    }
+    .stat-card.blue::before { background: linear-gradient(90deg, transparent, var(--accent-blue), transparent); }
+    .stat-card.green::before { background: linear-gradient(90deg, transparent, var(--accent-green), transparent); }
+    .stat-card.amber::before { background: linear-gradient(90deg, transparent, var(--accent-amber), transparent); }
+    .stat-card.purple::before { background: linear-gradient(90deg, transparent, var(--accent-purple), transparent); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+    /* Heatmap cell */
+    .heat-0 { background: rgba(255,255,255,0.04); }
+    .heat-1 { background: rgba(59, 130, 246, 0.25); }
+    .heat-2 { background: rgba(59, 130, 246, 0.45); }
+    .heat-3 { background: rgba(59, 130, 246, 0.65); }
+    .heat-4 { background: rgba(59, 130, 246, 0.85); }
+    .heat-5 { background: #3b82f6; }
+
+    /* 9-dot menu */
+    .dot-menu-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 8px);
+      gap: 5px;
+      place-content: center;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .dot-menu-btn:hover { transform: scale(1.08); }
+    .dot-menu-btn .dot {
+      width: 8px;
+      height: 8px;
+      background: rgba(255,255,255,0.7);
+      border-radius: 50%;
+      transition: all 0.2s;
+    }
+    .dot-menu-btn:hover .dot { background: white; }
+
+    /* Menu grid animation */
+    .menu-grid {
+      transform-origin: bottom left;
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .menu-grid.hidden {
+      opacity: 0;
+      transform: scale(0.9) translateY(10px);
+      pointer-events: none;
+    }
+    .menu-grid.visible {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: auto;
+    }
+
+    /* Overlay */
+    .overlay-backdrop {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .overlay-backdrop.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .overlay-backdrop.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .overlay-content {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .overlay-backdrop.hidden .overlay-content {
+      transform: scale(0.95) translateY(20px);
+      opacity: 0;
+    }
+    .overlay-backdrop.visible .overlay-content {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+
+    /* Deck folder icon */
+    .folder-icon {
+      width: 44px;
+      height: 36px;
+      border-radius: 4px 10px 8px 8px;
+      position: relative;
+    }
+    .folder-icon::before {
+      content: '';
+      position: absolute;
+      top: -6px;
+      left: 0;
+      width: 18px;
+      height: 8px;
+      border-radius: 4px 4px 0 0;
+      background: inherit;
+      filter: brightness(0.85);
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .progress-bar .fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 1s ease;
+    }
+
+    /* Tooltip */
+    .tooltip { position: relative; }
+    .tooltip::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) scale(0.9);
+      padding: 4px 10px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.2s;
+    }
+    .tooltip:hover::after {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+
+    /* Button styles */
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary:hover { 
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.06);
+      color: var(--text-primary);
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    /* Tag/badge */
+    .tag {
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    /* Sidebar icon buttons */
+    .sidebar-icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-secondary);
+    }
+    .sidebar-icon-btn:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-primary);
+    }
+    .sidebar-icon-btn.active {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent-blue);
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); }
+      50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+    }
+
+    .animate-in { animation: fadeInUp 0.6s ease both; }
+    .animate-in-delay-1 { animation: fadeInUp 0.6s ease 0.1s both; }
+    .animate-in-delay-2 { animation: fadeInUp 0.6s ease 0.2s both; }
+    .animate-in-delay-3 { animation: fadeInUp 0.6s ease 0.3s both; }
+
+    /* Deck row hover */
+    .deck-row {
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .deck-row:hover {
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* Resource card */
+    .resource-card {
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .resource-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+
+    /* Right sidebar mini icons */
+    .right-mini-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
+
+    /* Category dot */
+    .cat-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Responsive layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      grid-template-rows: auto auto 1fr;
+      gap: 16px;
+      height: 100vh;
+      padding: 16px;
+      padding-right: 64px;
+    }
+
+    /* Right mini nav */
+    .right-nav {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 52px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      gap: 4px;
+      z-index: 50;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(16px);
+      border-left: 1px solid rgba(255,255,255,0.04);
+    }
+
+    /* Study button pulse */
+    .study-btn {
+      animation: pulse-glow 2s infinite;
+    }
+    .study-btn:hover {
+      animation: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Background Scene -->
+  <div class="bg-scene"></div>
+  <div class="mountains">
+    <svg viewBox="0 0 1440 400" preserveAspectRatio="none">
+      <path d="M0,400 L0,280 Q60,240 120,260 Q180,200 240,220 Q320,160 400,200 Q460,170 520,190 Q580,140 640,170 Q700,120 760,150 Q820,100 880,140 Q940,90 1000,130 Q1060,100 1120,150 Q1180,120 1240,160 Q1300,140 1360,180 Q1400,200 1440,210 L1440,400 Z" 
+            fill="rgba(15, 25, 50, 0.9)"/>
+      <path d="M0,400 L0,320 Q80,280 160,300 Q240,260 320,280 Q400,240 480,270 Q560,230 640,260 Q720,220 800,250 Q880,210 960,240 Q1040,220 1120,250 Q1200,230 1280,260 Q1360,250 1440,270 L1440,400 Z" 
+            fill="rgba(10, 18, 40, 0.95)"/>
+      <path d="M0,400 L0,350 Q120,330 240,340 Q360,320 480,335 Q600,315 720,330 Q840,320 960,335 Q1080,325 1200,340 Q1320,330 1440,345 L1440,400 Z" 
+            fill="rgba(8, 14, 32, 1)"/>
+    </svg>
+  </div>
+
+  <!-- Stars -->
+  <div class="stars" id="stars"></div>
+
+  <!-- ==================== MAIN LAYOUT ==================== -->
+  <div class="relative z-10 h-screen flex flex-col" style="padding: 16px 64px 16px 16px;">
+    
+    <!-- TOP BAR -->
+    <div class="flex items-start justify-between mb-4 animate-in" style="min-height: fit-content;">
+      
+      <!-- Left: Logo + Welcome -->
+      <div class="flex items-start gap-6">
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #f59e0b, #f97316);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-lg font-bold tracking-tight">AnkiOS</span>
+              <span class="text-xs" style="color: var(--text-muted);">|</span>
+              <span class="text-xs" style="color: var(--text-muted);">Hệ điều hành cho việc ghi nhớ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Welcome -->
+        <div class="ml-2">
+          <p class="text-sm" style="color: var(--text-secondary);">Chào mừng trở lại,</p>
+          <h1 class="text-2xl font-bold">Minh Quân! 👋</h1>
+          <p class="text-xs mt-1" style="color: var(--text-muted);">Sẵn sàng học hôm nay chứ?</p>
+        </div>
+      </div>
+
+      <!-- Middle: Stat Cards -->
+      <div class="flex gap-3 animate-in-delay-1">
+        <!-- Retention -->
+        <div class="glass stat-card blue rounded-xl px-4 py-3" style="min-width: 140px;">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="text-xs font-medium" style="color: var(--text-secondary);">Retention</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </div>
+          <div class="text-2xl font-bold">92,4%</div>
+          <div class="flex items-center gap-1 mt-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            <span class="text-xs font-medium" style="color: #22c55e;">+2,7%</span>
+          </div>
+        </div>
+
+        <!-- Pace -->
+        <div class="glass stat-card green rounded-xl px-4 py-3" style="min-width: 140px;">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="text-xs font-medium" style="color: var(--text-secondary);">Pace</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </div>
+          <div class="text-2xl font-bold">186 <span class="text-sm font-normal" style="color: var(--text-secondary);">thẻ/ngày</span></div>
+          <div class="flex items-center gap-1 mt-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg>
+            <span class="text-xs font-medium" style="color: #22c55e;">+14,3%</span>
+          </div>
+        </div>
+
+        <!-- Time -->
+        <div class="glass stat-card amber rounded-xl px-4 py-3" style="min-width: 140px;">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="text-xs font-medium" style="color: var(--text-secondary);">Time</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </div>
+          <div class="text-2xl font-bold">1 giờ 42 <span class="text-sm font-normal" style="color: var(--text-secondary);">phút</span></div>
+          <div class="flex items-center gap-1 mt-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg>
+            <span class="text-xs font-medium" style="color: #22c55e;">+18,7%</span>
+          </div>
+        </div>
+
+        <!-- Studied -->
+        <div class="glass stat-card purple rounded-xl px-4 py-3" style="min-width: 140px;">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="text-xs font-medium" style="color: var(--text-secondary);">Studied</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </div>
+          <div class="text-2xl font-bold">9.284 <span class="text-sm font-normal" style="color: var(--text-secondary);">thẻ</span></div>
+          <div class="flex items-center gap-1 mt-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg>
+            <span class="text-xs font-medium" style="color: #22c55e;">+1.127</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: User Profile Card -->
+      <div class="glass rounded-2xl p-4 animate-in-delay-2" style="width: 260px;">
+        <div class="flex items-start gap-3 mb-3">
+          <!-- Avatar -->
+          <div class="relative">
+            <div class="w-12 h-12 rounded-xl overflow-hidden" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+              <div class="w-full h-full flex items-center justify-center text-xl">🧑‍💻</div>
+            </div>
+            <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-green-500 border-2" style="border-color: var(--glass-bg);"></div>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-sm">Minh Quân</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted); cursor: pointer;"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="tag" style="background: rgba(59,130,246,0.15); color: #60a5fa;">Cấp 24</span>
+              <span class="text-xs" style="color: var(--text-muted);">Người học chăm chỉ</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="space-y-2 text-xs" style="color: var(--text-secondary);">
+          <div class="flex items-center gap-2">
+            <span>🔥</span>
+            <span>Chuỗi học: <strong class="text-white">27 ngày liên tiếp</strong></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span>📚</span>
+            <span>Đã học: <strong class="text-white">9.284 thẻ</strong></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span>📊</span>
+            <span>Retention: <strong class="text-white">92,4%</strong></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span>🎯</span>
+            <span>Mục tiêu ngày: <strong class="text-white">200 thẻ</strong> <span style="color: var(--text-muted);">(186/200)</span></span>
+          </div>
+          <div class="progress-bar mt-1">
+            <div class="fill" style="width: 93%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-3 pt-3" style="border-top: 1px solid rgba(255,255,255,0.06);">
+          <button class="btn-ghost text-xs" onclick="alert('Theme toggle')">
+            <span>🌙</span> Giao diện (Theme)
+          </button>
+          <button class="text-xs font-medium" style="color: #f87171; background: none; border: none; cursor: pointer;">Đăng xuất</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex gap-4 flex-1 min-h-0">
+      
+      <!-- LEFT: Activity + Compact Deck View -->
+      <div class="flex-1 flex flex-col gap-4 min-h-0">
+        
+        <!-- ACTIVITY HEATMAP -->
+        <div class="glass rounded-2xl p-5 animate-in-delay-1">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <h2 class="text-base font-bold tracking-tight">HOẠT ĐỘNG</h2>
+              <div class="flex items-center gap-2 tag" style="background: rgba(34,197,94,0.12); color: #4ade80;">
+                <span>🔥</span>
+                <span class="text-xs font-semibold">27 ngày liên tiếp</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="btn-ghost text-xs" style="padding: 4px 8px;">◀</button>
+              <span class="text-sm font-semibold">2026</span>
+              <button class="btn-ghost text-xs" style="padding: 4px 8px;">▶</button>
+              <div class="flex ml-2" style="border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; overflow: hidden;">
+                <button class="text-xs px-3 py-1 font-medium" style="background: rgba(59,130,246,0.15); color: #60a5fa;">Năm</button>
+                <button class="text-xs px-3 py-1" style="color: var(--text-muted); background: transparent; border: none; cursor: pointer;">Tháng</button>
+                <button class="text-xs px-3 py-1" style="color: var(--text-muted); background: transparent; border: none; cursor: pointer;">Tuần</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Heatmap -->
+          <div class="overflow-x-auto">
+            <div class="flex gap-4 text-xs mb-2" style="color: var(--text-muted); padding-left: 28px;">
+              <span style="width: 70px;">Tháng 1</span>
+              <span style="width: 70px;">Tháng 2</span>
+              <span style="width: 70px;">Tháng 3</span>
+              <span style="width: 70px;">Tháng 4</span>
+              <span style="width: 70px;">Tháng 5</span>
+              <span style="width: 70px;">Tháng 6</span>
+              <span style="width: 70px;">Tháng 7</span>
+              <span style="width: 70px;">Tháng 8</span>
+              <span style="width: 70px;">Tháng 9</span>
+              <span style="width: 70px;">Tháng 10</span>
+              <span style="width: 70px;">Tháng 11</span>
+              <span style="width: 70px;">Tháng 12</span>
+            </div>
+            <div id="heatmap" class="flex flex-col gap-0.5" style="padding-left: 28px;"></div>
+            <div class="flex gap-1 text-xs mt-2 items-center" style="color: var(--text-muted); justify-content: flex-end;">
+              <span>Ít</span>
+              <div class="heat-0 rounded-sm" style="width:10px;height:10px;"></div>
+              <div class="heat-1 rounded-sm" style="width:10px;height:10px;"></div>
+              <div class="heat-2 rounded-sm" style="width:10px;height:10px;"></div>
+              <div class="heat-3 rounded-sm" style="width:10px;height:10px;"></div>
+              <div class="heat-4 rounded-sm" style="width:10px;height:10px;"></div>
+              <div class="heat-5 rounded-sm" style="width:10px;height:10px;"></div>
+              <span>Nhiều</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMPACT DECK PREVIEW (clickable to open overlay) -->
+        <div class="glass rounded-2xl p-5 flex-1 min-h-0 flex flex-col animate-in-delay-2 cursor-pointer" onclick="openOverlay()">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(139, 92, 246, 0.15);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </div>
+              <div>
+                <h2 class="text-base font-bold">Hộp thẻ & Tài nguyên học</h2>
+                <p class="text-xs" style="color: var(--text-muted);">Quản lý deck, subdeck hoặc tài nguyên học tập của bạn.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs" style="color: var(--text-muted);">Nhấn để mở</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </div>
+          </div>
+
+          <!-- Quick deck list -->
+          <div class="flex-1 min-h-0 overflow-auto space-y-1">
+            <!-- Tiếng Anh -->
+            <div class="deck-row flex items-center justify-between px-3 py-2 rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="folder-icon" style="background: #3b82f6;"></div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold">Tiếng Anh</span>
+                    <span class="tag" style="background: rgba(59,130,246,0.15); color: #60a5fa; font-size: 10px;">Ngoại ngữ</span>
+                    <span style="color: #f59e0b; font-size: 14px;">⭐</span>
+                  </div>
+                  <span class="text-xs" style="color: var(--text-muted);">3 subdeck · 4.872 thẻ</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class="text-xs" style="color: var(--text-secondary);">4.872 thẻ</span>
+                <span class="text-xs font-medium" style="color: #22c55e;">92,8%</span>
+                <button class="btn-primary text-xs" style="padding: 4px 12px;" onclick="event.stopPropagation();">▶ Học</button>
+              </div>
+            </div>
+
+            <!-- Tiếng Nhật -->
+            <div class="deck-row flex items-center justify-between px-3 py-2 rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="folder-icon" style="background: #ef4444;"></div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold">Tiếng Nhật</span>
+                    <span class="tag" style="background: rgba(59,130,246,0.15); color: #60a5fa; font-size: 10px;">Ngoại ngữ</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class="text-xs" style="color: var(--text-secondary);">1.986 thẻ</span>
+                <span class="text-xs font-medium" style="color: #22c55e;">91,7%</span>
+                <button class="btn-primary text-xs" style="padding: 4px 12px;" onclick="event.stopPropagation();">▶ Học</button>
+              </div>
+            </div>
+
+            <!-- Y học cơ sở -->
+            <div class="deck-row flex items-center justify-between px-3 py-2 rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="folder-icon" style="background: #22c55e;"></div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold">Y học cơ sở</span>
+                    <span class="tag" style="background: rgba(34,197,94,0.15); color: #4ade80; font-size: 10px;">Học tập</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class="text-xs" style="color: var(--text-secondary);">1.204 thẻ</span>
+                <span class="text-xs font-medium" style="color: #22c55e;">94,6%</span>
+                <button class="btn-primary text-xs" style="padding: 4px 12px;" onclick="event.stopPropagation();">▶ Học</button>
+              </div>
+            </div>
+
+            <!-- Lịch sử Việt Nam -->
+            <div class="deck-row flex items-center justify-between px-3 py-2 rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="folder-icon" style="background: #f59e0b;"></div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold">Lịch sử Việt Nam</span>
+                    <span class="tag" style="background: rgba(245,158,11,0.15); color: #fbbf24; font-size: 10px;">Kỳ thi</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class="text-xs" style="color: var(--text-secondary);">642 thẻ</span>
+                <span class="text-xs font-medium" style="color: #f59e0b;">90,1%</span>
+                <button class="btn-primary text-xs" style="padding: 4px 12px;" onclick="event.stopPropagation();">▶ Học</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick stats footer -->
+          <div class="flex items-center gap-4 mt-3 pt-3" style="border-top: 1px solid rgba(255,255,255,0.06);">
+            <span class="text-xs" style="color: var(--text-muted);">📁 17 Decks</span>
+            <span class="text-xs" style="color: var(--text-muted);">📄 7 Tài nguyên</span>
+            <span class="text-xs" style="color: var(--text-muted);">⭐ 5 Đã gắn sao</span>
+            <div class="flex-1"></div>
+            <span class="text-xs font-medium" style="color: var(--accent-blue);">Xem tất cả →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 9-DOT MENU (Bottom Left) ==================== -->
+  <div class="fixed bottom-5 left-5 z-50">
+    <!-- Menu Grid -->
+    <div id="menuGrid" class="menu-grid hidden mb-3">
+      <div class="glass rounded-2xl p-4" style="width: 280px;">
+        <div class="grid grid-cols-3 gap-2">
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all" onclick="openOverlay()">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(139, 92, 246, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Hộp thẻ</span>
+          </button>
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(59, 130, 246, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Tạo thẻ</span>
+          </button>
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(34, 197, 94, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Nhập</span>
+          </button>
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(245, 158, 11, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Xuất</span>
+          </button>
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(236, 72, 153, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Tìm kiếm</span>
+          </button>
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(6, 182, 212, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Thống kê</span>
+          </button>
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(168, 85, 247, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Cài đặt</span>
+          </button>
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(239, 68, 68, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Tài liệu</span>
+          </button>
+          <button class="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-all">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(99, 102, 241, 0.15);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="12" r="10"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <span class="text-xs" style="color: var(--text-secondary);">Trợ giúp</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9-Dot Button -->
+    <div class="dot-menu-btn glass" onclick="toggleMenu()" id="dotMenuBtn">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+  </div>
+
+  <!-- ==================== RIGHT MINI SIDEBAR ==================== -->
+  <div class="right-nav">
+    <!-- Study button in avatar area -->
+    <div class="mb-4">
+      <div class="w-10 h-10 rounded-xl overflow-hidden cursor-pointer" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);" onclick="alert('Profile')">
+        <div class="w-full h-full flex items-center justify-center text-lg">🧑‍💻</div>
+      </div>
+    </div>
+
+    <!-- Study Button -->
+    <button class="study-btn w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer mb-3" 
+            style="background: linear-gradient(135deg, #3b82f6, #2563eb);"
+            onclick="alert('Bắt đầu học!')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    </button>
+
+    <div style="width: 28px; height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0;"></div>
+
+    <!-- Nav Icons -->
+    <button class="sidebar-icon-btn active tooltip" data-tip="Dashboard">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    </button>
+    <button class="sidebar-icon-btn tooltip" data-tip="Hộp thẻ" onclick="openOverlay()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    </button>
+    <button class="sidebar-icon-btn tooltip" data-tip="Thống kê">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    </button>
+    <button class="sidebar-icon-btn tooltip" data-tip="Tạo thẻ">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <button class="sidebar-icon-btn tooltip" data-tip="Tìm kiếm">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+
+    <div class="flex-1"></div>
+
+    <button class="sidebar-icon-btn tooltip" data-tip="Cài đặt">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    </button>
+  </div>
+
+  <!-- ==================== CARD BOX OVERLAY ==================== -->
+  <div id="overlayBackdrop" class="overlay-backdrop hidden fixed inset-0 z-40" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);" onclick="closeOverlay(event)">
+    <div class="overlay-content absolute inset-6 flex" style="right: 64px;" onclick="event.stopPropagation()">
+      <div class="glass-darker rounded-2xl flex overflow-hidden w-full">
+        
+        <!-- LEFT SIDEBAR -->
+        <div class="flex flex-col" style="width: 220px; border-right: 1px solid rgba(255,255,255,0.06); background: rgba(15, 23, 42, 0.5);">
+          <!-- Overlay Header -->
+          <div class="p-5 pb-4">
+            <div class="flex items-center gap-3 mb-1">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(139, 92, 246, 0.2);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </div>
+              <div>
+                <h2 class="text-base font-bold">Hộp thẻ & Tài nguyên học</h2>
+              </div>
+            </div>
+            <p class="text-xs" style="color: var(--text-muted);">Quản lý toàn bộ bộ thẻ, deck con và tài nguyên học tập của bạn.</p>
+          </div>
+
+          <!-- Filter Categories -->
+          <div class="px-3 space-y-0.5 flex-1">
+            <button class="overlay-nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium" style="background: rgba(59,130,246,0.12); color: #60a5fa;" onclick="filterCategory('all', this)">
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <span>Tất cả</span>
+              </div>
+              <span class="tag" style="background: rgba(255,255,255,0.08); color: var(--text-secondary); font-size: 11px;">28</span>
+            </button>
+            <button class="overlay-nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-all" style="color: var(--text-secondary);" onclick="filterCategory('decks', this)">
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span>Bộ thẻ (Decks)</span>
+              </div>
+              <span class="text-xs" style="color: var(--text-muted);">17</span>
+            </button>
+            <button class="overlay-nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-all" style="color: var(--text-secondary);" onclick="filterCategory('resources', this)">
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>Tài nguyên</span>
+              </div>
+              <span class="text-xs" style="color: var(--text-muted);">7</span>
+            </button>
+            <button class="overlay-nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-all" style="color: var(--text-secondary);" onclick="filterCategory('starred', this)">
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span>Đã gắn sao</span>
+              </div>
+              <span class="text-xs" style="color: var(--text-muted);">5</span>
+            </button>
+            <button class="overlay-nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-all" style="color: var(--text-secondary);" onclick="filterCategory('recent', this)">
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Gần đây</span>
+              </div>
+            </button>
+
+            <!-- Divider -->
+            <div style="height: 1px; background: rgba(255,255,255,0.06); margin: 12px 0 !important;"></div>
+
+            <!-- Color Labels -->
+            <div class="px-1">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold" style="color: var(--text-muted);">Nhãn (Màu)</span>
+                <button style="color: var(--text-muted); background: none; border: none; cursor: pointer; font-size: 16px;">+</button>
+              </div>
+              <div class="space-y-1">
+                <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer transition-all">
+                  <div class="flex items-center gap-2">
+                    <div class="cat-dot" style="background: #f87171;"></div>
+                    <span class="text-xs" style="color: var(--text-secondary);">Từ vựng</span>
+                  </div>
+                  <span class="text-xs" style="color: var(--text-muted);">8</span>
+                </div>
+                <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer transition-all">
+                  <div class="flex items-center gap-2">
+                    <div class="cat-dot" style="background: #60a5fa;"></div>
+                    <span class="text-xs" style="color: var(--text-secondary);">Ngữ pháp</span>
+                  </div>
+                  <span class="text-xs" style="color: var(--text-muted);">4</span>
+                </div>
+                <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer transition-all">
+                  <div class="flex items-center gap-2">
+                    <div class="cat-dot" style="background: #4ade80;"></div>
+                    <span class="text-xs" style="color: var(--text-secondary);">Reading</span>
+                  </div>
+                  <span class="text-xs" style="color: var(--text-muted);">3</span>
+                </div>
+                <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer transition-all">
+                  <div class="flex items-center gap-2">
+                    <div class="cat-dot" style="background: #c084fc;"></div>
+                    <span class="text-xs" style="color: var(--text-secondary);">Listening</span>
+                  </div>
+                  <span class="text-xs" style="color: var(--text-muted);">2</span>
+                </div>
+                <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer transition-all">
+                  <div class="flex items-center gap-2">
+                    <div class="cat-dot" style="background: #fbbf24;"></div>
+                    <span class="text-xs" style="color: var(--text-secondary);">IELTS</span>
+                  </div>
+                  <span class="text-xs" style="color: var(--text-muted);">5</span>
+                </div>
+                <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer transition-all">
+                  <div class="flex items-center gap-2">
+                    <div class="cat-dot" style="background: #94a3b8;"></div>
+                    <span class="text-xs" style="color: var(--text-secondary);">Khác</span>
+                  </div>
+                  <span class="text-xs" style="color: var(--text-muted);">6</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="flex-1 flex flex-col min-h-0">
+          <!-- Top toolbar -->
+          <div class="flex items-center justify-between p-4 pb-3" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <div class="flex items-center gap-2">
+              <!-- Search -->
+              <div class="flex items-center gap-2 px-3 py-2 rounded-lg" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); min-width: 240px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" placeholder="Tìm thẻ, deck, tài nguyên..." style="background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 13px; width: 100%;" />
+                <kbd class="text-xs px-1.5 py-0.5 rounded" style="background: rgba(255,255,255,0.06); color: var(--text-muted);">Ctrl+K</kbd>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="btn-primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Thêm ▾
+              </button>
+              <button class="btn-ghost">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Nhập (Import)
+              </button>
+              <button class="btn-ghost">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                Xuất (Export)
+              </button>
+              <button class="btn-ghost">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Quản lý tài nguyên
+              </button>
+
+              <div class="ml-2" style="width: 1px; height: 20px; background: rgba(255,255,255,0.08);"></div>
+
+              <!-- View toggles -->
+              <div class="flex" style="border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; overflow: hidden;">
+                <button class="p-1.5" style="background: rgba(59,130,246,0.15);" title="Grid view">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                </button>
+                <button class="p-1.5" style="background: transparent;" title="List view">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                </button>
+              </div>
+
+              <!-- Sort -->
+              <select style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: var(--text-secondary); font-size: 12px; padding: 4px 8px; outline: none;">
+                <option>Cập nhật gần nhất</option>
+                <option>Tên A-Z</option>
+                <option>Số thẻ</option>
+                <option>Retention</option>
+              </select>
+
+              <!-- Close -->
+              <button class="sidebar-icon-btn ml-2" onclick="closeOverlay()" style="color: var(--text-muted);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Recent resources ribbon -->
+          <div class="px-4 py-3" style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+            <div class="flex gap-3 overflow-x-auto pb-1">
+              <div class="resource-card glass-light rounded-xl p-3 flex items-center gap-3" style="min-width: 200px;">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: rgba(239,68,68,0.15);">
+                  <span class="text-lg">📄</span>
+                </div>
+                <div>
+                  <div class="text-xs font-medium truncate" style="max-width: 120px;">IELTS Writing Band 8+</div>
+                  <div class="text-xs" style="color: var(--text-muted);">PDF · 12,4 MB</div>
+                </div>
+              </div>
+              <div class="resource-card glass-light rounded-xl p-3 flex items-center gap-3" style="min-width: 200px;">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: rgba(59,130,246,0.15);">
+                  <span class="text-lg">📊</span>
+                </div>
+                <div>
+                  <div class="text-xs font-medium truncate" style="max-width: 120px;">Vocabulary Source.xlsx</div>
+                  <div class="text-xs" style="color: var(--text-muted);">XLSX · 2,8 MB</div>
+                </div>
+              </div>
+              <div class="resource-card glass-light rounded-xl p-3 flex items-center gap-3" style="min-width: 200px;">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: rgba(34,197,94,0.15);">
+                  <span class="text-lg">📕</span>
+                </div>
+                <div>
+                  <div class="text-xs font-medium truncate" style="max-width: 120px;">Ngữ pháp Tiếng Anh</div>
+                  <div class="text-xs" style="color: var(--text-muted);">EPUB · 5,1 MB</div>
+                </div>
+              </div>
+              <div class="resource-card glass-light rounded-xl p-3 flex items-center gap-3" style="min-width: 200px;">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: rgba(168,85,247,0.15);">
+                  <span class="text-lg">🎧</span>
+                </div>
+                <div>
+                  <div class="text-xs font-medium truncate" style="max-width: 120px;">Listening Practice</div>
+                  <div class="text-xs" style="color: var(--text-muted);">MP4 · 320 MB</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scrollable content area -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-5">
+            
+            <!-- DECKS SECTION -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <h3 class="text-sm font-bold" style="color: var(--text-secondary);">Bộ thẻ (Decks)</h3>
+                <span class="text-xs" style="color: var(--text-muted);">17</span>
+              </div>
+
+              <!-- Deck Grid -->
+              <div class="grid grid-cols-2 gap-3 mb-4">
+                <!-- Tiếng Anh - Từ vựng -->
+                <div class="glass-light rounded-xl p-4 deck-row">
+                  <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="folder-icon" style="background: #3b82f6;"></div>
+                      <div>
+                        <div class="text-sm font-semibold">Tiếng Anh – Từ vựng</div>
+                        <div class="flex items-center gap-3 mt-1">
+                          <span class="text-xs" style="color: var(--text-muted);">📝 5.240</span>
+                          <span class="text-xs" style="color: var(--text-muted);">📈 86%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button class="btn-ghost text-xs" style="padding: 3px 10px;">Học</button>
+                      <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋯</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- IELTS -->
+                <div class="glass-light rounded-xl p-4 deck-row">
+                  <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="folder-icon" style="background: #f59e0b;"></div>
+                      <div>
+                        <div class="text-sm font-semibold">IELTS</div>
+                        <div class="flex items-center gap-3 mt-1">
+                          <span class="text-xs" style="color: var(--text-muted);">📝 2.318</span>
+                          <span class="text-xs" style="color: var(--text-muted);">📈 83%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button class="btn-ghost text-xs" style="padding: 3px 10px;">Học</button>
+                      <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋯</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tiếng Nhật - N5 -->
+                <div class="glass-light rounded-xl p-4 deck-row">
+                  <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="folder-icon" style="background: #ef4444;"></div>
+                      <div>
+                        <div class="text-sm font-semibold">Tiếng Nhật – N5</div>
+                        <div class="flex items-center gap-3 mt-1">
+                          <span class="text-xs" style="color: var(--text-muted);">📝 1.204</span>
+                          <span class="text-xs" style="color: var(--text-muted);">📈 88%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button class="btn-ghost text-xs" style="padding: 3px 10px;">Học</button>
+                      <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋯</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Y học cơ sở -->
+                <div class="glass-light rounded-xl p-4 deck-row">
+                  <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="folder-icon" style="background: #22c55e;"></div>
+                      <div>
+                        <div class="text-sm font-semibold">Y học cơ sở</div>
+                        <div class="flex items-center gap-3 mt-1">
+                          <span class="text-xs" style="color: var(--text-muted);">📝 3.476</span>
+                          <span class="text-xs" style="color: var(--text-muted);">📈 90%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button class="btn-ghost text-xs" style="padding: 3px 10px;">Học</button>
+                      <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋯</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Expanded deck: Tiếng Anh - Tổng hợp -->
+              <div class="glass-light rounded-xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-3">
+                    <div class="folder-icon" style="background: #6366f1; width: 48px; height: 40px;"></div>
+                    <div>
+                      <div class="text-sm font-bold">Tiếng Anh – Tổng hợp</div>
+                      <div class="flex items-center gap-3 mt-0.5">
+                        <span class="text-xs" style="color: var(--text-muted);">📝 6.928</span>
+                        <span class="text-xs" style="color: var(--text-muted);">📈 87%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button class="btn-primary text-xs">▶ Học</button>
+                    <button class="btn-ghost text-xs">+ Thêm deck con</button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋯</button>
+                  </div>
+                </div>
+
+                <!-- Sub-decks -->
+                <div class="space-y-1 ml-4 pl-4" style="border-left: 2px solid rgba(99, 102, 241, 0.3);">
+                  <div class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-all">
+                    <div class="flex items-center gap-2">
+                      <div class="cat-dot" style="background: #f87171;"></div>
+                      <span class="text-sm">Từ vựng Theo Chủ đề</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                      <span class="text-xs" style="color: var(--text-muted);">📝 2.410</span>
+                      <span class="text-xs" style="color: var(--text-secondary);">85%</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-all">
+                    <div class="flex items-center gap-2">
+                      <div class="cat-dot" style="background: #60a5fa;"></div>
+                      <span class="text-sm">Collocations</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                      <span class="text-xs" style="color: var(--text-muted);">📝 1.026</span>
+                      <span class="text-xs" style="color: var(--text-secondary);">87%</span>
+                      <button class="btn-ghost text-xs" style="padding: 2px 8px;">Học</button>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-all">
+                    <div class="flex items-center gap-2">
+                      <div class="cat-dot" style="background: #4ade80;"></div>
+                      <span class="text-sm">Phrasal Verbs</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                      <span class="text-xs" style="color: var(--text-muted);">📝 982</span>
+                      <span class="text-xs" style="color: var(--text-secondary);">88%</span>
+                      <button class="btn-ghost text-xs" style="padding: 2px 8px;">Học</button>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-all">
+                    <div class="flex items-center gap-2">
+                      <div class="cat-dot" style="background: #fbbf24;"></div>
+                      <span class="text-sm">Idioms</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                      <span class="text-xs" style="color: var(--text-muted);">📝 1.340</span>
+                      <span class="text-xs" style="color: var(--text-secondary);">86%</span>
+                      <button class="btn-ghost text-xs" style="padding: 2px 8px;">Học</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RESOURCES SECTION -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><path d="M6 2l.01 20M6 6h12l-4 4 4 4H6"/></svg>
+                <h3 class="text-sm font-bold" style="color: var(--text-secondary);">Tài nguyên học</h3>
+                <span class="text-xs" style="color: var(--text-muted);">77</span>
+              </div>
+
+              <div class="space-y-2">
+                <!-- Resource 1 -->
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 transition-all" style="border: 1px solid rgba(255,255,255,0.04);">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: rgba(239,68,68,0.12);">
+                      <span>📄</span>
+                    </div>
+                    <div>
+                      <div class="text-sm font-medium">Tài liệu: 500 Idioms thông dụng.pdf</div>
+                      <div class="text-xs" style="color: var(--text-muted);">PDF · 12,4 MB · Ghi chú & ví dụ</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="tag" style="background: rgba(34,197,94,0.12); color: #4ade80;">Tài nguyên</span>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋯</button>
+                  </div>
+                </div>
+
+                <!-- Resource 2 -->
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 transition-all" style="border: 1px solid rgba(255,255,255,0.04);">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: rgba(168,85,247,0.12);">
+                      <span>🎵</span>
+                    </div>
+                    <div>
+                      <div class="text-sm font-medium">Listening Practice – Unit 1.mp3</div>
+                      <div class="text-xs" style="color: var(--text-muted);">MP3 · 24,8 MB · Luyện nghe hội thoại</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="tag" style="background: rgba(168,85,247,0.12); color: #c084fc;">Listening</span>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋯</button>
+                  </div>
+                </div>
+
+                <!-- Resource 3 -->
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 transition-all" style="border: 1px solid rgba(255,255,255,0.04);">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: rgba(59,130,246,0.12);">
+                      <span>📊</span>
+                    </div>
+                    <div>
+                      <div class="text-sm font-medium">Vocabulary Source.xlsx</div>
+                      <div class="text-xs" style="color: var(--text-muted);">XLSX · 2,8 MB · Tổng hợp từ vựng</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="tag" style="background: rgba(59,130,246,0.12); color: #60a5fa;">Từ vựng</span>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                    <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋯</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== JAVASCRIPT ==================== -->
+  <script>
+    // ===== STARS =====
+    (function() {
+      const container = document.getElementById('stars');
+      for (let i = 0; i < 80; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 50 + '%';
+        star.style.animationDelay = Math.random() * 3 + 's';
+        star.style.width = (Math.random() * 2 + 1) + 'px';
+        star.style.height = star.style.width;
+        container.appendChild(star);
+      }
+    })();
+
+    // ===== HEATMAP =====
+    (function() {
+      const container = document.getElementById('heatmap');
+      const days = ['T2','T3','T4','T5','T6','T7','CN'];
+      
+      // Current date info for highlighting "today" area
+      const now = new Date();
+      const currentWeek = Math.floor((now.getMonth() * 4.33 + now.getDate() / 7));
+      
+      for (let d = 0; d < 7; d++) {
+        const row = document.createElement('div');
+        row.className = 'flex gap-0.5 items-center';
+        
+        // Day label
+        const label = document.createElement('span');
+        label.className = 'text-xs';
+        label.style.cssText = 'color: var(--text-muted); width: 20px; text-align: right; margin-right: 4px; position: absolute; left: 0;';
+        label.textContent = (d % 2 === 0) ? days[d] : '';
+        
+        for (let w = 0; w < 52; w++) {
+          const cell = document.createElement('div');
+          cell.className = 'rounded-sm';
+          cell.style.cssText = 'width: 12px; height: 12px; flex-shrink: 0;';
+          
+          // Generate realistic-looking data
+          let heat = 0;
+          if (w < currentWeek - 2) {
+            // Past weeks - random activity
+            const r = Math.random();
+            if (d < 5) { // Weekdays more active
+              if (r < 0.15) heat = 0;
+              else if (r < 0.35) heat = 1;
+              else if (r < 0.55) heat = 2;
+              else if (r < 0.75) heat = 3;
+              else if (r < 0.9) heat = 4;
+              else heat = 5;
+            } else { // Weekends
+              if (r < 0.3) heat = 0;
+              else if (r < 0.5) heat = 1;
+              else if (r < 0.7) heat = 2;
+              else if (r < 0.85) heat = 3;
+              else heat = 4;
+            }
+            // Recent months more active
+            if (w > 30) {
+              heat = Math.min(5, heat + 1);
+            }
+          } else if (w <= currentWeek) {
+            // Current week area - very active (27-day streak)
+            heat = Math.random() > 0.1 ? (Math.floor(Math.random() * 2) + 4) : 3;
+          }
+          // Future weeks stay 0
+          
+          cell.className += ` heat-${heat}`;
+          row.appendChild(cell);
+        }
+        container.appendChild(row);
+      }
+    })();
+
+    // ===== 9-DOT MENU =====
+    let menuOpen = false;
+    function toggleMenu() {
+      menuOpen = !menuOpen;
+      const grid = document.getElementById('menuGrid');
+      grid.className = menuOpen ? 'menu-grid visible' : 'menu-grid hidden';
+    }
+
+    // Close menu on outside click
+    document.addEventListener('click', (e) => {
+      const btn = document.getElementById('dotMenuBtn');
+      const grid = document.getElementById('menuGrid');
+      if (menuOpen && !btn.contains(e.target) && !grid.contains(e.target)) {
+        menuOpen = false;
+        grid.className = 'menu-grid hidden';
+      }
+    });
+
+    // ===== OVERLAY =====
+    function openOverlay() {
+      const backdrop = document.getElementById('overlayBackdrop');
+      backdrop.className = 'overlay-backdrop visible fixed inset-0 z-40';
+      // Close menu if open
+      if (menuOpen) toggleMenu();
+    }
+
+    function closeOverlay(event) {
+      if (event && event.target !== event.currentTarget) return;
+      const backdrop = document.getElementById('overlayBackdrop');
+      backdrop.className = 'overlay-backdrop hidden fixed inset-0 z-40';
+    }
+
+    // ESC to close overlay
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeOverlay();
+      }
+    });
+
+    // ===== SIDEBAR NAV =====
+    function filterCategory(category, btn) {
+      // Reset all buttons
+      document.querySelectorAll('.overlay-nav-btn').forEach(b => {
+        b.style.background = 'transparent';
+        b.style.color = 'var(--text-secondary)';
+      });
+      // Activate clicked
+      btn.style.background = 'rgba(59,130,246,0.12)';
+      btn.style.color = '#60a5fa';
+    }
+
+    // ===== KEYBOARD SHORTCUTS =====
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'k') {
+        e.preventDefault();
+        openOverlay();
+        setTimeout(() => {
+          const input = document.querySelector('.overlay-content input');
+          if (input) input.focus();
+        }, 300);
+      }
+    });
+  </script>
+</body>
+</html>

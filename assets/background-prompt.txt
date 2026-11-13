@@ -1,0 +1,4 @@
+Generated with the built-in imagegen tool, then copied into this project.
+Final asset: assets/sunset-lake.png
+
+Use case: photorealistic-natural. Asset type: full-screen wallpaper for a translucent glass learning dashboard. Wide 16:9 tranquil alpine lake at sunset, soft periwinkle blue and lavender sky with scattered peach pink clouds, a low mountain ridge across the lower third, a setting sun near the horizon reflected in calm water. Small leafy dark tree branches frame top left corner only, subtle grassy bank bottom left. Expansive open sky in upper two thirds to support glass panels. Elegant atmospheric landscape photograph, natural fine detail, calm and refined, muted blue tones, soft warm rose glow. No text, no icons, no interface, no people, no cars, no buildings, no watermarks.

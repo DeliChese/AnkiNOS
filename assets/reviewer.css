@@ -1,0 +1,48 @@
+/* Scoped around the original #qa; authored card CSS/content remain in place. */
+html.nos-review-page body { margin: 0; padding: 0; }
+#nos-review-shell { min-height: 100vh; position: relative; isolation: isolate; --nos-edge: #e7efff36; --nos-fg: #f2f6ff; }
+#nos-review-shell, #nos-review-header, #nos-review-stage, #nos-review-card, #nos-review-header *, #nos-review-header *::before { box-sizing: border-box; }
+#nos-review-shell .nos-review-wallpaper { position: fixed; inset: 0; z-index: -1; background: linear-gradient(115deg,#3449714a,#23385626); pointer-events: none; /* Ảnh nền tắt tắt để tăng tốc khởi động; file sunset-lake.png vẫn giữ nguyên */ }
+#nos-review-shell[data-theme="night"] .nos-review-wallpaper { background-image: linear-gradient(#15223b80,#15223b80); }
+#nos-review-header { height: 78px; margin: 0 32px; border-bottom: 1px solid #e7efff29; display: grid; grid-template-columns: minmax(120px,1fr) minmax(0,2fr) minmax(120px,1fr); align-items: center; gap: 20px; color: var(--nos-fg); font: 12px 'Segoe UI',sans-serif; }
+#nos-review-header button { color: var(--nos-fg); background: #d9e8ff13; border: 1px solid #e7efff30; border-radius: 12px; padding: 10px 13px; font: 11px 'Segoe UI',sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; width: fit-content; box-shadow: none; }
+#nos-review-header button:hover { background: #e4efff26; border-color: #e7efff66; }
+#nos-review-header button:focus-visible { outline: 2px solid #bcddff; outline-offset: 3px; }
+#nos-review-header svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+#nos-review-heading { text-align: center; min-width: 0; }
+#nos-review-deck { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 550; }
+#nos-review-progress { display: block; font-size: 10px; color: #e0eafbaf; margin-top: 4px; }
+#nos-review-tools { display: flex; align-items: center; gap: 13px; justify-content: flex-end; }
+#nos-review-side { font-size: 10px; color: #d9e9ff; border: 1px solid #d9e9ff35; padding: 5px 10px; border-radius: 20px; white-space: nowrap; }
+#nos-review-shell[data-side="answer"] #nos-review-side { color: #c0f0db; background: #83dfba18; border-color: #b8f4d447; }
+#nos-review-tools button { padding: 9px 11px; font-size: 19px; line-height: 15px; }
+#nos-review-stage { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 78px); padding: 35px 35px 48px; }
+/* Render Anki's answer directly, without fading/hiding the entire card. */
+#nos-review-card {
+  position: relative;
+  width: 100%;
+  max-width: 1080px;
+  min-height: 300px;
+  border-radius: 24px;
+  border: 1px solid #edf4ff6e;
+  box-shadow: 0 15px 50px #14234124;
+  background: var(--canvas,#f7f9fd);
+  overflow-wrap: anywhere;
+}
+#nos-review-card #qa { margin: 0; padding: clamp(28px,4vw,62px); }
+#nos-review-card #_mark { position: absolute; top: 12px; right: 18px; }
+#nos-review-card #_flag { position: absolute; top: 12px; left: 18px; }
+#nos-review-card input#typeans { max-width: 100%; box-sizing: border-box; }
+#nos-review-card hr#answer { border: 0; height: 1px; background: currentColor; opacity: .15; margin: 25px 0; }
+@media (max-width:700px) {
+  #nos-review-header { margin: 0 16px; gap: 10px; height: 69px; grid-template-columns: auto minmax(0,1fr) auto; }
+  #nos-review-header button { padding: 9px 10px; }
+  #nos-review-header .nos-back-label { display: none; }
+  #nos-review-tools { gap: 6px; }
+  #nos-review-side { padding: 4px 7px; font-size: 9px; }
+  #nos-review-deck { font-size: 11px; }
+  #nos-review-progress { font-size: 9px; }
+  #nos-review-stage { padding: 22px 15px 28px; min-height: calc(100vh - 69px); }
+  #nos-review-card { min-height: 230px; border-radius: 18px; }
+  #nos-review-card #qa { padding: 30px 22px; }
+}

@@ -1,0 +1,28 @@
+/* Keep native data-ease values, intervals, focus and keyboard shortcuts. */
+*,*::before,*::after { box-sizing: border-box; }
+html,body { margin: 0 !important; padding: 0 !important; min-height: 104px; overflow: hidden; background: #344867 !important; color: #eaf2ff; }
+body { font-family: 'Segoe UI',sans-serif; border-top: 1px solid #dce9ff30; }
+#outer { padding: 12px 24px; min-height: 103px; box-sizing: border-box; }
+#innertable { width: 100%; min-height: 78px; border-spacing: 0; }
+#innertable > tbody > tr > td { vertical-align: middle !important; }
+#innertable td.stat { width: 110px; }
+#middle table { border-spacing: 8px 0; }
+button { font-family: 'Segoe UI',sans-serif; cursor: pointer; box-shadow: none !important; }
+#innertable .stat > button { font-size: 11px; color: #e1ebfc; background: #dde9ff0c; border: 1px solid #dce9ff2e; padding: 9px 13px; border-radius: 10px; }
+#innertable .stat > button:hover { background: #dde9ff24; }
+#middle button { position: relative; min-width: clamp(100px,12vw,168px); min-height: 66px; border-radius: 13px; border: 1px solid #e7efff4a; padding: 12px 28px 10px 18px; font-size: 14px; font-weight: 550; background: #dbe8ff13; color: #eef4ff; transition: background .12s,transform .12s,border-color .12s; }
+#middle button:hover { transform: translateY(-2px); border-color: var(--rating,#c4ddff); background: var(--rating-hover,#dbe8ff26); }
+#middle button:active { transform: translateY(0); }
+#middle button:focus-visible { outline: 2px solid var(--rating,#b6dbff); outline-offset: 3px; }
+#middle button[data-ease="1"] { --rating: #ffb1bd; --rating-hover: #d6788c3d; background: #db8c9e1e; border-color: #ffb1bd50; color: #ffd1d9; }
+#middle button[data-ease="2"] { --rating: #f8d89b; --rating-hover: #caa16240; background: #e3b7771b; border-color: #f8d89b50; color: #ffe6be; }
+#middle button[data-ease="3"] { --rating: #b4d7ff; --rating-hover: #89b8ff4d; background: #82b0f82e; border-color: #b4d7ff70; color: #e3efff; }
+#middle button[data-ease="4"] { --rating: #a8ebcc; --rating-hover: #74cda33d; background: #85d6b51c; border-color: #a8ebcc50; color: #c6f6df; }
+#middle button[data-nos-key]::after { content: attr(data-nos-key); position: absolute; right: 8px; top: 8px; min-width: 14px; font-size: 9px; line-height: 15px; border: 1px solid currentColor; border-radius: 4px; opacity: .5; padding: 0 2px; }
+#middle button .nobold { display: block; font-size: 11px; font-weight: 400; opacity: .8; margin-top: 5px; }
+#middle #ansbut { min-width: 270px; min-height: 60px; background: linear-gradient(135deg,#7aaaff,#5387e6); border-color: #bddaff94; color: #fff; padding: 13px 28px; font-size: 14px; }
+#ansbut .stattxt { display: block; margin-top: 5px; font-size: 10px; opacity: .85; }
+#time { color: #c9d9f0; font-size: 10px; }
+@media(max-width:850px) { #outer {padding:12px 10px;} #innertable td.stat {width:65px;} #innertable .stat > button {font-size:10px;padding:8px;} #middle button {min-width:83px;font-size:12px;padding:12px 23px 10px 12px;} #middle table {border-spacing:5px 0;} }
+@media(max-width:600px) { html,body {min-height:112px;} #outer {padding:12px 5px;min-height:111px;} #innertable td.stat {width:32px;} #innertable .stat > button {font-size:9px;padding:8px 4px;} #middle button {min-width:56px;min-height:70px;font-size:11px;padding:16px 6px 8px;} #middle table {border-spacing:3px 0;} #middle button .nobold {font-size:9px;} #middle #ansbut {min-width:190px;} #middle button[data-nos-key]::after {top:3px;right:4px;font-size:8px;line-height:12px;min-width:11px;} }
+@media(prefers-reduced-motion:reduce) { #middle button {animation:none !important;transition:none !important;} }

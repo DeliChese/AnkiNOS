@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AnkiNOS — Không gian ghi nhớ</title>
+  <link rel="stylesheet" href="assets/dashboard.css">
+</head>
+<body>
+  <div id="nos-app" data-theme="dusk" data-page="home">
+    <div class="wallpaper" aria-hidden="true"></div>
+    <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7Z"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20v-6h3v6Zm7 0V8h3v12Zm7 0V3h3v17Z"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-.5 3-2 .9-2.7-1.1L1.5 10l2.4 1.9v2.2L1.5 16l2.3 4.2 2.7-1.1 2 .9.5 3h5l.5-3 2-.9 2.7 1.1L22 16l-2.4-1.9v-2.2L22 10l-2.3-4.2L17 6.9l-2-.9-.5-3Z" transform="translate(0 -1) scale(1 .95)"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 7a9 9 0 0 0-15-2L2 8m0-5v5h5m-3 9a9 9 0 0 0 15 2l3-3m0 5v-5h-5"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-8Z"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="4" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="20" cy="12" r="1"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 5h13M8 12h13M8 19h13M3 5h.1M3 12h.1M3 19h.1"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H5a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8Zm0 0v6h6M8 13h8M8 17h5"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 14 4-4m-6 6-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m0 12a4 4 0 0 0 6 0l5-5a4 4 0 0 0-6-6l-1 1" transform="translate(1 0) scale(.94)"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L10 14M10 4H4a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h15a1 1 0 0 0 1-1v-6"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.7 14A9 9 0 0 1 10 3.3 9 9 0 1 0 20.7 14Z"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+      <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 4H4v16h5m5-12 4 4-4 4m-5-4h12"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M3 15v6h18v-6"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M3 15v6h18v-6"/></symbol>
+      <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M9 3H3v6c4-2 4 5 0 3v9h6c-2-4 5-4 3 0h9v-9c-4 2-4-5 0-3V3h-9c2-4-5-4-3 0Z"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 5h6l2 2h10v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+      <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8Z"/></symbol>
+    </defs></svg>
+
+    <aside class="rail glass" aria-label="Điều hướng chính">
+      <button class="brand" data-action="page" data-value="home" aria-label="AnkiNOS — Trang chủ"><svg class="icon"><use href="#i-spark"/></svg><span>NOS</span></button>
+      <div class="rail-main">
+        <button class="rail-button active" data-action="page" data-value="home" title="Tổng quan" aria-label="Tổng quan" aria-current="page"><svg class="icon"><use href="#i-home"/></svg><span>Tổng quan</span></button>
+        <button class="rail-button" id="info-toggle" data-action="info" title="Thông tin" aria-label="Thông tin" aria-expanded="false" aria-controls="info-panel"><svg class="icon"><use href="#i-info"/></svg><span>Thông tin</span></button>
+        <button class="rail-button" id="library-toggle" data-action="library" aria-haspopup="dialog" aria-expanded="false" aria-controls="library-dialog" title="Bộ thẻ & tài nguyên" aria-label="Bộ thẻ và tài nguyên"><svg class="icon"><use href="#i-layers"/></svg><span>Bộ thẻ</span></button>
+      </div>
+      <div class="rail-bottom">
+        <button class="rail-button" data-action="preferences" title="Cài đặt Anki" aria-label="Cài đặt Anki"><svg class="icon"><use href="#i-settings"/></svg></button>
+        <button class="launcher-button" id="launcher-toggle" data-action="launcher" aria-expanded="false" aria-controls="launcher" title="Tất cả chức năng" aria-label="Tất cả chức năng"><span class="nine-dots" aria-hidden="true">⠿</span></button>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="wordmark">Anki<span>NOS</span><span class="wordmark-divider"></span><span class="tagline">Không gian cho trí nhớ của bạn.</span></div>
+        <div class="topbar-actions"><span class="connection" id="connection"><span class="status-dot"></span>Đang kết nối…</span><button class="icon-button" id="fullscreen-toggle" data-action="fullscreen" title="Toàn màn hình" aria-label="Toàn màn hình" aria-pressed="false"><svg class="icon"><use href="#i-fullscreen"/></svg></button><span class="topbar-divider"></span><button class="avatar-button" id="profile-toggle" data-action="profile" aria-label="Mở hồ sơ" aria-expanded="false" aria-controls="profile-panel"><span class="avatar" id="avatar-initials">A</span><svg class="icon small"><use href="#i-down"/></svg></button></div>
+      </header>
+
+      <section class="greeting" aria-labelledby="greeting-title"><div><p class="eyebrow" id="today-label">KHÔNG GIAN HỌC TẬP CỦA BẠN</p><h1 id="greeting-title">Chào mừng trở lại <span class="greeting-spark">✦</span></h1><p class="greeting-caption" id="greeting-caption">Mỗi lần ôn tập, một chút tiến bộ.</p></div><button class="daily-goal glass" data-action="set_goal" title="Đổi mục tiêu học mỗi ngày"><span class="goal-ring" id="goal-ring"><span id="goal-percent">0%</span></span><span><span class="goal-label">Mục tiêu hôm nay</span><strong id="goal-copy">— / 200 lượt ôn</strong></span><svg class="icon small"><use href="#i-chevron"/></svg></button></section>
+
+      <section class="stats-grid" aria-label="Thống kê ôn tập">
+        <article class="stat-card glass mint" id="card-retention"><span class="stat-icon"><svg class="icon"><use href="#i-target"/></svg></span><div class="stat-body"><span class="stat-label">Ghi nhớ <span>Retention</span></span><strong class="stat-value" id="stat-retention">—</strong><span class="stat-detail" id="retention-detail">30 ngày gần nhất</span><span class="stat-trend" id="trend-retention"></span></div><svg class="sparkline" id="spark-retention" viewBox="0 0 160 62" role="img" tabindex="0"></svg></article>
+        <article class="stat-card glass lavender" id="card-pace"><span class="stat-icon"><svg class="icon"><use href="#i-bolt"/></svg></span><div class="stat-body"><span class="stat-label">Nhịp học <span>Pace</span></span><strong class="stat-value" id="stat-pace">— <small>lượt/giờ</small></strong><span class="stat-detail">Tốc độ ôn hôm nay</span><span class="stat-trend" id="trend-pace"></span></div><svg class="sparkline" id="spark-pace" viewBox="0 0 160 62" role="img" tabindex="0"></svg></article>
+        <article class="stat-card glass sky" id="card-time"><span class="stat-icon"><svg class="icon"><use href="#i-clock"/></svg></span><div class="stat-body"><span class="stat-label">Thời gian <span>Time</span></span><strong class="stat-value" id="stat-time">—</strong><span class="stat-detail">Thời gian trả lời hôm nay</span><span class="stat-trend" id="trend-time"></span></div><svg class="sparkline" id="spark-time" viewBox="0 0 160 62" role="img" tabindex="0"></svg></article>
+        <article class="stat-card glass peach" id="card-studied"><span class="stat-icon"><svg class="icon"><use href="#i-layers"/></svg></span><div class="stat-body"><span class="stat-label">Đã ôn <span>Studied</span></span><strong class="stat-value" id="stat-studied">— <small>lượt</small></strong><span class="stat-detail" id="studied-detail">Hôm nay</span><span class="stat-trend" id="trend-studied"></span></div><svg class="sparkline" id="spark-studied" viewBox="0 0 160 62" role="img" tabindex="0"></svg></article>
+      </section>
+
+      <section class="activity-panel glass panel" id="activity-panel" aria-labelledby="activity-title">
+        <div class="panel-heading activity-heading"><div class="heading-title"><span class="section-icon"><svg class="icon"><use href="#i-chart"/></svg></span><h2 id="activity-title">Nhịp điệu học tập</h2><span class="streak-badge" id="streak-badge">🔥 <span id="streak-copy">0 ngày liên tiếp</span></span></div><div class="activity-controls"><div class="year-control"><button class="icon-button small-button" data-action="year" data-value="-1" aria-label="Năm trước"><svg class="icon small flipped"><use href="#i-chevron"/></svg></button><strong id="heatmap-year">2026</strong><button class="icon-button small-button" data-action="year" data-value="1" aria-label="Năm sau"><svg class="icon small"><use href="#i-chevron"/></svg></button></div><div class="segmented" aria-label="Khoảng thời gian"><button class="selected" data-action="period" data-value="year" aria-pressed="true">Năm</button><button data-action="period" data-value="month" aria-pressed="false">Tháng</button><button data-action="period" data-value="week" aria-pressed="false">Tuần</button></div><button class="icon-button collapse-button" data-action="collapse_activity" aria-expanded="true" aria-controls="activity-body" title="Thu gọn hoạt động" aria-label="Thu gọn hoạt động"><svg class="icon"><use href="#i-down"/></svg></button></div></div>
+        <div id="activity-body"><div class="heatmap-scroll"><div class="heatmap" id="heatmap" aria-label="Lịch sử ôn tập"></div></div><div class="activity-footer"><span id="activity-summary">Đang đọc lịch sử ôn tập…</span><span class="heat-legend">Ít <i class="heat-0"></i><i class="heat-1"></i><i class="heat-2"></i><i class="heat-3"></i><i class="heat-4"></i> Nhiều</span></div></div>
+      </section>
+
+      <footer class="workspace-footer"><span>AnkiNOS <span class="footer-dot">·</span> Không gian nhỏ, trí nhớ lớn.</span><span id="page-footnote">Dữ liệu từ bộ sưu tập Anki của bạn</span></footer>
+    </main>
+
+    <dialog id="library-dialog" class="library-popover" aria-labelledby="library-title" aria-modal="true" data-side="left">
+      <section class="library-panel glass panel" id="library-panel" aria-labelledby="library-title">
+        <div class="panel-heading library-heading"><div class="heading-title"><span class="section-icon layers-icon"><svg class="icon"><use href="#i-layers"/></svg></span><div><h2 id="library-title">Bộ thẻ & tài nguyên</h2><p class="section-caption">Một nơi cho mọi điều bạn muốn ghi nhớ.</p></div></div><div class="library-top-actions"><label class="search-box"><svg class="icon"><use href="#i-search"/></svg><input id="library-search" type="search" placeholder="Tìm bộ thẻ, tài nguyên…" autocomplete="off" aria-label="Tìm bộ thẻ và tài nguyên"><kbd>Ctrl K</kbd></label><button class="icon-button" id="sidebar-toggle" data-action="collapse_sidebar" aria-label="Ẩn bộ lọc" title="Ẩn bộ lọc" aria-expanded="true" aria-controls="library-sidebar"><svg class="icon"><use href="#i-list"/></svg></button><button class="icon-button library-header-close" id="library-close" data-action="close_library" aria-label="&#272;&#243;ng b&#7843;ng b&#7897; th&#7867;" title="&#272;&#243;ng" autofocus><svg class="icon"><use href="#i-close"/></svg></button></div></div>
+        <div class="library-body" id="library-body">
+          <nav class="library-sidebar" id="library-sidebar" aria-label="Bộ lọc thư viện"><p class="nav-caption">THƯ VIỆN CỦA BẠN</p><button class="filter-button active" data-action="filter" data-value="all" aria-pressed="true"><svg class="icon"><use href="#i-grid"/></svg>Tất cả<span class="count" id="count-all">0</span></button><button class="filter-button" data-action="filter" data-value="decks" aria-pressed="false"><svg class="icon"><use href="#i-folder"/></svg>Bộ thẻ<span class="count" id="count-decks">0</span></button><button class="filter-button" data-action="filter" data-value="resources" aria-pressed="false"><svg class="icon"><use href="#i-file"/></svg>Tài nguyên<span class="count" id="count-resources">0</span></button><div class="sidebar-divider"></div><button class="filter-button" data-action="filter" data-value="favorites" aria-pressed="false"><svg class="icon"><use href="#i-star"/></svg>Đã gắn sao<span class="count" id="count-favorites">0</span></button><button class="filter-button" data-action="filter" data-value="due" aria-pressed="false"><svg class="icon"><use href="#i-clock"/></svg>Cần học hôm nay</button><div class="sidebar-divider"></div><p class="nav-caption">MÀU THƯ MỤC</p><button class="color-filter" data-action="color_filter" data-value="blue" aria-pressed="false"><i class="color-dot blue"></i>Xanh dương</button><button class="color-filter" data-action="color_filter" data-value="purple" aria-pressed="false"><i class="color-dot purple"></i>Tím lavender</button><button class="color-filter" data-action="color_filter" data-value="pink" aria-pressed="false"><i class="color-dot pink"></i>Hồng pastel</button><button class="color-filter" data-action="color_filter" data-value="green" aria-pressed="false"><i class="color-dot green"></i>Xanh bạc hà</button><button class="color-filter" data-action="color_filter" data-value="amber" aria-pressed="false"><i class="color-dot amber"></i>Vàng mật ong</button><div class="sidebar-note"><svg class="icon"><use href="#i-spark"/></svg><p>Học một chút mỗi ngày.<br>Nhớ lâu hơn mỗi lần.</p></div></nav>
+          <div class="library-content"><div class="library-toolbar"><div class="add-menu-anchor"><button class="primary-button" id="add-toggle" data-action="add_menu" aria-expanded="false" aria-controls="add-menu"><svg class="icon"><use href="#i-plus"/></svg>Thêm<svg class="icon small"><use href="#i-down"/></svg></button><div class="popup-menu glass" id="add-menu" hidden><button data-action="create_deck"><svg class="icon"><use href="#i-folder"/></svg>Bộ thẻ mới</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ vào Anki</button><hr><button data-action="add_file"><svg class="icon"><use href="#i-file"/></svg>Gắn file tài nguyên</button><button data-action="add_link"><svg class="icon"><use href="#i-link"/></svg>Thêm liên kết</button></div></div><button class="subtle-button import-button" data-action="import"><svg class="icon"><use href="#i-download"/></svg>Nhập</button><button class="subtle-button export-button" data-action="export"><svg class="icon"><use href="#i-upload"/></svg>Xuất</button><div class="toolbar-spacer"></div><label class="sort-label"><span>Sắp xếp:</span><select id="library-sort" aria-label="Sắp xếp thư viện"><option value="name">Tên bộ thẻ</option><option value="due">Cần học nhiều nhất</option><option value="total">Số lượng thẻ</option></select></label><div class="segmented view-toggle" aria-label="Cách hiển thị"><button data-action="view" data-value="grid" aria-label="Dạng lưới" aria-pressed="false"><svg class="icon"><use href="#i-grid"/></svg></button><button class="selected" data-action="view" data-value="list" aria-label="Dạng danh sách" aria-pressed="true"><svg class="icon"><use href="#i-list"/></svg></button></div></div>
+            <div class="deck-section" id="deck-section"><div class="list-section-heading"><h3>Bộ thẻ <span id="deck-result-count" class="inline-count">0</span></h3><span class="deck-column-hint">THẺ MỚI <b>·</b> ĐANG HỌC <b>·</b> CẦN ÔN</span></div><div id="deck-list" class="deck-list" aria-live="polite"><p class="loading-message">Đang tải các bộ thẻ của bạn…</p></div></div>
+            <div class="resources-section" id="resources-section"><div class="list-section-heading"><h3>Tài nguyên học <span id="resource-result-count" class="inline-count">0</span></h3><button class="text-button" data-action="add_file">Gắn tài nguyên <svg class="icon small"><use href="#i-plus"/></svg></button></div><div id="resource-list" class="resource-list"></div></div>
+            <div class="empty-state" id="empty-state" hidden><svg class="icon"><use href="#i-search"/></svg><h3>Chưa tìm thấy nội dung</h3><p>Thử từ khóa khác hoặc chọn “Tất cả”.</p><button class="subtle-button" data-action="reset_filter">Xóa bộ lọc</button></div>
+          </div>
+        </div>
+        <footer class="library-footer"><span><span class="status-dot"></span><span id="library-footer-copy">Đang đọc bộ sưu tập Anki…</span></span><button class="text-button" data-action="snapshot" id="refresh-button"><svg class="icon small"><use href="#i-sync"/></svg>Làm mới</button></footer>
+      </section>
+    </dialog>
+
+    <dialog id="settings-dialog" class="settings-popover" aria-labelledby="settings-dialog-title" aria-modal="true">
+      <section class="settings-panel glass panel" id="settings-panel">
+        <div class="panel-heading settings-heading">
+          <div class="heading-title">
+            <span class="section-icon settings-icon"><svg class="icon"><use href="#i-settings"/></svg></span>
+            <div>
+              <h2 id="settings-dialog-title">Cài đặt AnkiNOS</h2>
+              <p class="section-caption">Tùy biến không gian học tập và cấu hình add-on</p>
+            </div>
+          </div>
+          <button class="icon-button library-header-close" id="settings-close" data-action="close_settings" title="Đóng (Esc)"><svg class="icon"><use href="#i-close"/></svg></button>
+        </div>
+
+        <div class="settings-body" id="settings-body">
+          <nav class="settings-sidebar" id="settings-sidebar" aria-label="Danh mục cài đặt">
+            <button class="settings-nav-btn active" data-settings-tab="appearance"><svg class="icon small"><use href="#i-moon"/></svg>Giao diện</button>
+            <button class="settings-nav-btn" data-settings-tab="dashboard"><svg class="icon small"><use href="#i-chart"/></svg>Dashboard</button>
+            <button class="settings-nav-btn" data-settings-tab="goals"><svg class="icon small"><use href="#i-target"/></svg>Mục tiêu</button>
+            <button class="settings-nav-btn" data-settings-tab="performance"><svg class="icon small"><use href="#i-bolt"/></svg>Hiệu năng</button>
+            <button class="settings-nav-btn" data-settings-tab="shortcuts"><svg class="icon small"><use href="#i-link"/></svg>Phím tắt</button>
+            <button class="settings-nav-btn" data-settings-tab="data"><svg class="icon small"><use href="#i-folder"/></svg>Dữ liệu</button>
+          </nav>
+
+          <div class="settings-content" id="settings-content">
+            <!-- TAB 1: Giao diện -->
+            <div class="settings-tab-pane" id="stab-appearance">
+              <div class="settings-group-title">Chủ đề giao diện (Theme)</div>
+              <div class="theme-options-grid">
+                <button class="theme-pill-btn active" data-set-theme="dusk">
+                  <span class="theme-swatch dusk"></span>
+                  <div><strong>Hoàng hôn (Dusk)</strong><small>Mặc định kính mờ</small></div>
+                </button>
+                <button class="theme-pill-btn" data-set-theme="night">
+                  <span class="theme-swatch night"></span>
+                  <div><strong>Kính tối (Night)</strong><small>Xanh đen đậm</small></div>
+                </button>
+                <button class="theme-pill-btn" data-set-theme="oled">
+                  <span class="theme-swatch oled"></span>
+                  <div><strong>OLED Black</strong><small>Đen thuần tối giản</small></div>
+                </button>
+                <button class="theme-pill-btn" data-set-theme="light">
+                  <span class="theme-swatch light"></span>
+                  <div><strong>Sáng (Light)</strong><small>Thanh lịch dịu mắt</small></div>
+                </button>
+              </div>
+
+              <div class="settings-group-title">Màu điểm nhấn (Accent Color)</div>
+              <div class="accent-color-row">
+                <button class="accent-dot-btn active" data-set-accent="blue" style="--c:#83b8ff;" title="Xanh dương"></button>
+                <button class="accent-dot-btn" data-set-accent="cyan" style="--c:#38bdf8;" title="Xanh ngọc"></button>
+                <button class="accent-dot-btn" data-set-accent="mint" style="--c:#34d399;" title="Xanh bạc hà"></button>
+                <button class="accent-dot-btn" data-set-accent="purple" style="--c:#c084fc;" title="Tím lavender"></button>
+                <button class="accent-dot-btn" data-set-accent="amber" style="--c:#fbbf24;" title="Cam hổ phách"></button>
+                <button class="accent-dot-btn" data-set-accent="pink" style="--c:#f472b6;" title="Hồng pastel"></button>
+              </div>
+
+              <div class="settings-group-title">Hiệu ứng hiển thị</div>
+              <div class="settings-row">
+                <div>
+                  <strong>Hiệu ứng mờ kính (Blur)</strong>
+                  <p>Làm mờ nền đằng sau các thẻ giao diện</p>
+                </div>
+                <label class="nos-switch">
+                  <input type="checkbox" id="set-blur" checked>
+                  <span class="nos-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <strong>Hoạt ảnh mượt mà (Animations)</strong>
+                  <p>Bật hiệu ứng chuyển động khi mở đóng panel</p>
+                </div>
+                <label class="nos-switch">
+                  <input type="checkbox" id="set-animations" checked>
+                  <span class="nos-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- TAB 2: Dashboard -->
+            <div class="settings-tab-pane" id="stab-dashboard" hidden>
+              <div class="settings-group-title">Hiển thị thẻ chỉ số (Stat Cards)</div>
+              <div class="settings-row">
+                <div><strong>Ghi nhớ (Retention)</strong><p>Tỷ lệ trả lời đạt chuẩn trong 30 ngày</p></div>
+                <label class="nos-switch"><input type="checkbox" id="set-stat-retention" checked><span class="nos-slider"></span></label>
+              </div>
+              <div class="settings-row">
+                <div><strong>Nhịp học (Pace)</strong><p>Tốc độ số lượt ôn hôm nay quy đổi theo giờ</p></div>
+                <label class="nos-switch"><input type="checkbox" id="set-stat-pace" checked><span class="nos-slider"></span></label>
+              </div>
+              <div class="settings-row">
+                <div><strong>Thời gian (Time)</strong><p>Tổng thời gian trả lời hôm nay</p></div>
+                <label class="nos-switch"><input type="checkbox" id="set-stat-time" checked><span class="nos-slider"></span></label>
+              </div>
+              <div class="settings-row">
+                <div><strong>Đã ôn (Studied)</strong><p>Tổng số lượt trả lời thẻ hôm nay</p></div>
+                <label class="nos-switch"><input type="checkbox" id="set-stat-studied" checked><span class="nos-slider"></span></label>
+              </div>
+
+              <div class="settings-group-title">Heatmap nhịp điệu học tập</div>
+              <div class="settings-row">
+                <div><strong>Ngày bắt đầu tuần</strong></div>
+                <select id="set-heatmap-day" class="nos-select">
+                  <option value="monday">Thứ Hai</option>
+                  <option value="sunday">Chủ Nhật</option>
+                </select>
+              </div>
+              <div class="settings-row">
+                <div><strong>Bảng màu ô lịch</strong></div>
+                <select id="set-heatmap-palette" class="nos-select">
+                  <option value="default">🔵 Xanh tím (Mặc định)</option>
+                  <option value="green">🟢 Xanh lá (GitHub)</option>
+                  <option value="orange">🟠 Cam lửa</option>
+                  <option value="purple">🟣 Tím lavender</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- TAB 3: Mục tiêu -->
+            <div class="settings-tab-pane" id="stab-goals" hidden>
+              <div class="settings-group-title">Mục tiêu ôn tập hàng ngày</div>
+              <div class="settings-row">
+                <div>
+                  <strong>Số lượt ôn mục tiêu mỗi ngày</strong>
+                  <p>Hiển thị trên vòng tiến độ ở trang chủ và hồ sơ</p>
+                </div>
+                <div class="goal-input-wrap">
+                  <input type="number" id="set-goal-num" min="10" max="10000" step="10" class="nos-number-input" value="200">
+                  <span class="unit-label">lượt/ngày</span>
+                </div>
+              </div>
+              <div class="settings-range-wrap">
+                <input type="range" id="set-goal-range" min="20" max="500" step="10" value="200" class="nos-range">
+                <div class="range-markers"><span>20</span><span>100</span><span>200</span><span>300</span><span>500+</span></div>
+              </div>
+            </div>
+
+            <!-- TAB 4: Hiệu năng -->
+            <div class="settings-tab-pane" id="stab-performance" hidden>
+              <div class="settings-group-title">Chế độ tối ưu</div>
+              <div class="settings-row">
+                <div>
+                  <strong>Chế độ máy nhẹ (Lite Mode) ⚡</strong>
+                  <p>Tắt hiệu ứng bóng đổ và mờ nền để tối ưu CPU/GPU và pin laptop</p>
+                </div>
+                <label class="nos-switch"><input type="checkbox" id="set-lite-mode"><span class="nos-slider"></span></label>
+              </div>
+
+              <div class="settings-group-title">Thu phóng giao diện (UI Scale)</div>
+              <div class="settings-row">
+                <div><strong>Kích thước giao diện</strong><p>Phù hợp cho màn hình độ phân giải cao hoặc laptop nhỏ</p></div>
+                <div class="scale-buttons">
+                  <button class="scale-btn" data-scale="85">85%</button>
+                  <button class="scale-btn" data-scale="90">90%</button>
+                  <button class="scale-btn active" data-scale="100">100%</button>
+                  <button class="scale-btn" data-scale="110">110%</button>
+                  <button class="scale-btn" data-scale="120">120%</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 5: Phím tắt -->
+            <div class="settings-tab-pane" id="stab-shortcuts" hidden>
+              <div class="settings-group-title">Phím tắt nhanh AnkiNOS</div>
+              <div class="shortcut-list">
+                <div class="shortcut-item"><span>Mở Bộ thẻ & Tìm kiếm</span><kbd>Ctrl + K</kbd></div>
+                <div class="shortcut-item"><span>Mở Cài đặt AnkiNOS</span><kbd>Ctrl + ,</kbd></div>
+                <div class="shortcut-item"><span>Bật/Tắt Toàn màn hình</span><kbd>F11</kbd></div>
+                <div class="shortcut-item"><span>Đóng popup / dialog hiện tại</span><kbd>Esc</kbd></div>
+              </div>
+              <div class="settings-group-title">Cài đặt gốc của Anki</div>
+              <div class="settings-row">
+                <div>
+                  <strong>Cài đặt chung của Anki (Preferences)</strong>
+                  <p>Lên lịch, mạng, đồng bộ, sao lưu và ngôn ngữ gốc</p>
+                </div>
+                <button class="subtle-button" data-action="open_anki_prefs">
+                  <svg class="icon small"><use href="#i-settings"/></svg>Mở Cài đặt Anki
+                </button>
+              </div>
+            </div>
+
+            <!-- TAB 6: Dữ liệu -->
+            <div class="settings-tab-pane" id="stab-data" hidden>
+              <div class="settings-group-title">Quản lý cấu hình</div>
+              <div class="settings-row">
+                <div><strong>Xuất cấu hình</strong><p>Tải file JSON chứa các thiết lập của profile hiện tại</p></div>
+                <button class="subtle-button" id="btn-export-settings"><svg class="icon small"><use href="#i-download"/></svg>Xuất JSON</button>
+              </div>
+              <div class="settings-row">
+                <div><strong>Nhập cấu hình</strong><p>Khôi phục từ file cấu hình JSON đã lưu</p></div>
+                <button class="subtle-button" id="btn-import-settings"><svg class="icon small"><use href="#i-upload"/></svg>Nhập JSON</button>
+              </div>
+              <div class="settings-group-title" style="color: #ff8e8e;">Vùng nguy hiểm</div>
+              <div class="settings-row">
+                <div><strong>Khôi phục cài đặt gốc</strong><p>Đặt lại tất cả tùy chỉnh của AnkiNOS về mặc định</p></div>
+                <button class="subtle-button" id="btn-reset-settings" style="color: #ff9e9e; border-color: rgba(255,100,100,0.3);"><svg class="icon small"><use href="#i-trash"/></svg>Khôi phục mặc định</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="settings-footer">
+          <span><span class="status-dot"></span>Cấu hình lưu tự động theo từng hồ sơ Anki</span>
+          <span class="footer-badge">AnkiNOS</span>
+        </footer>
+      </section>
+    </dialog>
+
+    <section class="info-panel" id="info-panel" role="region" aria-labelledby="info-title" hidden><div><h2 id="info-title">Thông tin</h2><button class="icon-button small-button" data-action="info" aria-label="Đóng thông tin"><svg class="icon small"><use href="#i-close"/></svg></button></div><p>Sẽ cập nhật.</p></section>
+
+    <section class="profile-panel glass" id="profile-panel" aria-labelledby="profile-name" hidden><div class="profile-header"><span class="avatar profile-avatar" id="profile-initials">A</span><div><h2 id="profile-name">Anki User</h2><span class="profile-subtitle">Hồ sơ Anki hiện tại</span></div><button class="icon-button small-button" data-action="profile" aria-label="Đóng hồ sơ"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="profile-stats"><div><span>🔥 Chuỗi học</span><strong id="profile-streak">—</strong></div><div><span><svg class="icon small"><use href="#i-target"/></svg>Ghi nhớ</span><strong id="profile-retention">—</strong></div><div><span><svg class="icon small"><use href="#i-layers"/></svg>Tổng số thẻ</span><strong id="profile-total">—</strong></div></div><button class="profile-goal" data-action="set_goal"><span>Mục tiêu hôm nay <strong id="profile-goal-text">0 / 200</strong></span><span class="progress-track"><span id="profile-goal-fill"></span></span><small>Nhấn để điều chỉnh mục tiêu</small></button><div class="profile-actions"><button data-action="preferences"><svg class="icon"><use href="#i-settings"/></svg><span>Cài đặt AnkiNOS</span><svg class="icon small"><use href="#i-chevron"/></svg></button><button data-action="theme"><svg class="icon"><use href="#i-moon"/></svg><span id="theme-label">Chuyển sang kính tối</span><svg class="icon small"><use href="#i-chevron"/></svg></button><button data-action="switch_profile"><svg class="icon"><use href="#i-out"/></svg>Chuyển hồ sơ<svg class="icon small"><use href="#i-chevron"/></svg></button></div></section>
+
+    <section class="launcher glass" id="launcher" aria-label="Tất cả chức năng" hidden><div class="launcher-heading"><span>Không gian AnkiNOS</span><button class="icon-button small-button" data-action="launcher" aria-label="Đóng menu"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="launcher-grid"><button data-action="library"><svg class="icon"><use href="#i-layers"/></svg>Bộ thẻ</button><button data-action="browse"><svg class="icon"><use href="#i-search"/></svg>Duyệt thẻ</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ</button><button data-action="stats"><svg class="icon"><use href="#i-chart"/></svg>Thống kê</button><button data-action="preferences"><svg class="icon"><use href="#i-settings"/></svg>Cài đặt NOS</button><button data-action="import"><svg class="icon"><use href="#i-download"/></svg>Nhập thẻ</button><button data-action="export"><svg class="icon"><use href="#i-upload"/></svg>Xuất thẻ</button><button data-action="addons"><svg class="icon"><use href="#i-puzzle"/></svg>Tiện ích</button><button data-action="sync"><svg class="icon"><use href="#i-sync"/></svg>Đồng bộ</button><button data-action="shared"><svg class="icon"><use href="#i-external"/></svg>Bộ thẻ chia sẻ</button></div></section>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <div class="chart-tooltip" id="chart-tooltip" role="tooltip" hidden></div>
+    <div class="heat-tooltip" id="heat-tooltip" role="tooltip" hidden></div>
+  </div>
+  <script src="assets/dashboard.js"></script>
+</body>
+</html>
