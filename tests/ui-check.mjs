@@ -11,13 +11,16 @@ await mkdir(join(root,'tests','.tmp'), {recursive:true});
 const profile = join(root,'tests','.tmp',`nos-browser-${randomUUID()}`);
 await mkdir(profile);
 const chrome = process.env.NOS_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const child = spawn(chrome, ['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check',`--user-data-dir=${profile}`,'--remote-debugging-port=0','about:blank'], {windowsHide:true,stdio:['ignore','ignore','pipe']});
+const chromeArgs = ['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check',`--user-data-dir=${profile}`,'--remote-debugging-port=0','about:blank'];
+// Hosted Linux runners have constrained shared memory and no desktop session.
+if (process.env.CI) chromeArgs.unshift('--disable-dev-shm-usage','--no-sandbox');
+const child = spawn(chrome, chromeArgs, {windowsHide:true,stdio:['ignore','ignore','pipe']});
 let browserLog = '';
 child.stderr.on('data', data => { browserLog += data.toString(); });
 let socket;
 try {
   let port;
-  for (let tries=0; tries<150; tries++) {
+  for (let tries=0; tries<300; tries++) {
     try { port = Number((await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0]); break; }
     catch { await new Promise(r => setTimeout(r,100)); }
   }
