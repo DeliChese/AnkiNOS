@@ -100,7 +100,7 @@ try {
   assert.equal(await evaluate(`document.getElementById('image-preview-frame').style.backgroundSize`),'cover');
   assert.equal(await evaluate(`document.getElementById('image-preview-frame').style.backgroundPosition`),'center top');
   assert.equal(await evaluate(`document.getElementById('nos-app').style.getPropertyValue('--nos-bg-fit')`),'contain');
-  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
+  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),false,'Pending fit changes enable Apply');
   await click('[data-set-theme="night"]');
   assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),false);
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.theme`),'dusk','Draft must not repaint the dashboard until Apply');
