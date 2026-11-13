@@ -21,6 +21,8 @@
   const addDays = (date, days) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
   const state = {snapshot: null, settings: {}, filter: 'all', color: '', query: '', sort: 'name', period: 'year', year: null, expanded: new Set(), collapsed: new Set(), page: 'home'};
   let toastTimer;
+  let settingsDraft = null;
+  let settingsDirty = false;
   let refreshTimer;
   let snapshotPending=false;
   const historyPending=new Set();
@@ -84,9 +86,34 @@
   }
 
   function saveUI(patch) {
+    if (settingsDraft) {
+      Object.assign(settingsDraft, patch);
+      settingsDirty = true;
+      syncSettingsForm(settingsDraft);
+      $('btn-apply-settings').disabled = false;
+      $('settings-save-status').textContent = 'Có thay đổi chưa áp dụng';
+      return;
+    }
     Object.assign(state.settings, patch);
     applySettings();
     command('save_ui', {values: patch});
+  }
+
+  function applySettingsDraft() {
+    if (!settingsDraft || !settingsDirty) return;
+    const previousView = state.settings.view;
+    state.settings = {...settingsDraft};
+    settingsDirty = false;
+    applySettings();
+    if (state.snapshot) {
+      renderStats();
+      if (previousView !== state.settings.view) renderLibrary();
+      heatmapKey = '';
+      renderHeatmap();
+    }
+    command('apply_settings', {values:state.settings});
+    $('btn-apply-settings').disabled = true;
+    $('settings-save-status').textContent = 'Đã áp dụng · cấu hình lưu theo hồ sơ';
   }
 
   function setPopup(id, toggle, show) {
@@ -171,10 +198,15 @@
   function openSettings(initialTab = 'appearance') {
     closePopups();
     closeLibrary(false);
-    switchSettingsTab(initialTab);
-    syncSettingsForm();
     const dialog = $('settings-dialog');
-    if (!dialog.open) dialog.showModal();
+    if (dialog.open) return;
+    settingsDraft = {...state.settings};
+    settingsDirty = false;
+    switchSettingsTab(initialTab);
+    syncSettingsForm(settingsDraft);
+    $('btn-apply-settings').disabled = true;
+    $('settings-save-status').textContent = 'Nhấn Áp dụng để lưu thay đổi';
+    dialog.showModal();
     app.classList.add('settings-open');
     $('settings-close')?.focus({preventScroll: true});
   }
@@ -183,6 +215,8 @@
     const dialog = $('settings-dialog');
     if (!dialog.open) return;
     dialog.close();
+    settingsDraft = null;
+    settingsDirty = false;
     app.classList.remove('settings-open');
     if (restoreFocus) app.querySelector('[data-action="preferences"]')?.focus({preventScroll: true});
   }
@@ -196,8 +230,7 @@
     });
   }
 
-  function syncSettingsForm() {
-    const s = state.settings;
+  function syncSettingsForm(s = settingsDraft || state.settings) {
     app.querySelectorAll('.theme-pill-btn').forEach(btn => {
       btn.classList.toggle('active', (btn.dataset.setTheme || 'dusk') === (s.theme || 'dusk'));
     });
@@ -222,7 +255,7 @@
   }
 
   function exportSettings() {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(state.settings, null, 2));
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(settingsDraft || state.settings, null, 2));
     const dlAnchor = document.createElement('a');
     dlAnchor.setAttribute('href', dataStr);
     dlAnchor.setAttribute('download', 'ankinos-settings.json');
@@ -244,8 +277,7 @@
           const imported = JSON.parse(ev.target.result);
           if (typeof imported === 'object' && imported !== null) {
             saveUI(imported);
-            syncSettingsForm();
-            toast('Đã nhập và áp dụng cấu hình AnkiNOS.');
+            toast('Đã nhập. Nhấn Áp dụng để lưu.');
           }
         } catch {
           toast('Tệp JSON không hợp lệ.');
@@ -265,11 +297,7 @@
         heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false
       };
       saveUI(defaults);
-      syncSettingsForm();
-      heatmapKey = '';
-      renderHeatmap();
-      renderStats();
-      toast('Đã đặt lại cấu hình AnkiNOS về mặc định.');
+      toast('Đã chọn mặc định. Nhấn Áp dụng để lưu.');
     }
   }
 
@@ -312,7 +340,7 @@
       button.classList.toggle('selected', selected);
       button.setAttribute('aria-pressed', String(selected));
     });
-    syncSettingsForm();
+    if (!settingsDirty) syncSettingsForm();
   }
 
   function duration(ms) {
@@ -354,8 +382,8 @@
       return {date, ...(data.days[date] || {reviews:0, milliseconds:0, tested:0, passed:0})};
     });
     for (const [id,key,unit,value] of [
-      ['retention','retention','%', d => d.tested ? d.passed / d.tested * 100 : null],
-      ['pace','pace','lượt/giờ', d => d.milliseconds ? d.reviews / (d.milliseconds / 3600000) : null],
+      ['retention','retention','%', d => d.tested ? Math.max(0,Math.min(100,d.passed / d.tested * 100)) : null],
+      ['pace','pace','lượt/giờ', d => d.milliseconds > 0 ? Math.max(0,d.reviews / (d.milliseconds / 3600000)) : 0],
       ['time','milliseconds','phút', d => d.milliseconds / 60000],
       ['studied','reviews','lượt ôn', d => d.reviews],
     ]) {
@@ -390,9 +418,12 @@
       svg.innerHTML = '<path d="M6,31 H154" stroke="currentColor" stroke-width="1" stroke-dasharray="3 5" opacity=".4"/><text x="80" y="48" text-anchor="middle" fill="currentColor" font-size="8">Chưa có dữ liệu</text>';
       return;
     }
-    const values = available.map(point => point.value), min = Math.min(...values), max = Math.max(...values);
-    const range = max - min || Math.max(Math.abs(max)*.1,1);
-    const points = series.map((point,i) => point.value == null ? null : {x:6+i*148/(series.length-1),y:max === min ? 30 : 52-(point.value-min)/range*44});
+    const values = available.map(point => Math.max(0,point.value)), max = Math.max(0,...values);
+    const sorted = [...values].sort((a,b) => a-b);
+    const quartile = sorted[Math.floor(sorted.length*.75)] || 0;
+    const ceiling = id === 'spark-retention' ? 100 : quartile > 0 && max > quartile * 5 ? quartile * 2 : max;
+    const range = ceiling || 1;
+    const points = series.map((point,i) => point.value == null ? null : {x:6+i*148/(series.length-1),y:Math.max(8,52-Math.min(Math.max(0,point.value)/range,1)*44)});
     const segments = [];
     let current = [];
     for (const point of points) {
@@ -405,7 +436,7 @@
       const d = segment.map(({x,y},i) => `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
       const first=segment[0],last=segment[segment.length-1];
       return `<path d="${d} L${last.x},60 L${first.x},60Z" fill="url(#g-${id})"/><path class="spark-line" d="${d}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>`;
-    }).join('') + points.filter(Boolean).map(({x,y}) => `<circle class="spark-point" cx="${x}" cy="${y}" r="1.5" fill="currentColor"/>`).join('') + '<line class="spark-cursor" y1="4" y2="59" stroke="currentColor" stroke-dasharray="2 3" visibility="hidden"/>';
+    }).join('') + points.filter(Boolean).map(({x,y}) => `<line class="spark-zero-bar" x1="${x}" x2="${x}" y1="${y}" y2="56" stroke="currentColor" stroke-width="2" opacity=".24"/><circle class="spark-point" cx="${x}" cy="${y}" r="1.5" fill="currentColor"/>`).join('') + '<line class="spark-cursor" y1="4" y2="59" stroke="currentColor" stroke-dasharray="2 3" visibility="hidden"/>';
   }
 
   function chartTooltip(svg,index) {
@@ -652,6 +683,10 @@
 
   function receive({event, payload}) {
     const previousGoal=state.settings.goal;
+    const previousLibrarySettings = JSON.stringify([
+      state.settings.favorites, state.settings.colors, state.settings.resources,
+      state.settings.view, state.settings.sidebar_collapsed
+    ]);
     if(event==='history_year'&&state.snapshot){
       const {year,days}=payload;
       historyPending.delete(year);
@@ -678,19 +713,31 @@
       snapshotPending=false;
       state.snapshot = payload;
       state.settings = payload.settings || {};
+      if ($('settings-dialog').open && !settingsDirty) settingsDraft = {...state.settings};
       fullscreenState(native ? !!payload.fullscreen : !!document.fullscreenElement);
       state.year ??= Number(payload.today.slice(0,4));
       clearTimeout(refreshTimer);
       $('refresh-button').disabled = false;
       $('connection').innerHTML = `<span class="status-dot"></span>${native ? 'Bộ sưu tập Anki' : 'Bản xem trước'}`;
       $('page-footnote').textContent = native ? 'Dữ liệu từ bộ sưu tập Anki của bạn' : 'Dữ liệu minh họa · Mở Anki để dùng bộ sưu tập thật';
-    } else if (event === 'settings') state.settings = payload;
+    } else if (event === 'settings') {
+      state.settings = payload;
+      if (!settingsDirty) settingsDraft = $('settings-dialog').open ? {...payload} : null;
+    }
     if (!state.snapshot) return;
     applySettings();
     if(event==='snapshot'||state.settings.goal!==previousGoal)renderStats();
     if (event === 'snapshot') renderHeatmap();
-    updateLibraryData(event==='snapshot');
-    renderLibrary();
+    if (event === 'snapshot') {
+      updateLibraryData(true);
+      renderLibrary();
+    } else if (event === 'settings' && JSON.stringify([
+      state.settings.favorites, state.settings.colors, state.settings.resources,
+      state.settings.view, state.settings.sidebar_collapsed
+    ]) !== previousLibrarySettings) {
+      updateLibraryData();
+      renderLibrary();
+    }
     if(event==='snapshot'&&payload.library_focus) {
       openLibrary({focusDeck:payload.library_focus});
       command('library_ack',{id:payload.library_focus});
@@ -707,6 +754,7 @@
     if (accentBtn) { saveUI({accent: accentBtn.dataset.setAccent}); return; }
     const scaleBtn = event.target.closest('.scale-btn[data-scale]');
     if (scaleBtn) { saveUI({ui_scale: Number(scaleBtn.dataset.scale)}); return; }
+    if (event.target.closest('#btn-apply-settings')) { applySettingsDraft(); return; }
     if (event.target.closest('#btn-export-settings')) { exportSettings(); return; }
     if (event.target.closest('#btn-import-settings')) { importSettings(); return; }
     if (event.target.closest('#btn-reset-settings')) { resetSettings(); return; }
@@ -805,19 +853,17 @@
   $('set-stat-time')?.addEventListener('change', e => saveUI({stat_time: e.target.checked}));
   $('set-stat-studied')?.addEventListener('change', e => saveUI({stat_studied: e.target.checked}));
   $('set-lite-mode')?.addEventListener('change', e => saveUI({lite_mode: e.target.checked, blur: !e.target.checked}));
-  $('set-heatmap-day')?.addEventListener('change', e => { saveUI({heatmap_day: e.target.value}); heatmapKey=''; renderHeatmap(); });
+  $('set-heatmap-day')?.addEventListener('change', e => saveUI({heatmap_day: e.target.value}));
   $('set-heatmap-palette')?.addEventListener('change', e => saveUI({heatmap_palette: e.target.value}));
   $('set-goal-num')?.addEventListener('change', e => {
     const val = Math.max(1, Number(e.target.value) || 200);
     saveUI({goal: val});
     if ($('set-goal-range')) $('set-goal-range').value = Math.min(500, val);
-    renderStats();
   });
   $('set-goal-range')?.addEventListener('input', e => {
     const val = Number(e.target.value);
     if ($('set-goal-num')) $('set-goal-num').value = val;
     saveUI({goal: val});
-    renderStats();
   });
   window.addEventListener('resize', throttleRAF('resize', positionLibrary), {passive:true});
   $('library-sort').addEventListener('change', event => { state.sort = event.target.value; renderLibrary(); });
