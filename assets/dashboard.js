@@ -309,6 +309,12 @@
     }
   }
 
+  const MEDIA_URL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/;
+  function mediaUrl(slot, settings = state.settings) {
+    const entry = (settings.images || []).find(image => image.id === settings[slot]);
+    return entry && MEDIA_URL.test(entry.url || '') ? entry.url : '';
+  }
+
   function applySettings() {
     const s = state.settings;
     app.dataset.theme = s.theme || 'dusk';
