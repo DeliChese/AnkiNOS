@@ -21,6 +21,7 @@ from aqt.qt import QAction, QDesktopServices, QEvent, QFileDialog, QImageReader,
 from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, clear_snapshot_cache
+from .graphs_data import collect_native_graphs
 from .media_store import MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, add_image, delete_image, public_images, valid_images
 
 ROOT = Path(__file__).resolve().parent
@@ -41,6 +42,7 @@ _dashboard_tree: Any = None
 _data_revision = 0
 _review_changes_only = True
 _history_queries: set[tuple[int, str, int]] = set()
+_stats_request_serial = 0
 ALLOWED_FILES = {".pdf", ".epub", ".txt", ".md", ".csv", ".xlsx", ".docx", ".pptx", ".mp3", ".wav", ".mp4", ".webm", ".png", ".jpg", ".jpeg", ".webp"}
 
 
@@ -315,6 +317,38 @@ def refresh() -> None:
             success=success).failure(failure).run_in_background()
 
 
+def _stats_graphs(scope: str, days: int) -> None:
+    """Fetch the native Anki graphs lazily, only while the Stats page is open."""
+    global _stats_request_serial
+    if not mw.col or mw.state != "deckBrowser" or _navigating:
+        return
+    if scope not in {"deck", "collection"} or type(days) is not int or days not in {0, 365}:
+        send("graphs_error", "Bộ lọc thống kê không hợp lệ.")
+        return
+    _stats_request_serial += 1
+    token = (_generation, mw.pm.name, _stats_request_serial)
+    revision = _data_revision
+
+    def read(col: Any) -> dict[str, Any] | None:
+        if token != (_generation, mw.pm.name, _stats_request_serial) or _navigating:
+            return None
+        return collect_native_graphs(col, scope, days)
+
+    def success(payload: dict[str, Any] | None) -> None:
+        if not payload or token != (_generation, mw.pm.name, _stats_request_serial):
+            return
+        if revision != _data_revision:
+            _stats_graphs(scope, days)
+            return
+        send("graphs", payload)
+
+    def failure(error: Exception) -> None:
+        if token == (_generation, mw.pm.name, _stats_request_serial):
+            send("graphs_error", "Không thể tải thống kê Anki: " + str(error))
+
+    QueryOp(parent=mw, op=read, success=success).failure(failure).run_in_background()
+
+
 def _history_year(year: int) -> None:
     if mw.state != 'deckBrowser' or not 1900 <= year <= datetime.now().year:
         return
@@ -373,6 +407,9 @@ def replace_content(content: Any, context: Any) -> None:
         content.css = [p for p in content.css if p != "css/overview.css"]
         content.css.append(f"{base}/overview.css")
     content.js.append(f"{base}/overview.js" if overview else f"{base}/dashboard.js")
+    if not overview:
+        content.css.append(f"{base}/stats-page.css")
+        content.js.append(f"{base}/stats-page.js")
 
 
 def _deck_id(raw: Any) -> int:
@@ -575,6 +612,9 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             refresh()
         elif action == 'history_year':
             _history_year(int(command.get('year')))
+        elif action == "graphs":
+            # Native Rust graph data: all 13 standard Anki statistics sections.
+            _stats_graphs(command.get("scope"), command.get("days"))
         elif action == "study":
             did = _deck_id(command.get("id"))
             _begin_navigation()
@@ -662,8 +702,9 @@ def _operation_finished(changes: Any, initiator: Any) -> None:
 
 
 def _profile_closing() -> None:
-    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only
+    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial
     _generation += 1
+    _stats_request_serial += 1
     _active_query = None
     _library_focus = None
     _dashboard_tree = None
