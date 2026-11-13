@@ -111,7 +111,14 @@
       heatmapKey = '';
       renderHeatmap();
     }
-    command('apply_settings', {values:state.settings});
+    // Never send the image gallery (or large resource lists) back over pycmd.
+    const keys = ['goal','theme','accent','blur','animations','lite_mode','ui_scale',
+      'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
+      'activity_collapsed','library_collapsed','sidebar_collapsed','view',
+      'image_dashboard','image_overview','image_review','image_avatar'];
+    const values = Object.fromEntries(keys.filter(key => Object.hasOwn(state.settings,key))
+      .map(key => [key,state.settings[key]]));
+    command('apply_settings', {values});
     $('btn-apply-settings').disabled = true;
     $('settings-save-status').textContent = 'Đã áp dụng · cấu hình lưu theo hồ sơ';
   }
@@ -204,6 +211,7 @@
     settingsDirty = false;
     switchSettingsTab(initialTab);
     syncSettingsForm(settingsDraft);
+    renderMediaLibrary();
     $('btn-apply-settings').disabled = true;
     $('settings-save-status').textContent = 'Nhấn Áp dụng để lưu thay đổi';
     dialog.showModal();
@@ -254,6 +262,73 @@
     });
   }
 
+  const IMAGE_TARGETS = [
+    ['dashboard','image_dashboard','Ảnh nền mặc định'],
+    ['overview','image_overview','Ảnh nền mặc định'],
+    ['review','image_review','Ảnh nền mặc định'],
+    ['avatar','image_avatar','Avatar chữ mặc định']
+  ];
+  const MEDIA_URL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/;
+  function mediaUrl(slot, settings = state.settings) {
+    const entry = (settings.images || []).find(image => image.id === settings[slot]);
+    return entry && MEDIA_URL.test(entry.url || '') ? entry.url : '';
+  }
+
+  function renderMediaLibrary() {
+    const gallery = $('image-library-grid');
+    if (!gallery) return;
+    const images = (state.settings.images || []).filter(image => MEDIA_URL.test(image.url || ''));
+    const draft = settingsDraft || state.settings;
+    const known = new Set(images.map(image => image.id));
+    // Deleting an image clears only the affected pending image assignment.
+    if (settingsDraft) for (const [, slot] of IMAGE_TARGETS) {
+      if (settingsDraft[slot] && !known.has(settingsDraft[slot])) settingsDraft[slot] = null;
+    }
+    for (const [name, slot, fallback] of IMAGE_TARGETS) {
+      const select = $('media-select-' + name);
+      if (!select) continue;
+      const options = [new Option(fallback, ''), ...images.map(image => new Option(image.name, image.id))];
+      select.replaceChildren(...options);
+      select.value = known.has(draft[slot]) ? draft[slot] : '';
+    }
+    $('image-library-count').textContent = images.length + ' / 100 ảnh';
+    gallery.replaceChildren();
+    if (!images.length) {
+      const empty = document.createElement('p');
+      empty.className = 'image-library-empty';
+      empty.textContent = 'Chưa có ảnh. Chọn “Thêm ảnh từ máy” để bắt đầu.';
+      gallery.append(empty);
+      return;
+    }
+    const nodes = document.createDocumentFragment();
+    for (const image of images) {
+      const card = document.createElement('article');
+      card.className = 'image-library-card';
+      const thumbnail = document.createElement('img');
+      thumbnail.className = 'image-library-thumb';
+      thumbnail.src = image.url;
+      thumbnail.alt = image.name;
+      thumbnail.loading = 'lazy';
+      thumbnail.decoding = 'async';
+      const details = document.createElement('div');
+      details.className = 'image-library-info';
+      const name = document.createElement('span');
+      name.className = 'image-library-name';
+      name.textContent = image.name;
+      name.title = image.name;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'image-library-delete';
+      remove.dataset.imageDelete = image.id;
+      remove.textContent = 'Xóa ảnh';
+      remove.setAttribute('aria-label','Xóa ảnh ' + image.name);
+      details.append(name, remove);
+      card.append(thumbnail, details);
+      nodes.append(card);
+    }
+    gallery.append(nodes);
+  }
+
   function exportSettings() {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(settingsDraft || state.settings, null, 2));
     const dlAnchor = document.createElement('a');
@@ -294,7 +369,8 @@
         goal: 200, theme: 'dusk', accent: 'blue',
         blur: true, animations: true, ui_scale: 100,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
-        heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false
+        heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false,
+        image_dashboard: null, image_overview: null, image_review: null, image_avatar: null
       };
       saveUI(defaults);
       toast('Đã chọn mặc định. Nhấn Áp dụng để lưu.');
@@ -304,6 +380,15 @@
   function applySettings() {
     const s = state.settings;
     app.dataset.theme = s.theme || 'dusk';
+    const background = mediaUrl('image_dashboard', s);
+    app.dataset.customBackground = background ? 'true' : 'false';
+    app.style.setProperty('--nos-custom-background', background ? 'url("' + background + '")' : 'none');
+    const avatar = mediaUrl('image_avatar', s);
+    for (const node of [$('avatar-initials'), $('profile-initials')]) {
+      if (!node) continue;
+      node.classList.toggle('has-image', !!avatar);
+      node.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
+    }
     const accentHex = ACCENT_MAP[s.accent] || ACCENT_MAP.blue;
     app.style.setProperty('--blue', accentHex);
 
@@ -700,6 +785,10 @@
       $('activity-summary').textContent='Không thể tải lịch sử. Nhấn Làm mới để thử lại.';
       toast(payload.message);return;
     }
+    if (event === 'image_library') {
+      toast([payload.message, ...(payload.errors || [])].filter(Boolean).join(' '));
+      return;
+    }
     if (event === 'fullscreen') { fullscreenState(payload); return; }
     if (event === 'error') {
       snapshotPending=false;
@@ -714,6 +803,7 @@
       state.snapshot = payload;
       state.settings = payload.settings || {};
       if ($('settings-dialog').open && !settingsDirty) settingsDraft = {...state.settings};
+      else if (settingsDraft) settingsDraft.images = state.settings.images;
       fullscreenState(native ? !!payload.fullscreen : !!document.fullscreenElement);
       state.year ??= Number(payload.today.slice(0,4));
       clearTimeout(refreshTimer);
@@ -723,9 +813,11 @@
     } else if (event === 'settings') {
       state.settings = payload;
       if (!settingsDirty) settingsDraft = $('settings-dialog').open ? {...payload} : null;
+      else if (settingsDraft) settingsDraft.images = payload.images;
     }
     if (!state.snapshot) return;
     applySettings();
+    if ($('settings-dialog').open && (event === 'settings' || event === 'snapshot')) renderMediaLibrary();
     if(event==='snapshot'||state.settings.goal!==previousGoal)renderStats();
     if (event === 'snapshot') renderHeatmap();
     if (event === 'snapshot') {
@@ -755,6 +847,9 @@
     const scaleBtn = event.target.closest('.scale-btn[data-scale]');
     if (scaleBtn) { saveUI({ui_scale: Number(scaleBtn.dataset.scale)}); return; }
     if (event.target.closest('#btn-apply-settings')) { applySettingsDraft(); return; }
+    if (event.target.closest('#btn-image-add')) { command('image_add'); return; }
+    const imageDelete = event.target.closest('[data-image-delete]');
+    if (imageDelete) { command('image_delete',{id:imageDelete.dataset.imageDelete}); return; }
     if (event.target.closest('#btn-export-settings')) { exportSettings(); return; }
     if (event.target.closest('#btn-import-settings')) { importSettings(); return; }
     if (event.target.closest('#btn-reset-settings')) { resetSettings(); return; }
@@ -846,6 +941,10 @@
       if (event.target === event.currentTarget) closeSettings();
     });
   }
+  app.addEventListener('change', e => {
+    const slot = e.target?.dataset?.imageSlot;
+    if (IMAGE_TARGETS.some(([,key]) => key === slot)) saveUI({[slot]:e.target.value || null});
+  });
   $('set-blur')?.addEventListener('change', e => saveUI({blur: e.target.checked}));
   $('set-animations')?.addEventListener('change', e => saveUI({animations: e.target.checked}));
   $('set-stat-retention')?.addEventListener('change', e => saveUI({stat_retention: e.target.checked}));

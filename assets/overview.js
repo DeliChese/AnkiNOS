@@ -58,6 +58,10 @@
 
   function theme() {
     app.dataset.theme=state.settings.theme||'dusk';
+    const selected = (state.settings.images || []).find(image => image.id === state.settings.image_overview);
+    const imageUrl = selected?.url && /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/.test(selected.url) ? selected.url : '';
+    app.dataset.customBackground = imageUrl ? 'true' : 'false';
+    app.style.setProperty('--nos-custom-background', imageUrl ? 'url("' + imageUrl + '")' : 'none');
     $('overview-theme-label').textContent=state.settings.theme==='night'?'Chuyển sang kính hoàng hôn':'Chuyển sang kính tối';
   }
 

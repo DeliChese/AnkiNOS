@@ -17,10 +17,11 @@ from aqt.deckbrowser import DeckBrowser
 from aqt.overview import Overview
 from aqt.operations import QueryOp
 from aqt.operations.deck import remove_decks
-from aqt.qt import QAction, QDesktopServices, QEvent, QFileDialog, QInputDialog, QMenu, QObject, QTimer, QUrl, QCursor, qconnect
+from aqt.qt import QAction, QDesktopServices, QEvent, QFileDialog, QImageReader, QInputDialog, QMenu, QObject, QTimer, QUrl, QCursor, qconnect
 from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, clear_snapshot_cache
+from .media_store import MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, add_image, delete_image, public_images, valid_images
 
 ROOT = Path(__file__).resolve().parent
 MODULE = __package__ or "NOS"
@@ -114,7 +115,7 @@ def _config_updated(values: dict[str, Any]) -> None:
         if previous_enabled != values.get("enabled", True):
             mw.moveToState(mw.state)
         elif values.get("enabled", True):
-            send("settings", settings())
+            send("settings", public_settings())
 
 
 @lru_cache(maxsize=3)
@@ -177,7 +178,71 @@ def settings() -> dict[str, Any]:
             "blur": True, "animations": True, "ui_scale": 100,
             "stat_retention": True, "stat_pace": True, "stat_time": True, "stat_studied": True,
             "heatmap_day": "monday", "heatmap_palette": "default",
+            "images": [], "image_dashboard": None, "image_overview": None,
+            "image_review": None, "image_avatar": None,
             **profile}
+
+
+def public_settings() -> dict[str, Any]:
+    """Send only verified, existing local-image URLs to the WebView."""
+    data = settings()
+    package = mw.addonManager.addonFromModule(MODULE)
+    data["images"] = public_images(ROOT, mw.pm.name, data.get("images"), str(package))
+    return data
+
+
+def _image_add() -> None:
+    paths, _ = QFileDialog.getOpenFileNames(
+        mw, "Thêm ảnh vào thư viện AnkiNOS", "",
+        "Ảnh (*.png *.jpg *.jpeg *.webp)")
+    if not paths:
+        return
+    images = valid_images(settings().get("images"))
+    added = 0
+    errors: list[str] = []
+    for path in paths:
+        if len(images) >= MAX_IMAGES:
+            errors.append(f"Thư viện đã đạt giới hạn {MAX_IMAGES} ảnh.")
+            break
+        try:
+            source = Path(path)
+            if source.stat().st_size > MAX_IMAGE_BYTES:
+                raise ValueError("Dung lượng vượt quá 16 MB.")
+            reader = QImageReader(str(source))
+            if not reader.canRead():
+                raise ValueError("Không thể đọc tệp ảnh.")
+            image_format = bytes(reader.format()).decode("ascii", "ignore").lower()
+            dimensions = reader.size()
+            if (not dimensions.isValid() or dimensions.width() > 8000
+                    or dimensions.height() > 8000 or dimensions.width() * dimensions.height() > 24_000_000):
+                raise ValueError("Ảnh quá lớn (tối đa 24 megapixel).")
+            images.append(add_image(ROOT, mw.pm.name, source, image_format))
+            added += 1
+        except (OSError, ValueError) as error:
+            errors.append(f"{Path(path).name}: {error}")
+    if added:
+        save_settings({"images": images})
+        send("settings", public_settings())
+    send("image_library", {"message": f"Đã thêm {added} ảnh." if added else "Không có ảnh nào được thêm.",
+                           "errors": errors[:5]})
+
+
+def _image_delete(identifier: str) -> None:
+    data = settings()
+    images = valid_images(data.get("images"))
+    item = next((entry for entry in images if entry["id"] == identifier), None)
+    if not item:
+        return
+    if not askUser(f"Xóa ảnh '{item['name']}' khỏi thư viện AnkiNOS?"):
+        return
+    remaining = delete_image(ROOT, mw.pm.name, images, identifier)
+    patch: dict[str, Any] = {"images": remaining}
+    for slot in SLOTS:
+        if data.get(slot) == identifier:
+            patch[slot] = None
+    save_settings(patch)
+    send("settings", public_settings())
+    send("image_library", {"message": "Đã xóa ảnh khỏi thư viện.", "errors": []})
 
 
 def save_settings(patch: dict[str, Any]) -> None:
@@ -226,7 +291,7 @@ def refresh() -> None:
             return
         if not overview:
             _review_changes_only = True
-        snapshot = {**snapshot, 'profile':profile_name, 'settings':settings(), 'fullscreen':mw.isFullScreen()}
+        snapshot = {**snapshot, 'profile':profile_name, 'settings':public_settings(), 'fullscreen':mw.isFullScreen()}
         if not overview and _library_focus:
             snapshot["library_focus"] = _library_focus
         send("overview_snapshot" if overview else "snapshot", snapshot)
@@ -297,7 +362,7 @@ def replace_content(content: Any, context: Any) -> None:
     content.body = content.body.replace('id="nos-app"', 'id="nos-app" data-native="true"', 1)
     if overview:
         initial = overview_base(mw.col)
-        initial.update(profile=mw.pm.name, settings=settings(), fullscreen=mw.isFullScreen())
+        initial.update(profile=mw.pm.name, settings=public_settings(), fullscreen=mw.isFullScreen())
         content.body += '<textarea id="nos-overview-bootstrap" hidden>' + html.escape(json.dumps(initial, ensure_ascii=True)) + '</textarea>'
     package = mw.addonManager.addonFromModule(MODULE)
     base = f"/_addons/{package}/assets"
@@ -352,7 +417,7 @@ def _add_resource(link: bool = False) -> None:
             detail = f"{size / 1_048_576:.1f} MB" if size >= 1_048_576 else f"{max(1, round(size / 1024))} KB"
             resources.append({"id": uuid.uuid4().hex, "name": path.stem, "path": str(path), "kind": path.suffix[1:].lower(), "detail": detail})
     save_settings({"resources": resources})
-    send("settings", settings())
+    send("settings", public_settings())
 
 
 def _open_resource(resource_id: str) -> None:
@@ -393,7 +458,7 @@ def _deck_menu(did: int) -> None:
             mapping = dict(settings()["colors"])
             mapping[str(did)] = color
             save_settings({"colors": mapping})
-            send("settings", settings())
+            send("settings", public_settings())
         _menu_action(colors, name, set_color)
     menu.exec(QCursor.pos())
 
@@ -433,7 +498,7 @@ def _favorite(did: str) -> None:
     else:
         favorites.append(did)
     save_settings({"favorites": favorites})
-    send("settings", settings())
+    send("settings", public_settings())
 
 
 def _save_ui(values: Any) -> None:
@@ -461,6 +526,15 @@ def _save_ui(values: Any) -> None:
         patch["goal"] = values["goal"]
     if type(values.get("ui_scale")) is int and values["ui_scale"] in {85, 90, 100, 110, 120}:
         patch["ui_scale"] = values["ui_scale"]
+    known_images = {item["id"] for item in public_settings()["images"]}
+    for slot in SLOTS:
+        if slot not in values:
+            continue
+        value = values[slot]
+        if value is None or value == "":
+            patch[slot] = None
+        elif isinstance(value, str) and value in known_images:
+            patch[slot] = value
     if patch:
         save_settings(patch)
 
@@ -542,7 +616,7 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             goal, ok = QInputDialog.getInt(mw, "Mục tiêu học mỗi ngày", "Số lượt ôn tập mỗi ngày:", int(settings()["goal"]), 1, 100_000)
             if ok:
                 save_settings({"goal": goal})
-                send("settings", settings())
+                send("settings", public_settings())
         elif action in {"add_file", "add_link"}:
             _add_resource(action == "add_link")
         elif action == "open_resource":
@@ -553,16 +627,18 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             _menu_action(menu, "Mở tài nguyên", lambda: _open_resource(rid))
             def remove_reference() -> None:
                 save_settings({"resources": [r for r in settings()["resources"] if r["id"] != rid]})
-                send("settings", settings())
+                send("settings", public_settings())
             _menu_action(menu, "Gỡ khỏi dashboard (giữ nguyên file)", remove_reference)
             menu.exec(QCursor.pos())
         elif action == "save_ui":
             _save_ui(command.get("values"))
         elif action == "apply_settings":
-            # The explicit Apply action saves every allowed value and confirms
-            # the effective, persisted config back to the UI.
             _save_ui(command.get("values"))
-            send("settings", settings())
+            send("settings", public_settings())
+        elif action == "image_add":
+            _image_add()
+        elif action == "image_delete":
+            _image_delete(str(command.get("id", "")))
     except Exception as error:
         global _navigating
         _navigating = False
@@ -624,7 +700,7 @@ def install() -> None:
     if _installed:
         return
     _installed = True
-    mw.addonManager.setWebExports(MODULE, r"assets/.*\.(css|js|png|webp)")
+    mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}\.(?:png|jpg|webp))")
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
     _guard_unused_heatmaps()
     _guard_unused_deck_html()
@@ -652,4 +728,4 @@ def install() -> None:
     qconnect(_toggle_action.triggered, _toggle)
     mw.form.menuTools.addAction(_toggle_action)
     from .reviewer_ui import install as install_reviewer
-    install_reviewer(lambda: bool(config().get("enabled", True)), settings)
+    install_reviewer(lambda: bool(config().get("enabled", True)), public_settings)
