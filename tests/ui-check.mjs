@@ -49,7 +49,7 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('#deck-list > .deck-group [data-action="delete_deck"]').length`),4);
   assert.equal(await evaluate(`document.getElementById('profile-panel').hidden`),true);
   assert.equal(await evaluate(`document.querySelectorAll('#profile-panel [data-action="preferences"]').length`),1);
-  assert.equal(await evaluate(`document.querySelectorAll('[data-action="preferences"]').length`),3);
+  assert.equal(await evaluate(`document.querySelectorAll('[data-action="preferences"]').length`),2);
   assert.equal(await evaluate(`document.querySelectorAll('.rail-main [data-action="browse"],.rail-main [data-action="add_cards"],.rail-main [data-action="addons"]').length`),0);
   assert.equal(await evaluate(`document.getElementById('nos-app').clientHeight === innerHeight`),true,'Dashboard must fill the viewport');
   assert(await evaluate(`document.querySelectorAll('#heatmap .heat-cell').length >= 365`),'Heatmap must remain on the dashboard');
@@ -72,6 +72,14 @@ try {
   assert.equal(await evaluate(`document.getElementById('profile-panel').hidden`),true);
   await click('.rail-bottom [data-action="preferences"]');
   assert.equal(await evaluate(`document.getElementById('settings-dialog').open`),true);
+  assert.equal(await evaluate(`document.querySelectorAll('#launcher [data-action="preferences"]').length`),0,'Launcher must not duplicate Settings');
+  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
+  await click('[data-set-theme="night"]');
+  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),false);
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.theme`),'dusk','Draft must not repaint the dashboard until Apply');
+  await click('#btn-apply-settings');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.theme`),'night');
+  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
   const closePoint=await evaluate(`(()=>{const r=document.getElementById('settings-close').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',...closePoint,button:'left',clickCount:1});
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...closePoint,button:'left',clickCount:1});
@@ -157,7 +165,7 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('#deck-list img').length`),0,'Deck names must be rendered as text');
   assert.equal(await evaluate(`!!window.nosInjected`),false);
   assert.equal(await evaluate(`document.getElementById('trend-retention').textContent.includes('%')`),false,'No invented percent without a baseline');
-  assert.equal(await evaluate(`document.getElementById('spark-retention').textContent.includes('Chưa có dữ liệu')`),true);
+  assert.equal(await evaluate(`document.getElementById('spark-retention').querySelectorAll('line').length > 0`),true,'Zero retention must be drawn as a baseline bar');
   await evaluate(`(()=>{const leaf=(id,name,parent,children=[])=>({id,name,full_name:parent?parent+'::'+name:name,total:1,new:1,learn:0,review:0,retention:null,children,filtered:false});const w2=leaf('w2','Words','Course::Unit 2');const w10=leaf('w10','Words','Course::Unit 10');window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Test',days:{},due:3,total_cards:3,stats:{retention:null,pace:null,milliseconds:0,reviews:0,streak:0,tested:0},decks:[leaf('p','Course','',[leaf('u10','Unit 10','Course',[w10]),leaf('u2','Unit 2','Course',[w2])]),leaf('o','Other','',[leaf('ow','Words','Other')])],settings:{goal:200,resources:[],favorites:[]}}});document.getElementById('library-search').value='';document.getElementById('library-search').dispatchEvent(new Event('input',{bubbles:true}));})()`);
   await click('#library-toggle');
   await click('[data-action="expand"][data-id="p"]');
