@@ -73,6 +73,10 @@ try {
   await click('.rail-bottom [data-action="preferences"]');
   assert.equal(await evaluate(`document.getElementById('settings-dialog').open`),true);
   assert.equal(await evaluate(`document.querySelectorAll('#launcher [data-action="preferences"]').length`),0,'Launcher must not duplicate Settings');
+  assert.equal(await evaluate(`document.querySelectorAll('#stab-images select[data-image-slot]').length`),4,'Every image target needs its own selector');
+  assert.equal(await evaluate(`document.querySelector('#image-library-grid .image-library-empty') !== null`),true,'Empty library should show a prompt');
+  assert.equal(await evaluate(`document.getElementById('btn-image-add') !== null`),true);
+  assert.equal(await evaluate(`document.getElementById('media-select-dashboard').value`),'');
   assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
   await click('[data-set-theme="night"]');
   assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),false);
