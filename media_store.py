@@ -37,8 +37,8 @@ def valid_images(entries: object) -> list[dict]:
         ext = raw.get("ext")
         name = raw.get("name")
         if (not isinstance(identifier, str) or not _ID.fullmatch(identifier)
-                or identifier in seen or ext not in set(FORMATS.values())
-                or not isinstance(name, str)):
+                or identifier in seen or not isinstance(ext, str)
+                or ext not in set(FORMATS.values()) or not isinstance(name, str)):
             continue
         seen.add(identifier)
         result.append({"id": identifier, "ext": ext, "name": name[:160]})
