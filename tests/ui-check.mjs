@@ -165,7 +165,10 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('#deck-list img').length`),0,'Deck names must be rendered as text');
   assert.equal(await evaluate(`!!window.nosInjected`),false);
   assert.equal(await evaluate(`document.getElementById('trend-retention').textContent.includes('%')`),false,'No invented percent without a baseline');
-  assert.equal(await evaluate(`document.getElementById('spark-retention').querySelectorAll('line').length > 0`),true,'Zero retention must be drawn as a baseline bar');
+  assert.equal(await evaluate(`document.getElementById('spark-retention').textContent.includes('Chưa có dữ liệu')`),true,'Missing samples must not be mislabeled as zero');
+  await evaluate(`(()=>{const day={reviews:1,milliseconds:1000,tested:1,passed:0};window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Zero',days:{'2026-11-13':day},due:0,total_cards:0,stats:{retention:0,pace:3600,milliseconds:1000,reviews:1,streak:1,tested:1},trends:{},decks:[],settings:{goal:200}}})})()`);
+  assert.equal(await evaluate(`document.getElementById('stat-retention').textContent`),'0%');
+  assert.equal(await evaluate(`document.querySelector('#spark-retention .spark-zero-bar') !== null || document.querySelectorAll('#spark-retention line').length > 0`),true,'Measured zero must have a visible bar');
   await evaluate(`(()=>{const leaf=(id,name,parent,children=[])=>({id,name,full_name:parent?parent+'::'+name:name,total:1,new:1,learn:0,review:0,retention:null,children,filtered:false});const w2=leaf('w2','Words','Course::Unit 2');const w10=leaf('w10','Words','Course::Unit 10');window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Test',days:{},due:3,total_cards:3,stats:{retention:null,pace:null,milliseconds:0,reviews:0,streak:0,tested:0},decks:[leaf('p','Course','',[leaf('u10','Unit 10','Course',[w10]),leaf('u2','Unit 2','Course',[w2])]),leaf('o','Other','',[leaf('ow','Words','Other')])],settings:{goal:200,resources:[],favorites:[]}}});document.getElementById('library-search').value='';document.getElementById('library-search').dispatchEvent(new Event('input',{bubbles:true}));})()`);
   await click('#library-toggle');
   await click('[data-action="expand"][data-id="p"]');
