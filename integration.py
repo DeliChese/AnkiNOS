@@ -17,12 +17,14 @@ from aqt.deckbrowser import DeckBrowser
 from aqt.overview import Overview
 from aqt.operations import QueryOp
 from aqt.operations.deck import remove_decks
-from aqt.qt import QAction, QDesktopServices, QEvent, QFileDialog, QImageReader, QInputDialog, QMenu, QObject, QTimer, QUrl, QCursor, qconnect
+from aqt.qt import QAction, QDesktopServices, QEvent, QFileDialog, QImageReader, QSize, QInputDialog, QMenu, QObject, QTimer, QUrl, QCursor, qconnect
 from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, clear_snapshot_cache
 from .graphs_data import collect_native_graphs
-from .media_store import MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, add_image, delete_image, public_images, valid_images
+from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, IMAGE_FITS,
+                          IMAGE_POSITIONS, add_image, delete_image, public_images,
+                          valid_images, profile_dir)
 
 ROOT = Path(__file__).resolve().parent
 MODULE = __package__ or "NOS"
@@ -182,6 +184,10 @@ def settings() -> dict[str, Any]:
             "heatmap_day": "monday", "heatmap_palette": "default",
             "images": [], "image_dashboard": None, "image_overview": None,
             "image_review": None, "image_avatar": None,
+            "image_fit_dashboard": "contain", "image_fit_overview": "contain",
+            "image_fit_review": "contain", "image_fit_avatar": "cover",
+            "image_position_dashboard": "center", "image_position_overview": "center",
+            "image_position_review": "center", "image_position_avatar": "center",
             **profile}
 
 
@@ -214,11 +220,39 @@ def _image_add() -> None:
             if not reader.canRead():
                 raise ValueError("Không thể đọc tệp ảnh.")
             image_format = bytes(reader.format()).decode("ascii", "ignore").lower()
+            reader.setAutoTransform(True)
             dimensions = reader.size()
-            if (not dimensions.isValid() or dimensions.width() > 8000
-                    or dimensions.height() > 8000 or dimensions.width() * dimensions.height() > 24_000_000):
+            if (not dimensions.isValid() or dimensions.width() < 1
+                    or dimensions.height() < 1 or dimensions.width() > 8000
+                    or dimensions.height() > 8000
+                    or dimensions.width() * dimensions.height() > 24_000_000):
                 raise ValueError("Ảnh quá lớn (tối đa 24 megapixel).")
-            images.append(add_image(ROOT, mw.pm.name, source, image_format))
+            # Decode once at preview resolution to reject corrupt images and
+            # avoid decoding a 24-megapixel original in the settings gallery.
+            scale = min(1.0, 480 / max(dimensions.width(), dimensions.height()))
+            reader.setScaledSize(QSize(
+                max(1, round(dimensions.width() * scale)),
+                max(1, round(dimensions.height() * scale)),
+            ))
+            thumbnail = reader.read()
+            if thumbnail.isNull():
+                raise ValueError("Không giải mã được ảnh: " + reader.errorString())
+            entry = add_image(
+                ROOT, mw.pm.name, source, image_format,
+                width=dimensions.width(), height=dimensions.height(),
+            )
+            thumb_path = profile_dir(ROOT, mw.pm.name) / (entry["id"] + THUMBNAIL_SUFFIX)
+            temporary = thumb_path.with_suffix(".tmp")
+            try:
+                # PNG preview retains transparency and source aspect ratio.
+                if not thumbnail.save(str(temporary), "PNG"):
+                    raise ValueError("Không tạo được ảnh xem trước.")
+                temporary.replace(thumb_path)
+            except Exception:
+                temporary.unlink(missing_ok=True)
+                (profile_dir(ROOT, mw.pm.name) / (entry["id"] + entry["ext"])).unlink(missing_ok=True)
+                raise
+            images.append(entry)
             added += 1
         except (OSError, ValueError) as error:
             errors.append(f"{Path(path).name}: {error}")
@@ -586,6 +620,13 @@ def _save_ui(values: Any) -> None:
             patch[slot] = None
         elif isinstance(value, str) and value in known_images:
             patch[slot] = value
+    for surface in ("dashboard", "overview", "review", "avatar"):
+        fit = values.get("image_fit_" + surface)
+        position = values.get("image_position_" + surface)
+        if isinstance(fit, str) and fit in IMAGE_FITS:
+            patch["image_fit_" + surface] = fit
+        if isinstance(position, str) and position in IMAGE_POSITIONS:
+            patch["image_position_" + surface] = position
     if patch:
         save_settings(patch)
 
@@ -757,7 +798,7 @@ def install() -> None:
     if _installed:
         return
     _installed = True
-    mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}\.(?:png|jpg|webp))")
+    mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}(?:-thumb)?\.(?:png|jpg|webp))")
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
     _guard_unused_heatmaps()
     _guard_unused_deck_html()

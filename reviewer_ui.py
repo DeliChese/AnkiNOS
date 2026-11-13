@@ -27,7 +27,9 @@ def _content(content: Any, context: Any) -> None:
             None,
         )
         initial = {"deck": deck["name"], "theme": current_settings.get("theme", "dusk"),
-                   "answered": _answered, "background": background}
+                   "answered": _answered, "background": background,
+                   "background_fit": current_settings.get("image_fit_review", "contain"),
+                   "background_position": current_settings.get("image_position_review", "center")}
         content.body = (
             '<div id="nos-review-shell"><div class="nos-review-wallpaper" aria-hidden="true"></div>'
             '<header id="nos-review-header"></header><main id="nos-review-stage">'

@@ -11,6 +11,8 @@
     /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/.test(initial.background) ? initial.background : '';
   shell.dataset.customBackground = background ? 'true' : 'false';
   shell.style.setProperty('--nos-review-background', background ? 'url("' + background + '")' : 'none');
+  shell.style.setProperty('--nos-review-fit', ['contain','cover'].includes(initial.background_fit) ? initial.background_fit : 'contain');
+  shell.style.setProperty('--nos-review-position', ['center','top','bottom','left','right'].includes(initial.background_position) ? initial.background_position : 'center');
   shell.dataset.side='question';
   $('nos-review-header').innerHTML=`<button data-nos-review="back" aria-label="Về danh sách bộ thẻ"><svg viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span class="nos-back-label">Bộ thẻ</span></button><div id="nos-review-heading"><span id="nos-review-deck"></span><span id="nos-review-progress"></span></div><div id="nos-review-tools"><span id="nos-review-side">Mặt trước</span><button data-nos-review="more" aria-label="Tùy chọn thẻ" title="Tùy chọn thẻ (M)">⋯</button></div>`;
   $('nos-review-deck').textContent=initial.deck||'Phiên ôn tập';

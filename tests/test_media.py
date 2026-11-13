@@ -56,6 +56,34 @@ class ImageLibraryTests(unittest.TestCase):
         self.assertTrue(self.source.is_file())
         self.assertEqual(media.public_images(self.root, "Alice", [valid], "../../../bad"), [])
 
+    def test_thumbnail_and_metadata_preserve_original(self):
+        entry = media.add_image(self.root, "Alice", self.source, "png", width=1200, height=800)
+        self.assertEqual((entry["width"], entry["height"], entry["size"]), (1200, 800, self.source.stat().st_size))
+        directory = media.profile_dir(self.root, "Alice")
+        preview = directory / (entry["id"] + media.THUMBNAIL_SUFFIX)
+        preview.write_bytes(b"small preview")
+        published = media.public_images(self.root, "Alice", [entry], "NOS")[0]
+        self.assertTrue(published["thumb_url"].endswith("-thumb.png"))
+        self.assertNotEqual(published["thumb_url"], published["url"])
+        media.delete_image(self.root, "Alice", [entry], entry["id"])
+        self.assertFalse(preview.exists())
+        self.assertTrue(self.source.exists())
+
+    def test_legacy_library_without_thumbnails_stays_valid(self):
+        entry = media.add_image(self.root, "Old", self.source, "png")
+        legacy = {key:entry[key] for key in ("id", "name", "ext")}
+        item = media.public_images(self.root, "Old", [legacy], "NOS")[0]
+        self.assertEqual(item["thumb_url"], item["url"])
+        self.assertEqual(media.valid_images([legacy]), [legacy])
+
+    def test_bad_metadata_is_ignored(self):
+        entry = media.add_image(self.root, "Alice", self.source, "png")
+        entry.update({"width": -1, "height": True, "size": 9999999999})
+        clean = media.valid_images([entry])[0]
+        self.assertNotIn("width", clean)
+        self.assertNotIn("height", clean)
+        self.assertNotIn("size", clean)
+
     def test_size_limit_format_and_unique_ids(self):
         with self.assertRaises(ValueError):
             media.add_image(self.root, "Alice", self.source, "svg")

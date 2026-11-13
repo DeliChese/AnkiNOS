@@ -287,23 +287,72 @@
             <!-- Image library shared by Dashboard, Overview, Reviewer and Avatar -->
             <div class="settings-tab-pane" id="stab-images" hidden>
               <div class="settings-group-title">Hình nền và avatar từ máy tính</div>
-              <p class="image-library-help">Ảnh được sao chép vào thư mục user_files của AnkiNOS, lưu riêng theo hồ sơ và không đồng bộ qua AnkiWeb. Thay đổi hình nền có hiệu lực khi nhấn Áp dụng.</p>
+              <p class="image-library-help">Ảnh gốc được giữ nguyên trong user_files của AnkiNOS, lưu riêng theo hồ sơ và không đồng bộ qua AnkiWeb. Chọn cách hiển thị rồi nhấn Áp dụng.</p>
               <div class="image-targets">
-                <label for="media-select-dashboard">Giao diện chính (Dashboard)</label>
-                <select id="media-select-dashboard" data-image-slot="image_dashboard" class="nos-select"><option value="">Ảnh nền mặc định</option></select>
-                <label for="media-select-overview">Chuẩn bị học</label>
-                <select id="media-select-overview" data-image-slot="image_overview" class="nos-select"><option value="">Ảnh nền mặc định</option></select>
-                <label for="media-select-review">Lúc học / ôn tập</label>
-                <select id="media-select-review" data-image-slot="image_review" class="nos-select"><option value="">Ảnh nền mặc định</option></select>
-                <label for="media-select-avatar">Ảnh đại diện (Avatar)</label>
-                <select id="media-select-avatar" data-image-slot="image_avatar" class="nos-select"><option value="">Avatar chữ mặc định</option></select>
+                <div class="image-target-row">
+                  <label for="media-select-dashboard">Giao diện chính (Dashboard)</label>
+                  <div class="image-target-controls">
+                    <select id="media-select-dashboard" data-image-slot="image_dashboard" class="nos-select" aria-label="Chọn ảnh Giao diện chính (Dashboard)"><option value="">Ảnh nền mặc định</option></select>
+                    <select id="media-fit-dashboard" data-image-fit="image_fit_dashboard" class="nos-select" aria-label="Cách hiển thị Giao diện chính (Dashboard)">
+                      <option value="contain">Vừa khung · không cắt</option>
+                      <option value="cover">Phủ kín · có thể cắt</option>
+                    </select>
+                    <select id="media-position-dashboard" data-image-position="image_position_dashboard" class="nos-select" aria-label="Vị trí ảnh Giao diện chính (Dashboard)">
+                      <option value="center">Căn giữa</option><option value="top">Căn trên</option><option value="bottom">Căn dưới</option><option value="left">Căn trái</option><option value="right">Căn phải</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="image-target-row">
+                  <label for="media-select-overview">Chuẩn bị học</label>
+                  <div class="image-target-controls">
+                    <select id="media-select-overview" data-image-slot="image_overview" class="nos-select" aria-label="Chọn ảnh Chuẩn bị học"><option value="">Ảnh nền mặc định</option></select>
+                    <select id="media-fit-overview" data-image-fit="image_fit_overview" class="nos-select" aria-label="Cách hiển thị Chuẩn bị học">
+                      <option value="contain">Vừa khung · không cắt</option>
+                      <option value="cover">Phủ kín · có thể cắt</option>
+                    </select>
+                    <select id="media-position-overview" data-image-position="image_position_overview" class="nos-select" aria-label="Vị trí ảnh Chuẩn bị học">
+                      <option value="center">Căn giữa</option><option value="top">Căn trên</option><option value="bottom">Căn dưới</option><option value="left">Căn trái</option><option value="right">Căn phải</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="image-target-row">
+                  <label for="media-select-review">Lúc học / ôn tập</label>
+                  <div class="image-target-controls">
+                    <select id="media-select-review" data-image-slot="image_review" class="nos-select" aria-label="Chọn ảnh Lúc học / ôn tập"><option value="">Ảnh nền mặc định</option></select>
+                    <select id="media-fit-review" data-image-fit="image_fit_review" class="nos-select" aria-label="Cách hiển thị Lúc học / ôn tập">
+                      <option value="contain">Vừa khung · không cắt</option>
+                      <option value="cover">Phủ kín · có thể cắt</option>
+                    </select>
+                    <select id="media-position-review" data-image-position="image_position_review" class="nos-select" aria-label="Vị trí ảnh Lúc học / ôn tập">
+                      <option value="center">Căn giữa</option><option value="top">Căn trên</option><option value="bottom">Căn dưới</option><option value="left">Căn trái</option><option value="right">Căn phải</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="image-target-row">
+                  <label for="media-select-avatar">Ảnh đại diện (Avatar)</label>
+                  <div class="image-target-controls">
+                    <select id="media-select-avatar" data-image-slot="image_avatar" class="nos-select" aria-label="Chọn ảnh Ảnh đại diện (Avatar)"><option value="">Avatar chữ mặc định</option></select>
+                    <select id="media-fit-avatar" data-image-fit="image_fit_avatar" class="nos-select" aria-label="Cách hiển thị Ảnh đại diện (Avatar)">
+                      <option value="contain">Vừa khung · không cắt</option>
+                      <option value="cover">Phủ kín · có thể cắt</option>
+                    </select>
+                    <select id="media-position-avatar" data-image-position="image_position_avatar" class="nos-select" aria-label="Vị trí ảnh Ảnh đại diện (Avatar)">
+                      <option value="center">Căn giữa</option><option value="top">Căn trên</option><option value="bottom">Căn dưới</option><option value="left">Căn trái</option><option value="right">Căn phải</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="image-preview-panel">
+                <div class="image-preview-head"><strong>Xem trước cách hiển thị</strong><span id="image-preview-title">Dashboard</span></div>
+                <div class="image-preview-frame" id="image-preview-frame" role="img" aria-label="Ảnh xem trước không bị cắt"><span id="image-preview-placeholder">Chọn ảnh trong danh sách phía trên</span></div>
+                <p class="image-library-help">Vừa khung giữ trọn ảnh và có thể có khoảng trống hai bên; Phủ kín lấp đầy màn hình nhưng có thể cắt rìa. Có thể căn ảnh để giữ vùng quan trọng.</p>
               </div>
               <div class="image-library-toolbar">
                 <div><strong>Kho ảnh của bạn</strong><p id="image-library-count">Chưa có ảnh</p></div>
                 <button type="button" class="subtle-button" id="btn-image-add"><svg class="icon small"><use href="#i-plus"/></svg>Thêm ảnh từ máy</button>
               </div>
               <div id="image-library-grid" class="image-library-grid" aria-live="polite"></div>
-              <p class="image-library-help">PNG, JPG, WebP · tối đa 16 MB và 24 megapixel mỗi ảnh · tối đa 100 ảnh. Xóa ảnh trong kho sẽ xóa bản sao của AnkiNOS và bỏ gán ảnh khỏi mọi vị trí.</p>
+              <p class="image-library-help">PNG, JPG, WebP · tối đa 16 MB và 24 megapixel mỗi ảnh · tối đa 100 ảnh. Ảnh mới có thumbnail riêng; ảnh cũ vẫn dùng được. Xóa trong kho sẽ xóa bản sao của AnkiNOS, không xóa ảnh gốc trên máy.</p>
             </div>
 
             <!-- TAB 5: Phím tắt -->

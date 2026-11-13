@@ -595,15 +595,17 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
    light/OLED built-in theme gradients only when an image is selected. */
 #nos-app[data-custom-background="true"] .wallpaper {
   background-image: linear-gradient(125deg,rgba(15,27,51,.33),rgba(16,28,50,.16)),var(--nos-custom-background) !important;
-  background-position: center, center;
-  background-size: cover, cover;
+  background-position: center, var(--nos-bg-position, center);
+  /* First layer shades content; second is the unmodified original. */
+  background-size: cover, var(--nos-bg-fit, contain);
   background-repeat: no-repeat;
+  background-color: #384b70;
 }
 #nos-app .avatar.has-image {
   color: transparent !important;
   background-color: rgba(25,38,62,.5);
-  background-size: cover;
-  background-position: center;
+  background-size: var(--nos-avatar-fit, cover);
+  background-position: var(--nos-avatar-position, center);
   background-repeat: no-repeat;
 }
 #nos-app .image-library-help { margin: 9px 0 16px; font-size: 11px; line-height: 1.6; color: var(--muted); }
@@ -616,9 +618,28 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .image-library-toolbar .subtle-button { padding: 8px 12px; border: 1px solid var(--edge); border-radius: 9px; font-size: 11px; }
 #nos-app .image-library-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(136px,1fr)); gap: 12px; padding: 0 0 8px; }
 #nos-app .image-library-card { min-width: 0; overflow: hidden; border-radius: 11px; background: rgba(215,229,255,.065); border: 1px solid var(--edge); }
-#nos-app .image-library-thumb { width: 100%; height: 92px; display: block; object-fit: cover; background: rgba(17,28,50,.2); }
+#nos-app .image-library-thumb { width: 100%; height: 102px; display: block; object-fit: contain; object-position: center; background: rgba(17,28,50,.26); }
 #nos-app .image-library-info { padding: 8px 9px; }
 #nos-app .image-library-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 550; }
 #nos-app .image-library-delete { margin-top: 8px !important; border-radius: 7px !important; padding: 4px 7px !important; background: rgba(255,110,130,.09) !important; color: #ffc2cd !important; font-size: 10px !important; }
 #nos-app .image-library-empty { padding: 24px 12px; border: 1px dashed var(--edge); border-radius: 12px; font-size: 12px; color: var(--muted); grid-column: 1/-1; text-align: center; }
 @media(max-width:650px) { #nos-app .image-targets { grid-template-columns: minmax(0,1fr); gap: 6px; } #nos-app .image-targets label:not(:first-child) { margin-top: 7px; } }
+
+/* No destructive image crop: each surface chooses its own fit and focal point. */
+#nos-app .image-targets { display: flex; flex-direction: column; gap: 12px; margin: 14px 0; }
+#nos-app .image-target-row { display: grid; grid-template-columns: minmax(0,1fr); gap: 6px; border: 1px solid var(--edge); border-radius: 12px; padding: 10px; background: rgba(206,226,255,.04); }
+#nos-app .image-target-row > label { color: var(--text); font-size: 12px; font-weight: 650; }
+#nos-app .image-target-controls { display: grid; grid-template-columns: minmax(130px,1.3fr) minmax(135px,1fr) minmax(105px,.8fr); gap: 8px; }
+#nos-app .image-target-controls select { min-width: 0; width: 100%; font-size: 11px; }
+#nos-app .image-preview-panel { margin: 13px 0 20px; border: 1px solid var(--edge); border-radius: 12px; padding: 10px; }
+#nos-app .image-preview-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; margin-bottom: 10px; }
+#nos-app #image-preview-title { font-size: 10px; color: var(--muted); }
+#nos-app .image-preview-frame { width: 100%; aspect-ratio: 16/9; max-height: 210px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid var(--edge); background-color: #263957; background-repeat: no-repeat; background-position: center; background-size: contain; }
+#nos-app .image-preview-frame.is-avatar { width: 145px; height: 145px; aspect-ratio: 1; border-radius: 50%; margin: 0 auto; }
+#nos-app #image-preview-placeholder { padding: 12px; font-size: 11px; color: var(--muted); text-align: center; }
+#nos-app .image-preview-panel .image-library-help { margin-bottom: 0; }
+#nos-app .image-library-dimensions { display: block; font-size: 10px; color: var(--muted); margin-top: 3px; }
+@media (max-width: 680px) {
+  #nos-app .image-target-controls { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #nos-app .image-target-controls [data-image-slot] { grid-column: 1/-1; }
+}

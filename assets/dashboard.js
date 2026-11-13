@@ -115,7 +115,9 @@
     const keys = ['goal','theme','accent','blur','animations','lite_mode','ui_scale',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
       'activity_collapsed','library_collapsed','sidebar_collapsed','view',
-      'image_dashboard','image_overview','image_review','image_avatar'];
+      'image_dashboard','image_overview','image_review','image_avatar',
+      'image_fit_dashboard','image_fit_overview','image_fit_review','image_fit_avatar',
+      'image_position_dashboard','image_position_overview','image_position_review','image_position_avatar'];
     const values = Object.fromEntries(keys.filter(key => Object.hasOwn(state.settings,key))
       .map(key => [key,state.settings[key]]));
     command('apply_settings', {values});
@@ -260,6 +262,12 @@
     app.querySelectorAll('.scale-btn').forEach(btn => {
       btn.classList.toggle('active', Number(btn.dataset.scale) === (s.ui_scale || 100));
     });
+    app.querySelectorAll('[data-image-fit]').forEach(select => {
+      select.value = s[select.dataset.imageFit] || (select.dataset.imageFit === 'image_fit_avatar' ? 'cover' : 'contain');
+    });
+    app.querySelectorAll('[data-image-position]').forEach(select => {
+      select.value = s[select.dataset.imagePosition] || 'center';
+    });
   }
 
   const IMAGE_TARGETS = [
@@ -269,9 +277,38 @@
     ['avatar','image_avatar','Avatar chữ mặc định']
   ];
   const MEDIA_URL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/;
+  const THUMB_URL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}-thumb\.png$/;
+  const FITS = new Set(['contain','cover']);
+  const POSITIONS = new Set(['center','top','bottom','left','right']);
+  let previewTarget = 'dashboard';
+  function imageFit(s, target) {
+    const value = s['image_fit_' + target];
+    return FITS.has(value) ? value : (target === 'avatar' ? 'cover' : 'contain');
+  }
+  function imagePosition(s, target) {
+    const value = s['image_position_' + target];
+    return POSITIONS.has(value) ? value : 'center';
+  }
   function mediaUrl(slot, settings = state.settings) {
     const entry = (settings.images || []).find(image => image.id === settings[slot]);
     return entry && MEDIA_URL.test(entry.url || '') ? entry.url : '';
+  }
+
+  function renderMediaPreview() {
+    const preview = $('image-preview-frame');
+    if (!preview) return;
+    const draft = settingsDraft || state.settings;
+    const image = (state.settings.images || []).find(item => item.id === draft['image_' + previewTarget]);
+    const url = image && MEDIA_URL.test(image.url || '') ? image.url : '';
+    preview.classList.toggle('is-avatar', previewTarget === 'avatar');
+    preview.style.backgroundImage = url ? 'url("' + url + '")' : '';
+    preview.style.backgroundSize = imageFit(draft, previewTarget);
+    preview.style.backgroundPosition = imagePosition(draft, previewTarget);
+    $('image-preview-placeholder').hidden = !!url;
+    $('image-preview-title').textContent = {
+      dashboard:'Dashboard', overview:'Chuẩn bị học', review:'Lúc ôn tập', avatar:'Avatar'
+    }[previewTarget];
+    preview.setAttribute('aria-label', url ? 'Xem trước ' + image.name : 'Chưa chọn ảnh');
   }
 
   function renderMediaLibrary() {
@@ -292,6 +329,7 @@
       select.value = known.has(draft[slot]) ? draft[slot] : '';
     }
     $('image-library-count').textContent = images.length + ' / 100 ảnh';
+    renderMediaPreview();
     gallery.replaceChildren();
     if (!images.length) {
       const empty = document.createElement('p');
@@ -306,8 +344,9 @@
       card.className = 'image-library-card';
       const thumbnail = document.createElement('img');
       thumbnail.className = 'image-library-thumb';
-      thumbnail.src = image.url;
+      thumbnail.src = THUMB_URL.test(image.thumb_url || '') ? image.thumb_url : image.url;
       thumbnail.alt = image.name;
+      thumbnail.title = image.name + (image.width && image.height ? ' · ' + image.width + '×' + image.height + ' px' : '');
       thumbnail.loading = 'lazy';
       thumbnail.decoding = 'async';
       const details = document.createElement('div');
@@ -322,7 +361,14 @@
       remove.dataset.imageDelete = image.id;
       remove.textContent = 'Xóa ảnh';
       remove.setAttribute('aria-label','Xóa ảnh ' + image.name);
-      details.append(name, remove);
+      if (image.width && image.height) {
+        const dimensions = document.createElement('small');
+        dimensions.className = 'image-library-dimensions';
+        dimensions.textContent = image.width + ' × ' + image.height + ' px';
+        details.append(name, dimensions, remove);
+      } else {
+        details.append(name, remove);
+      }
       card.append(thumbnail, details);
       nodes.append(card);
     }
@@ -370,7 +416,11 @@
         blur: true, animations: true, ui_scale: 100,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
         heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false,
-        image_dashboard: null, image_overview: null, image_review: null, image_avatar: null
+        image_dashboard: null, image_overview: null, image_review: null, image_avatar: null,
+        image_fit_dashboard: 'contain', image_fit_overview: 'contain',
+        image_fit_review: 'contain', image_fit_avatar: 'cover',
+        image_position_dashboard: 'center', image_position_overview: 'center',
+        image_position_review: 'center', image_position_avatar: 'center'
       };
       saveUI(defaults);
       toast('Đã chọn mặc định. Nhấn Áp dụng để lưu.');
@@ -383,11 +433,15 @@
     const background = mediaUrl('image_dashboard', s);
     app.dataset.customBackground = background ? 'true' : 'false';
     app.style.setProperty('--nos-custom-background', background ? 'url("' + background + '")' : 'none');
+    app.style.setProperty('--nos-bg-fit', imageFit(s, 'dashboard'));
+    app.style.setProperty('--nos-bg-position', imagePosition(s, 'dashboard'));
     const avatar = mediaUrl('image_avatar', s);
     for (const node of [$('avatar-initials'), $('profile-initials')]) {
       if (!node) continue;
       node.classList.toggle('has-image', !!avatar);
       node.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
+      node.style.setProperty('--nos-avatar-fit', imageFit(s, 'avatar'));
+      node.style.setProperty('--nos-avatar-position', imagePosition(s, 'avatar'));
     }
     const accentHex = ACCENT_MAP[s.accent] || ACCENT_MAP.blue;
     app.style.setProperty('--blue', accentHex);
@@ -944,9 +998,26 @@
       if (event.target === event.currentTarget) closeSettings();
     });
   }
+  app.addEventListener('focusin', e => {
+    const control = e.target.closest('[data-image-slot], [data-image-fit], [data-image-position]');
+    if (!control) return;
+    const key = control.dataset.imageSlot || control.dataset.imageFit || control.dataset.imagePosition;
+    previewTarget = key.replace(/^image_(?:fit_|position_)?/, '');
+    renderMediaPreview();
+  });
   app.addEventListener('change', e => {
-    const slot = e.target?.dataset?.imageSlot;
-    if (IMAGE_TARGETS.some(([,key]) => key === slot)) saveUI({[slot]:e.target.value || null});
+    const control = e.target;
+    if (!control || !control.dataset) return;
+    const slot = control.dataset.imageSlot;
+    const fit = control.dataset.imageFit;
+    const position = control.dataset.imagePosition;
+    const key = slot || fit || position;
+    if (!key) return;
+    previewTarget = key.replace(/^image_(?:fit_|position_)?/, '');
+    if (slot) saveUI({[slot]: control.value || null});
+    else if (fit && FITS.has(control.value)) saveUI({[fit]: control.value});
+    else if (position && POSITIONS.has(control.value)) saveUI({[position]: control.value});
+    renderMediaPreview();
   });
   $('set-blur')?.addEventListener('change', e => saveUI({blur: e.target.checked}));
   $('set-animations')?.addEventListener('change', e => saveUI({animations: e.target.checked}));

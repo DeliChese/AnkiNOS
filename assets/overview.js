@@ -62,6 +62,8 @@
     const imageUrl = selected?.url && /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/.test(selected.url) ? selected.url : '';
     app.dataset.customBackground = imageUrl ? 'true' : 'false';
     app.style.setProperty('--nos-custom-background', imageUrl ? 'url("' + imageUrl + '")' : 'none');
+    app.style.setProperty('--nos-bg-fit', ['contain','cover'].includes(state.settings.image_fit_overview) ? state.settings.image_fit_overview : 'contain');
+    app.style.setProperty('--nos-bg-position', ['center','top','bottom','left','right'].includes(state.settings.image_position_overview) ? state.settings.image_position_overview : 'center');
     $('overview-theme-label').textContent=state.settings.theme==='night'?'Chuyển sang kính hoàng hôn':'Chuyển sang kính tối';
   }
 

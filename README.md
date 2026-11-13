@@ -26,6 +26,11 @@ Thư mục này đã nằm trong `Anki2/addons21/NOS`. Khởi động lại Anki
 
 ## Thư viện ảnh cá nhân
 
+**Ảnh nền không bị cắt:** Ở Cài đặt → Thư viện ảnh, mỗi vị trí có chế độ **Vừa khung** (giữ trọn ảnh, có thể có khoảng trống) và **Phủ kín** (lấp đầy nhưng có thể cắt rìa), kèm căn trên/dưới/trái/phải/giữa. Mặc định 3 hình nền là **Vừa khung**, avatar là **Phủ kín**. Xem trước rồi nhấn **Áp dụng**. Ảnh đã lưu trước đây tiếp tục dùng được, không cần nhập lại.
+
+Ảnh nhập **mới** được giữ nguyên file gốc, lưu kích thước/dung lượng và tạo ảnh xem trước PNG riêng tối đa 480 px. Hình nền luôn dùng file gốc. Ảnh cũ thiếu thumbnail sẽ dùng file gốc cho ảnh xem trước, không bị chỉnh sửa. Xóa một ảnh trong kho sẽ xóa cả bản sao lẫn thumbnail, không ảnh hưởng ảnh nguồn trên máy.
+
+
 Mở **Cài đặt AnkiNOS → Thư viện ảnh → Thêm ảnh từ máy** để sao chép ảnh vào kho riêng của add-on. Hỗ trợ **PNG, JPG, WebP** (tối đa 16 MB, 24 megapixel/ảnh và 100 ảnh/hồ sơ). Không cần giữ ảnh gốc ở đường dẫn cũ sau khi nhập.
 
 - Chọn độc lập ảnh nền cho **Dashboard**, **màn hình chuẩn bị học** và **màn hình ôn tập**, hoặc một ảnh **avatar** cho trang chủ/hồ sơ. Có thể chọn "mặc định" để bỏ hình riêng.
