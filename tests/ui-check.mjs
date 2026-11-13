@@ -257,11 +257,15 @@ try {
   await evaluate(`window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Test',days:{},due:0,total_cards:1,stats:{retention:null,pace:null,milliseconds:0,reviews:0,streak:0,tested:0},decks:[{id:'1',name:'Địa lý <img src=x onerror="window.nosInjected=true">',full_name:'Địa lý',total:1,new:0,learn:0,review:0,retention:null,children:[],filtered:false}],settings:{goal:200,resources:[],favorites:[]}}})`);
   await evaluate(`document.getElementById('library-search').value='dia ly';document.getElementById('library-search').dispatchEvent(new Event('input',{bubbles:true}))`);
   await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+  assert.equal(await evaluate(`document.querySelectorAll('#deck-list > .deck-group').length`),4,
+    'New snapshot should not redraw the hidden library before the user opens it');
+  await click('#library-toggle');
   assert.equal(await evaluate(`document.querySelectorAll('#deck-list > .deck-group').length`),1,'Search should normalize uppercase Đ');
   assert.equal(await evaluate(`document.querySelectorAll('#deck-list img').length`),0,'Deck names must be rendered as text');
   assert.equal(await evaluate(`!!window.nosInjected`),false);
   assert.equal(await evaluate(`document.getElementById('trend-retention').textContent.includes('%')`),false,'No invented percent without a baseline');
   assert.equal(await evaluate(`document.getElementById('spark-retention').textContent.includes('Chưa có dữ liệu')`),true,'Missing samples must not be mislabeled as zero');
+  await click('#library-close');
   await evaluate(`(()=>{const day={reviews:1,milliseconds:1000,tested:1,passed:0};window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Zero',days:{'2026-11-13':day},due:0,total_cards:0,stats:{retention:0,pace:3600,milliseconds:1000,reviews:1,streak:1,tested:1},trends:{},decks:[],settings:{goal:200}}})})()`);
   assert.equal(await evaluate(`document.getElementById('stat-retention').textContent`),'0%');
   assert.equal(await evaluate(`document.querySelector('#spark-retention .spark-zero-bar') !== null`),true,'Measured zero must have a visible bar');
