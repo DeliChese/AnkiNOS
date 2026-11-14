@@ -1,0 +1,9 @@
+/* Scoped Focus controls; preserve Anki's original rating buttons. */
+#nos-review-tools .nos-focus-controls{display:flex;align-items:center;gap:6px}
+#nos-review-tools .nos-focus-controls [hidden]{display:none!important}
+#nos-review-tools .nos-focus-controls select{background:#233552;border:1px solid #d9e9ff55;border-radius:9px;padding:8px 5px;color:#f2f6ff;max-width:92px;font:12px 'Segoe UI',sans-serif}
+#nos-review-tools #nos-focus-time{font:600 13px ui-monospace,monospace;color:#d3f8e5;white-space:nowrap;min-width:44px}
+#nos-review-tools #nos-focus-time[data-paused="true"]{color:#ffe4a8}
+#nos-review-tools .nos-focus-controls button{font-size:11px;padding:8px 9px;white-space:nowrap}
+@media(max-width:850px){#nos-review-header{margin:0 12px;gap:8px}#nos-review-tools{gap:5px}#nos-review-side{display:none}}
+@media(max-width:560px){#nos-review-tools .nos-focus-controls{gap:3px}#nos-review-tools .nos-focus-controls button{padding:6px;font-size:10px}#nos-review-tools .nos-focus-controls select{max-width:65px;font-size:10px;padding:5px 2px}#nos-review-tools #nos-focus-time{font-size:11px;min-width:39px}}
