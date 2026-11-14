@@ -86,7 +86,6 @@ class FocusStore:
     def answer(self) -> None:
         if self.session_id is not None and self.running_since is not None:
             self.cards += 1
-            self.checkpoint()
 
     def stop(self, reason: str = "stopped") -> dict:
         if self.session_id is not None:
