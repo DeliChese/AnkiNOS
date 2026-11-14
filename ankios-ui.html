@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="assets/dashboard.css">
   <link rel="stylesheet" href="assets/media-studio.css">
   <link rel="stylesheet" href="assets/stats-page.css">
+  <link rel="stylesheet" href="assets/focus-dashboard.css">
 </head>
 <body>
   <div id="nos-app" data-theme="dusk" data-page="home">
@@ -92,6 +93,23 @@
       </section>
 
       </section>
+      <section id="nos-focus-history" aria-labelledby="nos-focus-title">
+        <div class="nos-focus-head"><div><h2 id="nos-focus-title">Focus Mode · Lịch sử tập trung</h2><p id="nos-focus-history-status">Bắt đầu Focus khi ôn tập để lưu lịch sử.</p></div><button type="button" id="nos-focus-refresh">Làm mới Focus</button></div>
+        <div class="nos-focus-metrics">
+          <div class="nos-focus-metric"><span>Hôm nay</span><strong id="nos-focus-today">0 phút</strong></div>
+          <div class="nos-focus-metric"><span>7 ngày gần nhất</span><strong id="nos-focus-week">0 phút</strong></div>
+          <div class="nos-focus-metric"><span>Tổng thời gian</span><strong id="nos-focus-total">0 phút</strong></div>
+          <div class="nos-focus-metric"><span>Số phiên</span><strong id="nos-focus-sessions">0</strong></div>
+          <div class="nos-focus-metric"><span>Đạt mục tiêu</span><strong id="nos-focus-completed">0</strong></div>
+          <div class="nos-focus-metric"><span>Thời lượng trung bình</span><strong id="nos-focus-average">0 phút</strong></div>
+          <div class="nos-focus-metric"><span>Lượt ôn trong Focus</span><strong id="nos-focus-cards">0</strong></div>
+        </div>
+        <div class="nos-focus-columns">
+          <div><h3>Thời gian Focus · 14 ngày</h3><div id="nos-focus-days" aria-label="Biểu đồ thời gian tập trung 14 ngày"></div></div>
+          <div><h3>Lịch sử phiên gần đây</h3><div id="nos-focus-session-list" aria-live="polite"></div></div>
+        </div>
+      </section>
+
       <section class="stats-native" aria-labelledby="stats-native-title">
         <div class="stats-native-toolbar">
           <div><h2 id="stats-native-title">Phân tích chi tiết</h2>
@@ -403,5 +421,6 @@
   <script src="assets/dashboard.js"></script>
   <script src="assets/media-studio.js"></script>
   <script src="assets/stats-page.js"></script>
+  <script src="assets/focus-dashboard.js"></script>
 </body>
 </html>
