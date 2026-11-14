@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from aqt import gui_hooks, mw
 from aqt.reviewer import Reviewer, ReviewerBottomBar
-from aqt.qt import QTimer
+from aqt.qt import QTimer, QObject, QEvent
 from pathlib import Path
 from .focus_store import FocusStore
 
@@ -17,6 +17,7 @@ _answered = 0
 _focus: FocusStore | None = None
 _focus_profile: str | None = None
 _focus_timer: QTimer | None = None
+_focus_guard: QObject | None = None
 
 
 def focus_store() -> FocusStore:
@@ -144,6 +145,16 @@ def _bridge(handled: tuple[bool,Any], message: str, context: Any) -> tuple[bool,
     return (True,None)
 
 
+class _FocusWindowGuard(QObject):
+    def eventFilter(self, watched: Any, event: Any) -> bool:
+        # Inactive Anki is not focused study time. Require manual resume.
+        if (event.type() == QEvent.Type.WindowDeactivate and mw.state == "review"
+                and _focus is not None and _focus.running_since is not None):
+            _focus.pause()
+            _emit_focus()
+        return False
+
+
 def _profile_close() -> None:
     global _focus, _focus_profile
     if _focus is not None:
@@ -153,8 +164,10 @@ def _profile_close() -> None:
 
 
 def install(enabled: Callable[[],bool], settings: Callable[[],dict[str,Any]]) -> None:
-    global _enabled, _settings, _focus_timer
+    global _enabled, _settings, _focus_timer, _focus_guard
     _enabled, _settings = enabled, settings
+    _focus_guard = _FocusWindowGuard(mw)
+    mw.installEventFilter(_focus_guard)
     _focus_timer = QTimer(mw)
     _focus_timer.setInterval(10000)
     _focus_timer.timeout.connect(_focus_tick)
