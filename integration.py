@@ -549,7 +549,9 @@ def replace_content(content: Any, context: Any) -> None:
     content.js.append(f"{base}/overview.js" if overview else f"{base}/dashboard.js")
     if not overview:
         content.css.append(f"{base}/stats-page.css")
+        content.css.append(f"{base}/focus-dashboard.css")
         content.js.append(f"{base}/stats-page.js")
+        content.js.append(f"{base}/focus-dashboard.js")
         content.css.append(f"{base}/media-studio.css")
         content.js.append(f"{base}/media-studio.js")
 
@@ -764,6 +766,9 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         elif action == "graphs":
             # Native Rust graph data: all standard Anki statistics sections.
             _stats_graphs(command.get("scope"), command.get("days"))
+        elif action == "focus_history":
+            from .reviewer_ui import focus_history
+            send("focus_history", focus_history())
         elif action == "stats_pdf":
             _stats_pdf()
         elif action == "study":
