@@ -1,0 +1,21 @@
+#nos-focus-history{margin:24px 0 32px;padding:24px;border:1px solid rgba(230,240,255,.25);border-radius:20px;background:rgba(41,55,88,.38);color:#f4f7ff;font-family:'Segoe UI',sans-serif}
+#nos-focus-history *{box-sizing:border-box}
+#nos-focus-history h2{margin:0;font-size:18px;color:inherit}
+#nos-focus-history .nos-focus-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#nos-focus-history .nos-focus-head p,#nos-focus-history #nos-focus-history-status{margin:6px 0 0;color:#ccd8ef;font-size:12px}
+#nos-focus-history button{border:1px solid #dde7ff55;border-radius:10px;padding:9px 14px;background:#bcd6ff20;color:inherit;cursor:pointer}
+#nos-focus-history button:hover{background:#bcd6ff36}
+#nos-focus-history .nos-focus-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:12px;margin:18px 0}
+#nos-focus-history .nos-focus-metric{border:1px solid #e9f0ff25;border-radius:14px;background:#f7faff0d;padding:14px}
+#nos-focus-history .nos-focus-metric span{font-size:11px;color:#c8d6ee;display:block}
+#nos-focus-history .nos-focus-metric strong{display:block;font-size:19px;margin-top:5px}
+#nos-focus-history .nos-focus-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
+#nos-focus-history h3{font-size:14px;margin:4px 0 12px;color:inherit}
+#nos-focus-history #nos-focus-days{height:160px;display:flex;align-items:stretch;gap:6px;border-bottom:1px solid #f1f6ff33}
+#nos-focus-history .nos-focus-day{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;font-size:10px;color:#d0dbee}
+#nos-focus-history .nos-focus-bar{background:linear-gradient(180deg,#a8e7dc,#76a7e7);width:100%;max-width:35px;border-radius:5px 5px 0 0}
+#nos-focus-history #nos-focus-session-list{max-height:190px;overflow-y:auto;display:grid;gap:8px}
+#nos-focus-history .nos-focus-session{padding:8px 0;border-bottom:1px solid #e5ecff20;display:flex;justify-content:space-between;gap:10px;font-size:12px}
+#nos-focus-history .nos-focus-session span{color:#c6d7ed;text-align:right}
+@media(max-width:850px){#nos-focus-history .nos-focus-columns{grid-template-columns:1fr}#nos-focus-history{padding:15px}}
+@media print{#nos-focus-history{break-inside:avoid;background:white;color:black}#nos-focus-history .nos-focus-head p,#nos-focus-history #nos-focus-history-status,#nos-focus-history .nos-focus-session span{color:#333}}
