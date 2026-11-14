@@ -24,6 +24,16 @@ Thư mục này đã nằm trong `Anki2/addons21/NOS`. Khởi động lại Anki
 - Nhấn mục tiêu ngày để đổi số lượt ôn mong muốn. Màu, dấu sao, mục tiêu, tài nguyên và tùy chọn thu gọn lưu riêng theo tên profile trong cấu hình add-on. Các thiết lập và đường dẫn tài nguyên này không đồng bộ qua AnkiWeb.
 - Chế độ Năm/Tháng/Tuần hiển thị cùng lịch sử ôn thật. Tháng/Tuần theo thời điểm hiện tại trong năm đang chọn. Các năm có dữ liệu có thể chọn bằng mũi tên.
 
+## Focus Mode — phiên tập trung và lịch sử
+
+Trong màn hình ôn tập, chọn 5/15/25/45/60/90 phút rồi nhấn **Focus**. Bộ đếm ngược có **Tạm dừng**, **Tiếp tục** và **Kết thúc**. Chế độ tự kết thúc khi đủ thời lượng, tự tạm dừng khi cửa sổ Anki mất focus và kết thúc khi rời màn hình ôn tập. Cơ chế chấm điểm, nút trả lời và lịch FSRS vẫn do Anki quản lý.
+
+Vào **Thống kê → Focus Mode** để xem thời gian hôm nay, 7 ngày, tổng thời gian, số phiên, số phiên đạt mục tiêu, thời lượng trung bình, tổng lượt ôn trong Focus, biểu đồ 14 ngày và 40 phiên gần nhất. Thời gian nghỉ không được tính. Lịch sử là dữ liệu ghi từ lúc sử dụng tính năng, không suy diễn ngược từ revlog.
+
+Dữ liệu lưu trong SQLite tại `user_files/<mã profile>/focus.sqlite3`, riêng theo profile, **không đồng bộ AnkiWeb**; hãy sao lưu `user_files` khi đổi máy. Phiên đang chạy được checkpoint mỗi 10 giây. Khi Anki đóng bất thường, thời gian đã checkpoint được giữ lại dưới trạng thái “Gián đoạn”, phần thời gian sau checkpoint không được đoán thêm. Dữ liệu được giới hạn 2.000 phiên gần nhất để tránh tăng dung lượng vô hạn.
+
+Kiểm tra mô-đun lưu trữ không cần cài Anki: `python -m unittest discover -s tests -p 'test_focus.py'`. Cần kiểm tra giao diện và vòng đời Focus trong Anki thực tế trên profile thử trước khi phát hành.
+
 ## Media Studio — album ảnh trong AnkiNOS
 
 Mở **menu 6 chấm → Thư viện ảnh** để quản lý kho ảnh riêng của từng hồ sơ Anki. Không còn mục chỉnh ảnh trong Settings hay nút **Áp dụng**.
