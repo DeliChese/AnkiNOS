@@ -7,10 +7,46 @@ from typing import Any, Callable
 
 from aqt import gui_hooks, mw
 from aqt.reviewer import Reviewer, ReviewerBottomBar
+from aqt.qt import QTimer
+from pathlib import Path
+from .focus_store import FocusStore
 
 _enabled: Callable[[], bool]
 _settings: Callable[[], dict[str, Any]]
 _answered = 0
+_focus: FocusStore | None = None
+_focus_profile: str | None = None
+_focus_timer: QTimer | None = None
+
+
+def focus_store() -> FocusStore:
+    global _focus, _focus_profile
+    name = mw.pm.name
+    if _focus is None or _focus_profile != name:
+        if _focus is not None:
+            _focus.stop("interrupted")
+        _focus = FocusStore(Path(__file__).resolve().parent, name)
+        _focus_profile = name
+    return _focus
+
+
+def focus_history() -> dict:
+    return focus_store().history()
+
+
+def _emit_focus() -> None:
+    if mw.state == "review" and _enabled():
+        import json as _json
+        status = _json.dumps(focus_store().status(), ensure_ascii=True)
+        mw.web.eval("window.NOSReview && window.NOSReview.setFocus(" + status + ");")
+
+
+def _focus_tick() -> None:
+    if _focus is not None and mw.state == "review":
+        before = _focus.session_id
+        _focus.checkpoint()
+        if before != _focus.session_id:
+            _emit_focus()
 
 
 def _content(content: Any, context: Any) -> None:
@@ -27,7 +63,7 @@ def _content(content: Any, context: Any) -> None:
             None,
         )
         initial = {"deck": deck["name"], "theme": current_settings.get("theme", "dusk"),
-                   "answered": _answered, "background": background,
+                   "answered": _answered, "focus": focus_store().status(), "background": background,
                    "background_fit": current_settings.get("image_fit_review", "contain"),
                    "background_position": current_settings.get("image_position_review", "center")}
         content.body = (
@@ -53,6 +89,7 @@ def _show(card: Any, side: str) -> None:
 
 def _question(card: Any) -> None:
     _show(card,"question")
+    _emit_focus()
 
 
 def _answer(card: Any) -> None:
@@ -62,10 +99,14 @@ def _answer(card: Any) -> None:
 def _answered_card(_reviewer: Any, _card: Any, _ease: int) -> None:
     global _answered
     _answered += 1
+    if _focus is not None:
+        _focus.answer()
 
 
 def _state(new: str, old: str) -> None:
     global _answered
+    if old == "review" and new != "review" and _focus is not None:
+        _focus.stop("stopped")
     if new == "review" and old != "review":
         _answered = 0
 
@@ -80,12 +121,44 @@ def _bridge(handled: tuple[bool,Any], message: str, context: Any) -> tuple[bool,
         mw.moveToState("deckBrowser")
     elif action == "more":
         mw.reviewer.showContextMenu()
+    elif action.startswith("focus:"):
+        part = action.split(":")
+        operation = part[1] if len(part) > 1 else ""
+        try:
+            store = focus_store()
+            if operation == "start" and len(part) == 3:
+                store.start(int(part[2]))
+            elif operation == "pause":
+                store.pause()
+            elif operation == "resume":
+                store.resume()
+            elif operation == "stop":
+                store.stop()
+            elif operation == "complete":
+                store.checkpoint()
+            _emit_focus()
+        except (ValueError, OSError) as error:
+            from aqt.utils import showWarning
+            showWarning("Focus Mode: " + str(error))
     return (True,None)
 
 
+def _profile_close() -> None:
+    global _focus, _focus_profile
+    if _focus is not None:
+        _focus.stop("stopped")
+    _focus = None
+    _focus_profile = None
+
+
 def install(enabled: Callable[[],bool], settings: Callable[[],dict[str,Any]]) -> None:
-    global _enabled, _settings
+    global _enabled, _settings, _focus_timer
     _enabled, _settings = enabled, settings
+    _focus_timer = QTimer(mw)
+    _focus_timer.setInterval(10000)
+    _focus_timer.timeout.connect(_focus_tick)
+    _focus_timer.start()
+    gui_hooks.profile_will_close.append(_profile_close)
     gui_hooks.webview_will_set_content.append(_content)
     gui_hooks.webview_did_receive_js_message.append(_bridge)
     gui_hooks.state_will_change.append(_state)
