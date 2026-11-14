@@ -73,6 +73,7 @@ def _content(content: Any, context: Any) -> None:
             '<textarea id="nos-review-bootstrap" hidden>' + html.escape(json.dumps(initial,ensure_ascii=True)) + '</textarea>'
         )
         content.css.append(f"{base}/reviewer.css")
+        content.css.append(f"{base}/focus-review.css")
         content.js.append(f"{base}/reviewer.js")
     else:
         keys = {str(i): mw.pm.get_answer_key(i) or "" for i in (1,2,3,4)}
