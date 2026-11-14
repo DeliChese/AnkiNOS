@@ -738,7 +738,7 @@
     app.dataset.page = page;
     $('stats-page').hidden = page !== 'stats';
     app.scrollTop=0;
-    if (page === 'stats') window.NOSStats?.open();
+    if (page === 'stats') { window.NOSStats?.open(); window.NOSFocusHistory?.open(); }
     app.querySelectorAll('.rail-main [data-action="page"]').forEach(button => {
       button.classList.toggle('active', button.dataset.value === page);
       if (button.dataset.value === page) button.setAttribute('aria-current','page');
@@ -767,6 +767,7 @@
       $('activity-summary').textContent='Không thể tải lịch sử. Nhấn Làm mới để thử lại.';
       toast(payload.message);return;
     }
+    if (event === 'focus_history') { window.NOSFocusHistory?.render(payload); return; }
     if (event === 'graphs' || event === 'graphs_error') {
       window.NOSStats?.receive(event, payload);
       return;
