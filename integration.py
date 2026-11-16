@@ -17,7 +17,7 @@ from aqt.deckbrowser import DeckBrowser
 from aqt.overview import Overview
 from aqt.operations import QueryOp
 from aqt.operations.deck import add_deck, remove_decks
-from aqt.qt import QAction, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QImageReader, QSize, QInputDialog, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, qconnect
+from aqt.qt import QAction, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QImageReader, QSize, QInputDialog, QLabel, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, Qt, qconnect
 from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, clear_snapshot_cache
@@ -45,6 +45,7 @@ _data_revision = 0
 _review_changes_only = True
 _history_queries: set[tuple[int, str, int]] = set()
 _stats_request_serial = 0
+_live_context: Any = None
 ALLOWED_FILES = {".pdf", ".epub", ".txt", ".md", ".csv", ".xlsx", ".docx", ".pptx", ".mp3", ".wav", ".mp4", ".webm", ".png", ".jpg", ".jpeg", ".webp"}
 
 
@@ -73,7 +74,8 @@ def _restore_chrome() -> None:
 
 
 def _state_changing(new: str, _old: str) -> None:
-    global _overview_rendered, _overview_pending, _navigating
+    global _overview_rendered, _overview_pending, _navigating, _live_context
+    _live_context = None
     _navigating = False
     _overview_rendered = False
     _overview_pending = False
@@ -164,6 +166,46 @@ def _guard_unused_deck_html() -> None:
 
     render._nos_guard = True
     DeckBrowser._renderDeckTree = render
+
+
+def _live_updates(view: Any) -> bool:
+    return bool(view is _live_context and mw.col and not _navigating
+                and config().get("enabled", True)
+                and ((isinstance(view, DeckBrowser) and mw.state == "deckBrowser")
+                     or (isinstance(view, Overview) and mw.state == "overview" and _overview_rendered)))
+
+
+def _guard_live_updates() -> None:
+    def guard(view_type: Any) -> None:
+        original_op = view_type.op_executed
+        original_refresh = view_type.refresh
+        if getattr(original_op, "_nos_guard", False):
+            return
+
+        @wraps(original_op)
+        def op_executed(view: Any, changes: Any, handler: Any, focused: bool) -> bool:
+            if _live_updates(view):
+                # The operation hook pushes a snapshot even while Add/Browser
+                # has focus. Returning dirty would fade and later reload HTML.
+                view._refresh_needed = False
+                return False
+            return original_op(view, changes, handler, focused)
+
+        @wraps(original_refresh)
+        def refresh_view(view: Any) -> None:
+            if _live_updates(view):
+                view._refresh_needed = False
+                if _refresh_timer:
+                    _refresh_timer.start(0)
+                return
+            return original_refresh(view)
+
+        op_executed._nos_guard = True
+        view_type.op_executed = op_executed
+        view_type.refresh = refresh_view
+
+    guard(DeckBrowser)
+    guard(Overview)
 
 
 def _begin_navigation() -> None:
@@ -521,9 +563,10 @@ def _history_year(year: int) -> None:
 
 
 def replace_content(content: Any, context: Any) -> None:
-    global _generation, _overview_rendered, _overview_pending, _dashboard_tree
+    global _generation, _overview_rendered, _overview_pending, _dashboard_tree, _live_context
     if not isinstance(context, (DeckBrowser, Overview)) or not config().get("enabled", True):
         return
+    _live_context = context
     overview = isinstance(context, Overview)
     if overview:
         _overview_rendered = _overview_pending = True
@@ -645,10 +688,25 @@ def _create_deck(parent_id: int | None = None) -> None:
     layout.addRow("Bộ thẻ cha:", parent)
     buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
     buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Tạo")
-    buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Hủy")
+    buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Đóng")
     layout.addRow(buttons)
+    status = QLabel(dialog)
+    status.setObjectName("nos-deck-status")
+    status.setTextFormat(Qt.TextFormat.PlainText)
+    status.setWordWrap(True)
+    layout.addRow(status)
+    creating = False
+
+    def busy(value: bool) -> None:
+        nonlocal creating
+        creating = value
+        name.setEnabled(not value)
+        parent.setEnabled(not value)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(not value)
 
     def create() -> None:
+        if creating:
+            return
         parts = [part.strip() for part in name.text().split("::")]
         if not all(parts):
             showWarning("Nhập tên bộ thẻ; tên từng cấp không được để trống.", parent=dialog)
@@ -660,8 +718,30 @@ def _create_deck(parent_id: int | None = None) -> None:
         if mw.col.decks.by_name(full_name):
             showWarning("Bộ thẻ này đã tồn tại. Hãy chọn tên khác.", parent=dialog)
             return
-        add_deck(parent=mw, name=full_name).run_in_background()
-        dialog.accept()
+        busy(True)
+        status.setText("Đang tạo bộ thẻ…")
+
+        def created(_result: Any) -> None:
+            if not dialog.isVisible():
+                return
+            selected_id = parent.currentData()
+            parent.clear()
+            parent.addItem("Không có — tạo bộ thẻ cấp cao nhất", 0)
+            for deck in mw.col.decks.all_names_and_ids(include_filtered=False):
+                parent.addItem(deck.name, deck.id)
+            parent.setCurrentIndex(max(0, parent.findData(selected_id)))
+            busy(False)
+            name.clear()
+            status.setText("Đã tạo: " + full_name)
+            name.setFocus()
+
+        def failed(error: Exception) -> None:
+            if dialog.isVisible():
+                busy(False)
+                status.setText("Không thể tạo bộ thẻ: " + str(error))
+                name.setFocus()
+
+        add_deck(parent=mw, name=full_name).success(created).failure(failed).run_in_background()
 
     qconnect(buttons.accepted, create)
     qconnect(buttons.rejected, dialog.reject)
@@ -711,8 +791,7 @@ def _delete_deck(did: int) -> None:
         if not askUser(message, parent=mw, defaultno=True, title="Xóa bộ thẻ"):
             return
         def removed(_result: Any) -> None:
-            # CollectionOp already refreshes the deck browser through its
-            # operation hooks. A second moveToState races two WebView loads.
+            # Keep the library open; only leave an overview whose deck vanished.
             if mw.state == "overview":
                 QTimer.singleShot(0, lambda: mw.moveToState("deckBrowser"))
         remove_decks(parent=mw, deck_ids=[did], deck_name=info["name"]).success(removed).run_in_background()
@@ -899,12 +978,13 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
 
 
 def _operation_finished(changes: Any, initiator: Any) -> None:
-    global _data_revision, _review_changes_only
+    global _data_revision, _review_changes_only, _dashboard_tree
     if not any(getattr(changes, key, False) for key in ('card','note','deck','config','deck_config','notetype','study_queues','mtime')):
         return
     navigation_only = isinstance(initiator, DeckBrowser) and not any(
         getattr(changes, key, False) for key in ('card','note','deck','notetype','deck_config'))
     if not navigation_only:
+        _dashboard_tree = None
         _data_revision += 1
         # Answers and mark/flag operations initiated by Reviewer leave the
         # archive/card totals intact. Edits, imports, sync and Undo invalidate it.
@@ -914,7 +994,8 @@ def _operation_finished(changes: Any, initiator: Any) -> None:
 
 
 def _profile_closing() -> None:
-    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial
+    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial, _live_context
+    _live_context = None
     _generation += 1
     _stats_request_serial += 1
     _active_query = None
@@ -930,7 +1011,8 @@ def _profile_closing() -> None:
 
 
 def _sync_finished(*_args: Any) -> None:
-    global _data_revision, _review_changes_only
+    global _data_revision, _review_changes_only, _dashboard_tree
+    _dashboard_tree = None
     _data_revision += 1
     _review_changes_only = False
     clear_snapshot_cache()
@@ -957,6 +1039,7 @@ def install() -> None:
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
     _guard_unused_heatmaps()
     _guard_unused_deck_html()
+    _guard_live_updates()
     gui_hooks.profile_did_open.append(_guard_unused_heatmaps)
     gui_hooks.webview_will_set_content.append(replace_content)
     gui_hooks.webview_did_receive_js_message.append(bridge)

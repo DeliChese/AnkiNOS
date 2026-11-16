@@ -141,24 +141,54 @@ def main():
     assert not aqt.mw.isFullScreen()
     col = aqt.mw.col
     # Exercise the real deck creation dialog and asynchronous Anki operation.
-    from aqt.qt import QComboBox, QDialogButtonBox, QLineEdit
-    def create_deck(name, parent_id=None, cancel=False):
+    from aqt.qt import QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit
+    js("(()=>{document.getElementById('library-toggle').click();window.__livePage=document.getElementById('nos-app');return true})()")
+    initial_deck_count = int(js("document.getElementById('count-decks').textContent"))
+    def assert_live_page():
+        assert js("window.__livePage === document.getElementById('nos-app')"), "Do not reload the dashboard after edits"
+        assert js("document.getElementById('library-dialog').open"), "Keep the deck library open after edits"
+        assert js("document.body.style.opacity !== '0.3'"), "Do not fade the dashboard while another window has focus"
+
+    def create_deck(name, parent_id=None, cancel=False, choose_parent=None):
         before = len(col.decks.all_names_and_ids())
+        selected_parent = choose_parent or parent_id
+        full_name = (col.decks.name(selected_parent) + "::" if selected_parent else "") + name
+        errors = []
         def fill_dialog():
             dialog = app.activeModalWidget()
-            field = dialog.findChild(QLineEdit, "nos-deck-name")
-            parents = dialog.findChild(QComboBox, "nos-deck-parent")
-            assert parents.currentData() == (parent_id or 0)
-            field.setText(name)
-            buttons = dialog.findChild(QDialogButtonBox)
-            button = QDialogButtonBox.StandardButton.Cancel if cancel else QDialogButtonBox.StandardButton.Ok
-            buttons.button(button).click()
+            try:
+                field = dialog.findChild(QLineEdit, "nos-deck-name")
+                parents = dialog.findChild(QComboBox, "nos-deck-parent")
+                assert parents.currentData() == (parent_id or 0)
+                if choose_parent:
+                    parents.setCurrentIndex(parents.findData(choose_parent))
+                field.setText(name)
+                buttons = dialog.findChild(QDialogButtonBox)
+                button = QDialogButtonBox.StandardButton.Cancel if cancel else QDialogButtonBox.StandardButton.Ok
+                buttons.button(button).click()
+                if not cancel:
+                    end = time.monotonic() + 5
+                    while not col.decks.by_name(full_name) and time.monotonic() < end:
+                        wait(25)
+                    expected = len(col.decks.all_names_and_ids(skip_empty_default=True))
+                    until(f"document.getElementById('count-decks').textContent === '{expected}'")
+                    assert dialog.isVisible(), "Saving must not close the creation dialog"
+                    assert field.text() == "", "Ready to create the next deck after saving"
+                    assert dialog.findChild(QLabel, "nos-deck-status").text().endswith(full_name)
+                    created = col.decks.by_name(full_name)
+                    assert created and parents.findData(created["id"]) >= 0
+                    assert_live_page()
+            except Exception as error:
+                errors.append(error)
+            finally:
+                dialog.reject()
         QTimer.singleShot(100, fill_dialog)
         command = {"action": "create_deck"}
         if parent_id:
             command["id"] = str(parent_id)
         integration.bridge((False, None), "nos:" + json.dumps(command), aqt.mw.deckBrowser)
-        full_name = (col.decks.name(parent_id) + "::" if parent_id else "") + name
+        if errors:
+            raise errors[0]
         end = time.monotonic() + 5
         while not cancel and not col.decks.by_name(full_name) and time.monotonic() < end:
             wait(25)
@@ -173,21 +203,46 @@ def main():
     created_child = create_deck("Created child", created_root)
     create_deck("Grandchild", created_child)
     create_deck("Cancelled child", created_root, cancel=True)
-    # The general Add dialog must allow explicitly choosing an existing parent.
-    def choose_parent():
-        dialog = app.activeModalWidget()
-        parents = dialog.findChild(QComboBox, "nos-deck-parent")
-        parents.setCurrentIndex(parents.findData(created_root))
-        dialog.findChild(QLineEdit, "nos-deck-name").setText("Chosen parent child")
-        dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Ok).click()
-    QTimer.singleShot(100, choose_parent)
-    integration._create_deck()
+    create_deck("Chosen parent child", choose_parent=created_root)
+    # Real collection operations must update in place while another window is open.
+    from aqt.operations.deck import rename_deck, remove_decks
+    from aqt.operations.note import add_note, update_note, remove_notes
+    other_window = QDialog(aqt.mw)
+    other_window.show()
+    other_window.activateWindow()
+    renamed = "Created parent::Renamed child"
+    rename_deck(parent=other_window, deck_id=created_child, new_name=renamed).run_in_background()
+    until(f"document.querySelector('.deck-name[data-id=\"{created_root}\"]').textContent === 'Created parent'")
     end = time.monotonic() + 5
-    while not col.decks.by_name("Created parent::Chosen parent child") and time.monotonic() < end:
+    while not col.decks.by_name(renamed) and time.monotonic() < end:
         wait(25)
-    assert col.decks.by_name("Created parent::Chosen parent child")
+    js(f"(()=>{{document.querySelector('.deck-expand[data-id=\"{created_root}\"]').click();return true}})()")
+    until(f"document.querySelector('.deck-name[data-id=\"{created_child}\"]')?.textContent === 'Renamed child'")
+    assert_live_page()
+    live_note = col.new_note(col.models.current())
+    live_note.fields[0] = "Live edit test"
+    add_note(parent=other_window, note=live_note, target_deck_id=created_child).run_in_background()
+    until("document.getElementById('library-footer-copy').textContent.includes('1 thẻ')")
+    assert_live_page()
+    revision = integration._data_revision
+    live_note.fields[0] = "Updated without closing the editor"
+    update_note(parent=other_window, note=live_note).run_in_background()
+    end = time.monotonic() + 5
+    while (integration._data_revision == revision or integration._active_query or integration._refresh_timer.isActive()) and time.monotonic() < end:
+        wait(25)
+    assert col.get_note(live_note.id).fields[0] == live_note.fields[0]
+    assert_live_page()
+    remove_notes(parent=other_window, note_ids=[live_note.id]).run_in_background()
+    until("document.getElementById('library-footer-copy').textContent.includes('0 thẻ')")
+    assert_live_page()
+    remove_decks(parent=other_window, deck_ids=[created_root], deck_name="Created parent").run_in_background()
+    until(f"document.getElementById('count-decks').textContent === '{initial_deck_count}'")
+    assert other_window.isVisible()
+    assert_live_page()
+    other_window.close()
+    js("(()=>{document.querySelector('[data-action=close_library]').click();return true})()")
     # Use native undo for cleanup, so the remaining smoke test keeps its fixture.
-    for _ in range(4):
+    for _ in range(9):
         col.undo()
     did = col.decks.id("NOS Test::Real cards")
     note = col.new_note(col.models.current())
@@ -244,6 +299,22 @@ def main():
     assert js("!!document.getElementById('nos-overview-bootstrap')"), "Ship queue metadata with the HTML"
     assert not js("document.getElementById('study').disabled")
     assert js("document.getElementById('overview-new').textContent") == "1"
+    # The selected deck must also update without rebuilding its overview page.
+    js("(()=>{window.__liveOverview=document.getElementById('nos-app');return true})()")
+    overview_editor = QDialog(aqt.mw)
+    overview_editor.show()
+    overview_editor.activateWindow()
+    extra_note = col.new_note(col.models.current())
+    extra_note.fields[0] = "Live overview test"
+    add_note(parent=overview_editor, note=extra_note, target_deck_id=did).run_in_background()
+    until("document.getElementById('overview-total').textContent === '2 thẻ'")
+    assert js("window.__liveOverview === document.getElementById('nos-app')")
+    assert overview_editor.isVisible()
+    remove_notes(parent=overview_editor, note_ids=[extra_note.id]).run_in_background()
+    until("document.getElementById('overview-total').textContent === '1 thẻ'")
+    assert js("window.__liveOverview === document.getElementById('nos-app')")
+    assert overview_editor.isVisible()
+    overview_editor.close()
     assert not js("!!document.getElementById('legacy-overview-heatmap')")
     assert aqt.mw.toolbarWeb.isHidden() and aqt.mw.bottomWeb.isHidden(), "Hide default bars on the selected-deck overview"
     js("(()=>{document.getElementById('overview-menu-toggle').click();return true})()")
@@ -360,6 +431,8 @@ def main():
     report.update(native_scheduler_queried_once=True,archive_heatmap_loaded_via_native_bridge=True,
                   native_graphs_inline_and_scoped=True,statistics_no_legacy_popup=True)
     report.update(create_deck_with_parent=True,create_nested_subdeck=True,create_deck_cancel=True)
+    report.update(live_deck_and_note_edits=True,library_stays_open_after_edits=True,
+                  create_dialog_stays_open_after_save=True,overview_updates_without_reload=True)
     (ROOT / "previews" / "anki-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print("PASS: " + json.dumps(report),flush=True)
     aqt.mw.unloadProfileAndExit()
