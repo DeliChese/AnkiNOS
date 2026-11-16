@@ -16,8 +16,8 @@ from aqt import dialogs, gui_hooks, mw
 from aqt.deckbrowser import DeckBrowser
 from aqt.overview import Overview
 from aqt.operations import QueryOp
-from aqt.operations.deck import remove_decks
-from aqt.qt import QAction, QDesktopServices, QEvent, QFileDialog, QImageReader, QSize, QInputDialog, QMenu, QObject, QTimer, QUrl, QCursor, qconnect
+from aqt.operations.deck import add_deck, remove_decks
+from aqt.qt import QAction, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QImageReader, QSize, QInputDialog, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, qconnect
 from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, clear_snapshot_cache
@@ -623,11 +623,59 @@ def _menu_action(menu: QMenu, text: str, action: Any) -> None:
     qconnect(item.triggered, lambda _checked=False: action())
 
 
+def _create_deck(parent_id: int | None = None) -> None:
+    dialog = QDialog(mw)
+    dialog.setWindowTitle("Tạo bộ thẻ")
+    dialog.setMinimumWidth(420)
+    layout = QFormLayout(dialog)
+    name = QLineEdit(dialog)
+    name.setObjectName("nos-deck-name")
+    name.setPlaceholderText("Tên bộ thẻ mới")
+    parent = QComboBox(dialog)
+    parent.setObjectName("nos-deck-parent")
+    parent.addItem("Không có — tạo bộ thẻ cấp cao nhất", 0)
+    for deck in mw.col.decks.all_names_and_ids(include_filtered=False):
+        parent.addItem(deck.name, deck.id)
+    if parent_id is not None:
+        selected = parent.findData(parent_id)
+        if selected < 0:
+            raise ValueError("Không thể tạo deck con trong bộ thẻ lọc.")
+        parent.setCurrentIndex(selected)
+    layout.addRow("Tên bộ thẻ:", name)
+    layout.addRow("Bộ thẻ cha:", parent)
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+    buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Tạo")
+    buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Hủy")
+    layout.addRow(buttons)
+
+    def create() -> None:
+        parts = [part.strip() for part in name.text().split("::")]
+        if not all(parts):
+            showWarning("Nhập tên bộ thẻ; tên từng cấp không được để trống.", parent=dialog)
+            return
+        full_name = "::".join(parts)
+        if selected_id := parent.currentData():
+            deck = mw.col.decks.get(_deck_id(selected_id), default=False)
+            full_name = deck["name"] + "::" + full_name
+        if mw.col.decks.by_name(full_name):
+            showWarning("Bộ thẻ này đã tồn tại. Hãy chọn tên khác.", parent=dialog)
+            return
+        add_deck(parent=mw, name=full_name).run_in_background()
+        dialog.accept()
+
+    qconnect(buttons.accepted, create)
+    qconnect(buttons.rejected, dialog.reject)
+    name.setFocus()
+    dialog.exec()
+
+
 def _deck_menu(did: int) -> None:
     menu = QMenu(mw)
     starred = str(did) in settings()["favorites"]
     _menu_action(menu, "Bỏ gắn sao" if starred else "Gắn sao bộ thẻ", lambda: _favorite(str(did)))
     _menu_action(menu, "Duyệt thẻ", lambda: _browse(did))
+    if not mw.col.decks.get(did)["dyn"]:
+        _menu_action(menu, "Tạo deck con…", lambda: _create_deck(did))
     _menu_action(menu, "Đổi tên bộ thẻ…", lambda: mw.deckBrowser._rename(did))
     _menu_action(menu, "Tùy chọn bộ thẻ…", lambda: mw.deckBrowser._options(did))
     _menu_action(menu, "Xuất bộ thẻ…", lambda: mw.onExport(did=did))
@@ -802,7 +850,7 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         elif action == "switch_profile":
             mw.unloadProfileAndShowProfileManager()
         elif action == "create_deck":
-            mw.deckBrowser._on_create()
+            _create_deck(_deck_id(command["id"]) if command.get("id") else None)
         elif action == "deck_menu":
             _deck_menu(_deck_id(command.get("id")))
         elif action == "favorite":

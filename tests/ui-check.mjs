@@ -65,6 +65,12 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('.rail-main [data-action="browse"],.rail-main [data-action="add_cards"],.rail-main [data-action="addons"]').length`),0);
   assert.equal(await evaluate(`document.getElementById('nos-app').clientHeight === innerHeight`),true,'Dashboard must fill the viewport');
   assert(await evaluate(`document.querySelectorAll('#heatmap .heat-cell').length >= 365`),'Heatmap must remain on the dashboard');
+  assert(await evaluate(`(()=>{const r=document.querySelector('#heatmap .heat-cell:not(.blank)').getBoundingClientRect();return Math.abs(r.width-r.height)<.1 && r.width===12})()`),
+    'Annual heatmap cells must stay square instead of stretching across the dashboard');
+  assert(await evaluate(`document.getElementById('activity-panel').getBoundingClientRect().width <= 880`),
+    'Dashboard activity panel must remain compact on wide screens');
+  assert.equal(await evaluate(`document.querySelectorAll('#launcher [data-action="library"]').length`),0,
+    'Deck library must leave the six-dot menu');
   assert.equal(await evaluate(`document.getElementById('heatmap').getAttribute('aria-busy')`),'false');
   assert(await evaluate(`document.getElementById('trend-retention').textContent.includes('%')`));
   assert.equal(await evaluate(`document.getElementById('spark-retention').dataset.direction`),'up');
@@ -230,6 +236,8 @@ try {
   assert.equal(await evaluate(`document.getElementById('stats-page').hidden`),true);
   await click('[data-action="period"][data-value="month"]');
   assert(await evaluate(`document.querySelectorAll('.month-map .heat-cell').length`) >= 28);
+  assert(await evaluate(`(()=>{const r=document.querySelector('.month-map .heat-cell:not(.blank)').getBoundingClientRect();return Math.abs(r.width-r.height)<.1})()`),
+    'Monthly heatmap cells must also be square');
   await click('[data-action="period"][data-value="week"]');
   assert.equal(await evaluate(`document.querySelectorAll('.week-bar').length`),7);
   await click('[data-action="period"][data-value="year"]');

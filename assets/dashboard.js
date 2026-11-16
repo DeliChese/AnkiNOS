@@ -575,6 +575,7 @@
       html = dayNames.map(day => `<span class="heat-day">${day}</span>`).join('');
       for (let i=0; i<cells; i++) html += heatCell(addDays(start,i),year,month);
     } else {
+      target.classList.add('week-map');
       const anchor = new Date(year,today.getMonth(),today.getDate(),12);
       const wOffset = isSunday ? anchor.getDay() : ((anchor.getDay()+6)%7);
       start = addDays(anchor,-wOffset);

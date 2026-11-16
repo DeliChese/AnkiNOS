@@ -89,11 +89,14 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .segmented button.selected { background: #d8e8ff30; box-shadow: inset 0 1px 0 #f1f5ff24, 0 2px 5px #2131540a; color: #fff; }
 #nos-app .collapse-button .icon { transition: transform .2s; }
 #nos-app .collapsed > .panel-heading .collapse-button .icon { transform: rotate(-90deg); }
+#nos-app .activity-panel { max-width: 880px; }
+#nos-app .activity-heading { flex-wrap: wrap; }
+#nos-app .activity-controls { margin-left: auto; }
 #nos-app .heatmap-scroll { overflow-x: auto; padding: 0 24px; }
-#nos-app .heatmap { display: grid; gap: 3px; grid-template-columns: 26px repeat(var(--weeks,53),minmax(0,1fr)); min-width: 680px; }
+#nos-app .heatmap { display: grid; gap: 3px; grid-template-columns: 26px repeat(var(--weeks,53),12px); width: max-content; }
 #nos-app .heat-month { font-size: 9px; line-height: 1.2; color: var(--muted); white-space: nowrap; margin-bottom: 5px; }
 #nos-app .heat-day { display: flex; align-items: center; font-size: 8px; line-height: 1; color: var(--muted); }
-#nos-app .heat-cell { width: 100%; height: 11px; border-radius: 3px; border: 1px solid #eff3ff04; transition: transform .1s; }
+#nos-app .heat-cell { width: 100%; aspect-ratio: 1; border-radius: 3px; border: 1px solid #eff3ff04; transition: transform .1s; }
 #nos-app .heat-cell:hover { outline: 1px solid #d9efff; transform: scale(1.15); z-index: 1; }
 #nos-app .heat-cell.future { opacity: .42; }
 #nos-app .heat-cell.blank { visibility: hidden; }
@@ -102,9 +105,10 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .heat-2 { background: #7dc4fa; }
 #nos-app .heat-3 { background: #4b9bfc; }
 #nos-app .heat-4 { background: #287bf7; box-shadow: 0 0 5px #4d92fa29; }
-#nos-app .heatmap.month-map { grid-template-columns: repeat(7,minmax(0,1fr)); min-width: 0; gap: 7px; }
-#nos-app .month-map .heat-cell { height: 33px; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+#nos-app .heatmap.month-map { grid-template-columns: repeat(7,minmax(0,1fr)); width: min(100%,350px); gap: 7px; }
+#nos-app .month-map .heat-cell { display: flex; align-items: center; justify-content: center; font-size: 10px; }
 #nos-app .month-map .heat-day { justify-content: center; margin-bottom: 3px; }
+#nos-app .heatmap.week-map { width: 100%; grid-template-columns: minmax(0,1fr); }
 #nos-app .week-chart { display: flex; align-items: stretch; gap: 16px; height: 140px; grid-column: 1/-1; }
 #nos-app .week-day { flex: 1; display: flex; align-items: center; flex-direction: column; justify-content: flex-end; gap: 4px; font-size: 10px; color: var(--muted); }
 #nos-app .week-bar { width: min(52px,60%); min-height: 3px; border-radius: 5px 5px 2px 2px; background: linear-gradient(#a5d4ff, #4c8cf2); border: 1px solid #c7e4ff40; }

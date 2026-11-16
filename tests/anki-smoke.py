@@ -59,7 +59,7 @@ def main():
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "media_store.py", "reviewer_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html"):
+    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
     set_lang("en_US")
@@ -75,6 +75,7 @@ def main():
     app = aqt._run(["anki", "-b", str(base), "-p", "NOS Test", "-l", "en_US"], exec=False)
     # Assertions should terminate the test, not enter Anki's interactive pdb.
     sys.excepthook=sys.__excepthook__
+    sys.stderr=sys.__stderr__
     assert app is not None
     end = time.monotonic() + 15
     while time.monotonic() < end and not (aqt.mw and aqt.mw.col):
@@ -139,6 +140,55 @@ def main():
     wait(100)
     assert not aqt.mw.isFullScreen()
     col = aqt.mw.col
+    # Exercise the real deck creation dialog and asynchronous Anki operation.
+    from aqt.qt import QComboBox, QDialogButtonBox, QLineEdit
+    def create_deck(name, parent_id=None, cancel=False):
+        before = len(col.decks.all_names_and_ids())
+        def fill_dialog():
+            dialog = app.activeModalWidget()
+            field = dialog.findChild(QLineEdit, "nos-deck-name")
+            parents = dialog.findChild(QComboBox, "nos-deck-parent")
+            assert parents.currentData() == (parent_id or 0)
+            field.setText(name)
+            buttons = dialog.findChild(QDialogButtonBox)
+            button = QDialogButtonBox.StandardButton.Cancel if cancel else QDialogButtonBox.StandardButton.Ok
+            buttons.button(button).click()
+        QTimer.singleShot(100, fill_dialog)
+        command = {"action": "create_deck"}
+        if parent_id:
+            command["id"] = str(parent_id)
+        integration.bridge((False, None), "nos:" + json.dumps(command), aqt.mw.deckBrowser)
+        full_name = (col.decks.name(parent_id) + "::" if parent_id else "") + name
+        end = time.monotonic() + 5
+        while not cancel and not col.decks.by_name(full_name) and time.monotonic() < end:
+            wait(25)
+        if cancel:
+            assert len(col.decks.all_names_and_ids()) == before
+            return None
+        created = col.decks.by_name(full_name)
+        assert created, full_name
+        return created["id"]
+
+    created_root = create_deck("Created parent")
+    created_child = create_deck("Created child", created_root)
+    create_deck("Grandchild", created_child)
+    create_deck("Cancelled child", created_root, cancel=True)
+    # The general Add dialog must allow explicitly choosing an existing parent.
+    def choose_parent():
+        dialog = app.activeModalWidget()
+        parents = dialog.findChild(QComboBox, "nos-deck-parent")
+        parents.setCurrentIndex(parents.findData(created_root))
+        dialog.findChild(QLineEdit, "nos-deck-name").setText("Chosen parent child")
+        dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Ok).click()
+    QTimer.singleShot(100, choose_parent)
+    integration._create_deck()
+    end = time.monotonic() + 5
+    while not col.decks.by_name("Created parent::Chosen parent child") and time.monotonic() < end:
+        wait(25)
+    assert col.decks.by_name("Created parent::Chosen parent child")
+    # Use native undo for cleanup, so the remaining smoke test keeps its fixture.
+    for _ in range(4):
+        col.undo()
     did = col.decks.id("NOS Test::Real cards")
     note = col.new_note(col.models.current())
     note.fields[0] = "A disposable AnkiNOS test question"
@@ -155,7 +205,7 @@ def main():
     until("document.getElementById('stats-metric-scope').textContent.includes('toàn bộ bộ sưu tập')")
     js("(()=>{const x=document.getElementById('stats-period');x.value='0';x.dispatchEvent(new Event('change',{bubbles:true}));return true})()")
     until("document.getElementById('stats-metric-scope').textContent.includes('toàn bộ lịch sử')")
-    assert js("document.querySelectorAll('#stats-report .stats-native-card').length >= 11")
+    until("document.querySelectorAll('#stats-report .stats-native-card').length >= 11")
     js("(()=>{document.querySelector('.rail-main [data-action=page][data-value=home]').click();return true})()")
     assert js("document.getElementById('stats-page').hidden") is True
     # Exercise settings over the actual native bridge and check disk-backed config.
@@ -309,6 +359,7 @@ def main():
     report.update(rapid_dashboard_redraw_ms=redraw_times,heatmap_present_after_navigation=True)
     report.update(native_scheduler_queried_once=True,archive_heatmap_loaded_via_native_bridge=True,
                   native_graphs_inline_and_scoped=True,statistics_no_legacy_popup=True)
+    report.update(create_deck_with_parent=True,create_nested_subdeck=True,create_deck_cancel=True)
     (ROOT / "previews" / "anki-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print("PASS: " + json.dumps(report),flush=True)
     aqt.mw.unloadProfileAndExit()
