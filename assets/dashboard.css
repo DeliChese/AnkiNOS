@@ -83,6 +83,11 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .activity-controls { display: flex; align-items: center; gap: 12px; }
 #nos-app .year-control { display: flex; gap: 8px; align-items: center; background: #21395e30; padding: 2px 3px; border-radius: 20px; }
 #nos-app .year-control strong { min-width: 35px; font-size: 12px; text-align: center; }
+#nos-app .year-control select { min-width: 62px; max-width: 88px; padding: 4px 2px; color: var(--text); background: transparent; border: 0; font: inherit; font-size: 11px; cursor: pointer; }
+#nos-app .year-control select option { color: #edf3ff; background: #263c5b; }
+#nos-app .calendar-today { font-size: 10px; color: var(--muted); padding: 5px; border-radius: 6px; }
+#nos-app .calendar-today:hover { background: #d8e8ff20; color: #fff; }
+#nos-app .heatmap-caption { padding: 0 24px 10px; margin: 0; font-size: 10px; color: var(--muted); }
 #nos-app .flipped { transform: rotate(180deg); }
 #nos-app .segmented { display: inline-flex; align-items: center; background: #23395b38; border: 1px solid #d5e3ff12; padding: 3px; border-radius: 11px; flex-shrink: 0; }
 #nos-app .segmented button { padding: 5px 14px; border-radius: 8px; font-size: 11px; color: var(--muted); }
@@ -94,11 +99,13 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .activity-controls { margin-left: auto; }
 #nos-app .heatmap-scroll { overflow-x: auto; padding: 0 24px; }
 #nos-app .heatmap { display: grid; gap: 3px; grid-template-columns: 26px repeat(var(--weeks,53),12px); width: max-content; }
-#nos-app .heat-month { font-size: 9px; line-height: 1.2; color: var(--muted); white-space: nowrap; margin-bottom: 5px; }
+#nos-app .heat-month { font-size: 9px; line-height: 1.2; color: var(--muted); white-space: nowrap; margin-bottom: 5px; text-align: left; justify-content: flex-start; }
+#nos-app .heat-month:hover { color: #fff; text-decoration: underline; }
 #nos-app .heat-day { display: flex; align-items: center; font-size: 8px; line-height: 1; color: var(--muted); }
 #nos-app .heat-cell { width: 100%; aspect-ratio: 1; border-radius: 3px; border: 1px solid #eff3ff04; transition: transform .1s; }
 #nos-app .heat-cell:hover { outline: 1px solid #d9efff; transform: scale(1.15); z-index: 1; }
 #nos-app .heat-cell.future { opacity: .42; }
+#nos-app .heat-cell.today { outline: 1px solid #d9efff; outline-offset: 1px; }
 #nos-app .heat-cell.blank { visibility: hidden; }
 #nos-app .heat-0 { background: #d6e4ff18; }
 #nos-app .heat-1 { background: #b5ddf5a6; }
@@ -348,9 +355,10 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
   #nos-app .activity-heading .heading-title { gap: 8px; width: 100%; }
   #nos-app h2 { font-size: 14px; }
   #nos-app .streak-badge { margin-left: auto; font-size: 9px; }
-  #nos-app .activity-controls { width: 100%; justify-content: flex-end; gap: 8px; }
+  #nos-app .activity-controls { width: 100%; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
   #nos-app .activity-heading .collapse-button { margin-left: auto; }
   #nos-app .heatmap-scroll { padding: 0 15px; }
+  #nos-app .heatmap-caption { padding: 0 15px 10px; }
   #nos-app .activity-footer { padding: 12px 15px; font-size: 8px; gap: 5px; }
   #nos-app .heat-legend { font-size: 8px; gap: 3px; }
   #nos-app .heat-legend i { width: 6px; height: 6px; }

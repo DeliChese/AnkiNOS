@@ -363,6 +363,16 @@ def main():
         js("(()=>{document.querySelector('[data-action=year][data-value=\"-1\"]').click();return true})()")
     until("document.getElementById('heatmap').getAttribute('aria-busy') === 'false'")
     assert js("document.querySelectorAll('#heatmap .heat-cell[data-tooltip*=\"1 lượt ôn\"]').length") == 1
+    # The native bridge must keep archive data on its real calendar date when
+    # switching from annual to monthly view and moving between months.
+    archive_date=datetime.fromtimestamp(archive_id/1000-4*3600)
+    js("(()=>{document.querySelector('[data-action=period][data-value=month]').click();return true})()")
+    js(f"(()=>{{const s=document.getElementById('heatmap-month-select');s.value='{archive_date.month-1}';s.dispatchEvent(new Event('change',{{bubbles:true}}));return true}})()")
+    assert js(f"!!document.querySelector('#heatmap .heat-cell[data-date=\"{archive_date:%Y-%m-%d}\"][data-tooltip*=\"1 lượt ôn\"]')")
+    js("(()=>{document.querySelector('[data-action=year][data-value=\"1\"]').click();return true})()")
+    assert js("document.getElementById('heatmap-month-select').value") == str(archive_date.month % 12)
+    js("(()=>{document.querySelector('[data-action=year][data-value=\"-1\"]').click();return true})()")
+    assert js(f"!!document.querySelector('#heatmap .heat-cell[data-date=\"{archive_date:%Y-%m-%d}\"]')")
     empty_id=col.decks.id("NOS Test::Empty")
     integration.bridge((False,None),'nos:'+json.dumps({"action":"study","id":str(empty_id)}),aqt.mw.deckBrowser)
     end=time.monotonic()+10
@@ -433,6 +443,7 @@ def main():
     report.update(create_deck_with_parent=True,create_nested_subdeck=True,create_deck_cancel=True)
     report.update(live_deck_and_note_edits=True,library_stays_open_after_edits=True,
                   create_dialog_stays_open_after_save=True,overview_updates_without_reload=True)
+    report.update(calendar_archive_month_navigation=True)
     (ROOT / "previews" / "anki-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print("PASS: " + json.dumps(report),flush=True)
     aqt.mw.unloadProfileAndExit()

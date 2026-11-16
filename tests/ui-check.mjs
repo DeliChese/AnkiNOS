@@ -297,6 +297,66 @@ try {
   await evaluate(`window.AnkiNOS.receive({event:'history_year',payload:{year:2025,days:{'2025-01-10':{reviews:42,milliseconds:420000,tested:42,passed:40}}}})`);
   assert.equal(await evaluate(`document.getElementById('heatmap').getAttribute('aria-busy')`),'false');
   assert.equal(await evaluate(`document.querySelectorAll('#heatmap .heat-cell[data-tooltip*="42 lượt ôn"]').length`),1,'Loaded archive data must color the heatmap');
+  // Gregorian calendar references checked with Python calendar.monthrange().
+  // Includes the century exception (1900), leap century (2000), and leap day.
+  const references=[[1900,1,3,28],[2000,1,1,29],[2024,1,3,29],[2025,1,5,28],[2026,1,6,28],[2026,10,6,30]];
+  const selectCalendar = (id,value) => evaluate(`(()=>{const s=document.getElementById(${JSON.stringify(id)});s.value=${JSON.stringify(String(value))};s.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+  await evaluate(`window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Calendar',days:{'2024-02-29':{reviews:7},'2025-12-31':{reviews:3},'2026-01-01':{reviews:5}},history_start_year:1900,history_loaded_years:[1900,2000,2024,2025,2026],due:0,total_cards:0,stats:{retention:null,pace:null,milliseconds:0,reviews:0,streak:0,tested:0},decks:[],settings:{goal:200,heatmap_day:'monday'}}})`);
+  await click('[data-action="period"][data-value="month"]');
+  for(const firstDay of ['monday','sunday']){
+    await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),heatmap_day:${JSON.stringify(firstDay)}}})`);
+    for(const [year,month,weekday,count] of references){
+      await selectCalendar('heatmap-year-select',year);
+      await selectCalendar('heatmap-month-select',month);
+      const cells=await evaluate(`Array.from(document.querySelectorAll('.month-map .heat-cell')).map(node=>node.dataset.date||null)`);
+      const offset=firstDay==='sunday'?(weekday+1)%7:weekday;
+      const expected=Array.from({length:count},(_,i)=>`${year}-${String(month+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`);
+      assert.deepEqual(cells.slice(offset,offset+count),expected,`Calendar dates/weekday must match ${year}-${month+1} (${firstDay})`);
+      assert.equal(cells.filter(Boolean).length,count);
+    }
+  }
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),heatmap_day:'monday'}})`);
+  await selectCalendar('heatmap-year-select',2024);
+  await selectCalendar('heatmap-month-select',1);
+  assert(await evaluate(`document.getElementById('activity-summary').textContent.startsWith('7 ')`),'Monthly totals must use the selected month');
+  await click('[data-action="period"][data-value="year"]');
+  assert.equal(await evaluate(`document.querySelectorAll('#heatmap [data-date]').length`),366);
+  assert.equal(await evaluate(`document.querySelector('.heat-month[data-month="0"]').style.gridColumnStart`),'2');
+  await click('[data-action="heatmap_month"][data-month="1"]');
+  assert.equal(await evaluate(`document.querySelectorAll('.month-map .heat-cell[data-date]').length`),29,'Clicking a month in the annual calendar opens that month');
+  await selectCalendar('heatmap-year-select',2025);
+  await selectCalendar('heatmap-month-select',11);
+  await click('[data-action="year"][data-value="1"]');
+  assert.deepEqual(await evaluate(`[document.getElementById('heatmap-year-select').value,document.getElementById('heatmap-month-select').value]`),['2026','0'],'Next month must cross into the next year');
+  await click('[data-action="year"][data-value="-1"]');
+  assert.equal(await evaluate(`document.getElementById('heatmap-month-select').value`),'11');
+  await selectCalendar('heatmap-year-select',2026);
+  await selectCalendar('heatmap-month-select',0);
+  await click('[data-action="period"][data-value="week"]');
+  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.week-day')).map(node=>node.dataset.date)`),
+    ['2025-12-29','2025-12-30','2025-12-31','2026-01-01','2026-01-02','2026-01-03','2026-01-04']);
+  assert(await evaluate(`document.getElementById('activity-summary').textContent.startsWith('8 ')`),'A week spanning two years must include both years');
+  await evaluate(`window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Calendar archive',days:{'2026-01-01':{reviews:5}},history_start_year:2025,history_loaded_years:[2026],due:0,total_cards:0,stats:{retention:null,pace:null,milliseconds:0,reviews:0,streak:0,tested:0},decks:[],settings:{goal:200,heatmap_day:'monday'}}})`);
+  assert.equal(await evaluate(`document.getElementById('heatmap').getAttribute('aria-busy')`),'true',
+    'A January week must fetch the previous year when its December days are not loaded');
+  await click('[data-action="period"][data-value="year"]');
+  assert.equal(await evaluate(`document.getElementById('heatmap').getAttribute('aria-busy')`),'false');
+  await evaluate(`window.AnkiNOS.receive({event:'history_year',payload:{year:2025,days:{'2025-12-31':{reviews:3}}}})`);
+  assert.equal(await evaluate(`document.querySelector('.month-map,.week-map')`),null,
+    'An archive response must not switch away from the currently selected view');
+  await click('[data-action="period"][data-value="week"]');
+  assert(await evaluate(`document.getElementById('activity-summary').textContent.startsWith('8 ')`));
+  await click('[data-action="year"][data-value="1"]');
+  assert.equal(await evaluate(`document.querySelector('.week-day').dataset.date`),'2026-01-05');
+  await click('[data-action="calendar_today"]');
+  await click('[data-action="period"][data-value="year"]');
+  assert.equal(await evaluate(`document.querySelector('#heatmap [aria-current="date"]').dataset.date`),'2026-11-13');
+  await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
+  await click('[data-action="period"][data-value="month"]');
+  assert(await evaluate(`document.querySelector('.activity-controls').getBoundingClientRect().right <= innerWidth`),
+    'Month/year controls must fit a narrow viewport');
+  assert(await evaluate(`document.documentElement.scrollWidth <= innerWidth`));
+  await shot('heatmap-calendar-mobile.png');
   await cdp('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});
   await cdp('Page.navigate',{url:pathToFileURL(join(root,'ankios-overview.html')).href});
   for(let i=0;i<100;i++){if(await evaluate(`document.getElementById('overview-name')?.textContent === 'Chinese Vocabulary in Chunks'`))break;await new Promise(r=>setTimeout(r,100));}

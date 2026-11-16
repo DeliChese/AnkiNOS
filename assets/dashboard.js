@@ -12,14 +12,14 @@
   const native = app.dataset.native === 'true' || typeof window.pycmd === 'function';
   const bridgeStarted = performance.now();
   const format = new Intl.NumberFormat('vi-VN');
-  const historyDate = new Intl.DateTimeFormat('vi-VN', {day:'numeric',month:'long',year:'numeric'});
+  const historyDate = new Intl.DateTimeFormat('vi-VN', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const n = value => format.format(value ?? 0);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const icon = (name, cls = '') => `<svg class="icon ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
   const iso = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   const parseDate = value => new Date(`${value}T12:00:00`);
   const addDays = (date, days) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
-  const state = {snapshot: null, settings: {}, filter: 'all', color: '', query: '', sort: 'name', period: 'year', year: null, expanded: new Set(), collapsed: new Set(), page: 'home'};
+  const state = {snapshot: null, settings: {}, filter: 'all', color: '', query: '', sort: 'name', period: 'year', calendar: null, expanded: new Set(), collapsed: new Set(), page: 'home'};
   let toastTimer;
   let settingsDraft = null;
   let settingsDirty = false;
@@ -514,33 +514,63 @@
     button.setAttribute('aria-label',button.title);
   }
 
+  const calendarDay = date => Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())/86400000;
+  const calendarAnchor = () => parseDate(state.calendar || state.snapshot?.today || loadingToday);
+  function needsHistory(year) {
+    const data=state.snapshot;
+    return !!data?.history_loaded_years && !data.history_loaded_years.includes(year)
+      && year >= (data.history_start_year ?? 1900) && year <= Number(data.today.slice(0,4));
+  }
+  function setCalendar(year, month, day=calendarAnchor().getDate()) {
+    const latest=Number((state.snapshot?.today||loadingToday).slice(0,4));
+    if (!Number.isInteger(year) || year<1900 || year>latest || !Number.isInteger(month) || month<0 || month>11) return;
+    state.calendar=iso(new Date(year,month,Math.min(day,new Date(year,month+1,0).getDate()),12));
+    renderHeatmap();
+  }
+  function calendarStep(step) {
+    const anchor=calendarAnchor();
+    if(state.period==='week')return addDays(anchor,7*step);
+    if(state.period==='month')return new Date(anchor.getFullYear(),anchor.getMonth()+step,1,12);
+    return new Date(anchor.getFullYear()+step,anchor.getMonth(),Math.min(anchor.getDate(),new Date(anchor.getFullYear()+step,anchor.getMonth()+1,0).getDate()),12);
+  }
+
   function heatCell(date, year, month = null) {
-    const waiting=!state.snapshot||(state.snapshot.history_loaded_years&&!state.snapshot.history_loaded_years.includes(year));
+    const waiting=!state.snapshot||needsHistory(date.getFullYear());
     const key = iso(date), data = waiting?null:state.snapshot.days[key];
     const reviews = data?.reviews || 0;
     const level = reviews >= 200 ? 4 : reviews >= 100 ? 3 : reviews >= 40 ? 2 : reviews ? 1 : 0;
     const blank = date.getFullYear() !== year || (month != null && date.getMonth() !== month);
     const future = key > (state.snapshot?.today||loadingToday);
     const label = !waiting ? `${historyDate.format(date)} · ${n(reviews)} lượt ôn${future ? ' · Chưa đến ngày' : ''}` : 'Đang tải lịch sử ôn tập…';
-    return `<div class="heat-cell heat-${level}${blank ? ' blank' : ''}${future ? ' future' : ''}" ${blank ? 'aria-hidden="true"' : `data-tooltip="${escape(label)}" aria-label="${escape(label)}" role="img"`}>${month != null && !blank ? date.getDate() : ''}</div>`;
+    return `<div class="heat-cell heat-${level}${blank ? ' blank' : ''}${future ? ' future' : ''}${key===state.snapshot?.today?' today':''}" ${blank ? 'aria-hidden="true"' : `data-date="${key}" data-tooltip="${escape(label)}" aria-label="${escape(label)}" role="img"${key===state.snapshot?.today?' aria-current="date"':''}`}>${month != null && !blank ? date.getDate() : ''}</div>`;
   }
 
   function renderHeatmap() {
     const data=state.snapshot||{days:{},today:loadingToday};
     // O(1) invalidation instead of serializing 365+ historical day objects.
     const key=JSON.stringify([heatmapRevision,!!state.snapshot,data.today,
-      state.period,state.year,state.settings.heatmap_day]);
+      state.period,state.calendar,state.settings.heatmap_day]);
     if(key===heatmapKey)return;
     heatmapKey=key;
-    const target = $('heatmap'), today = parseDate(data.today), year = state.year??today.getFullYear();
-    const awaiting=!!data.history_loaded_years&&!data.history_loaded_years.includes(year);
-    target.setAttribute('aria-busy',String(!state.snapshot||awaiting));
+    const target = $('heatmap'), today = parseDate(data.today), anchor=calendarAnchor(), year=anchor.getFullYear(), month=anchor.getMonth();
     const isSunday = (state.settings.heatmap_day || 'monday') === 'sunday';
     const dayNames = isSunday ? ['CN','T2','T3','T4','T5','T6','T7'] : ['T2','T3','T4','T5','T6','T7','CN'];
-    let start, end, html = '';
-    const earliest = data.history_start_year??Math.min(today.getFullYear(), ...Object.keys(data.days).map(key => Number(key.slice(0,4))));
-    app.querySelector('[data-action="year"][data-value="-1"]').disabled = year <= earliest;
-    app.querySelector('[data-action="year"][data-value="1"]').disabled = year >= today.getFullYear();
+    let start, end, from, html = '';
+    const yearSelect=$('heatmap-year-select'),monthSelect=$('heatmap-month-select');
+    if(yearSelect.dataset.latest!==String(today.getFullYear())){
+      yearSelect.innerHTML=Array.from({length:today.getFullYear()-1899},(_,i)=>today.getFullYear()-i).map(y=>`<option value="${y}">${y}</option>`).join('');
+      yearSelect.dataset.latest=String(today.getFullYear());
+    }
+    if(!monthSelect.options.length)monthSelect.innerHTML=Array.from({length:12},(_,i)=>`<option value="${i}">Tháng ${i+1}</option>`).join('');
+    yearSelect.value=String(year);monthSelect.value=String(month);
+    monthSelect.hidden=state.period==='year';
+    const unit=state.period==='year'?'Năm':state.period==='month'?'Tháng':'Tuần';
+    for(const step of [-1,1]){
+      const button=app.querySelector(`[data-action="year"][data-value="${step}"]`),next=calendarStep(step);
+      button.disabled=next.getFullYear()<1900||next.getFullYear()>today.getFullYear();
+      button.title=`${unit} ${step<0?'trước':'sau'}`;
+      button.setAttribute('aria-label',button.title);
+    }
     target.className = 'heatmap';
     if (state.period === 'year') {
       $('heatmap-year').textContent = year;
@@ -548,54 +578,59 @@
       const offset = isSunday ? first.getDay() : ((first.getDay()+6)%7);
       start = addDays(first, -offset);
       end = new Date(year,11,31,12);
-      const weeks = Math.ceil((Math.round((end-start)/86400000)+1)/7);
+      from=iso(first);
+      const weeks = Math.ceil((calendarDay(end)-calendarDay(start)+1)/7);
       target.style.setProperty('--weeks', weeks);
       html = '<span></span>';
-      let lastMonth = -1;
-      for (let week = 0; week < weeks; week++) {
-        const date = addDays(start, week*7+3);
-        const month = date.getMonth();
-        const label = date.getFullYear() === year && month !== lastMonth ? `Tháng ${month+1}` : '';
-        html += `<span class="heat-month">${label}</span>`;
-        if (date.getFullYear() === year) lastMonth = month;
+      for (let m=0;m<12;m++) {
+        const column=Math.floor((calendarDay(new Date(year,m,1))-calendarDay(start))/7);
+        const next=m===11?weeks:Math.floor((calendarDay(new Date(year,m+1,1))-calendarDay(start))/7);
+        html += `<button class="heat-month" data-action="heatmap_month" data-month="${m}" style="grid-column:${column+2}/span ${next-column};grid-row:1" aria-label="Xem tháng ${m+1} năm ${year}">Tháng ${m+1}</button>`;
       }
       for (let day = 0; day < 7; day++) {
         html += `<span class="heat-day">${dayNames[day]}</span>`;
         for (let week = 0; week < weeks; week++) html += heatCell(addDays(start, week*7+day), year);
       }
+      $('heatmap-caption').textContent=`Năm ${year} · ${calendarDay(end)-calendarDay(first)+1} ngày`;
     } else if (state.period === 'month') {
-      const month = today.getMonth();
       $('heatmap-year').textContent = `T${month+1} · ${year}`;
       target.classList.add('month-map');
       const first = new Date(year,month,1,12);
       const mOffset = isSunday ? first.getDay() : ((first.getDay()+6)%7);
       start = addDays(first,-mOffset);
       end = new Date(year,month+1,0,12);
-      const cells = Math.ceil((Math.round((end-start)/86400000)+1)/7)*7;
+      from=iso(first);
+      const cells = Math.ceil((calendarDay(end)-calendarDay(start)+1)/7)*7;
       html = dayNames.map(day => `<span class="heat-day">${day}</span>`).join('');
       for (let i=0; i<cells; i++) html += heatCell(addDays(start,i),year,month);
+      $('heatmap-caption').textContent=`Tháng ${month+1} năm ${year} · ${end.getDate()} ngày`;
     } else {
       target.classList.add('week-map');
-      const anchor = new Date(year,today.getMonth(),today.getDate(),12);
       const wOffset = isSunday ? anchor.getDay() : ((anchor.getDay()+6)%7);
       start = addDays(anchor,-wOffset);
       end = addDays(start,6);
+      from=iso(start);
       $('heatmap-year').textContent = year;
+      $('heatmap-caption').textContent=`${start.toLocaleDateString('vi-VN')} – ${end.toLocaleDateString('vi-VN')}`;
       const values = Array.from({length:7}, (_,i) => data.days[iso(addDays(start,i))]?.reviews || 0);
       const max = Math.max(...values,1);
-      html = '<div class="week-chart">' + values.map((count,i) => `<div class="week-day"><span class="week-count">${n(count)}</span><div class="week-bar" style="height:${Math.max(2,count/max*100)}px"></div><span>${dayNames[i]} · ${addDays(start,i).getDate()}/${addDays(start,i).getMonth()+1}</span></div>`).join('') + '</div>';
+      html = '<div class="week-chart">' + values.map((count,i) => {
+        const date=addDays(start,i),waiting=needsHistory(date.getFullYear());
+        return `<div class="week-day" data-date="${iso(date)}" title="${escape(historyDate.format(date))}"><span class="week-count">${waiting?'…':n(count)}</span><div class="week-bar" style="height:${waiting?2:Math.max(2,count/max*100)}px"></div><span>${dayNames[i]} · ${date.getDate()}/${date.getMonth()+1}</span></div>`;
+      }).join('') + '</div>';
     }
     target.innerHTML = html;
-    const from = state.period === 'year' ? `${year}-01-01` : state.period === 'month' ? iso(new Date(year,today.getMonth(),1,12)) : iso(start);
+    const pendingYears=[...new Set([year,...(state.period==='week'?[start.getFullYear(),end.getFullYear()]:[])])].filter(needsHistory);
+    target.setAttribute('aria-busy',String(!state.snapshot||pendingYears.length>0));
     const to = iso(end);
     const entries = Object.entries(data.days).filter(([key]) => key >= from && key <= to);
     const total = entries.reduce((sum, [,day]) => sum + day.reviews,0);
     if(state.snapshot)$('activity-summary').textContent = `${n(total)} lượt ôn · ${n(entries.filter(([,day]) => day.reviews > 0).length)} ngày học ${state.period === 'year' ? `trong năm ${year}` : state.period === 'month' ? 'trong tháng' : 'trong tuần'}`;
-    if(awaiting){
-      $('activity-summary').textContent=`Đang tải lịch sử năm ${year}…`;
-      if(!historyPending.has(year)){
-        historyPending.add(year);
-        command('history_year',{year});
+    if(pendingYears.length){
+      $('activity-summary').textContent=`Đang tải lịch sử năm ${pendingYears.join(', ')}…`;
+      for(const pendingYear of pendingYears)if(!historyPending.has(pendingYear)){
+        historyPending.add(pendingYear);
+        command('history_year',{year:pendingYear});
       }
     }
     app.querySelectorAll('[data-action="period"]').forEach(button => {
@@ -750,6 +785,7 @@
 
   function receive({event, payload}) {
     const previousGoal=state.settings.goal;
+    const previousHeatmapDay=state.settings.heatmap_day;
     const previousLibrarySettings = JSON.stringify([
       state.settings.favorites, state.settings.colors, state.settings.resources,
       state.settings.view, state.settings.sidebar_collapsed
@@ -797,7 +833,7 @@
       if ($('settings-dialog').open && !settingsDirty) settingsDraft = {...state.settings};
       else if (settingsDraft) settingsDraft.images = state.settings.images;
       fullscreenState(native ? !!payload.fullscreen : !!document.fullscreenElement);
-      state.year ??= Number(payload.today.slice(0,4));
+      state.calendar ??= payload.today;
       clearTimeout(refreshTimer);
       $('refresh-button').disabled = false;
       $('connection').innerHTML = `<span class="status-dot"></span>${native ? 'Bộ sưu tập Anki' : 'Bản xem trước'}`;
@@ -814,7 +850,7 @@
       renderStats();
       if (state.page === 'stats') window.NOSStats?.refreshMetrics();
     }
-    if (event === 'snapshot') renderHeatmap();
+    if (event === 'snapshot' || (event==='settings' && previousHeatmapDay!==state.settings.heatmap_day)) renderHeatmap();
     if (event === 'snapshot') {
       updateLibraryData(true);
       renderLibrary();
@@ -887,8 +923,10 @@
       else {state.expanded.add(id);state.collapsed.delete(id);}
       renderLibrary(id);return;
     }
-    if (action === 'period') { state.period = value; if (state.snapshot) renderHeatmap(); return; }
-    if (action === 'year') { state.year += Number(value); renderHeatmap(); return; }
+    if (action === 'period') { state.period = value; renderHeatmap(); return; }
+    if (action === 'heatmap_month') { state.period='month';setCalendar(calendarAnchor().getFullYear(),Number(button.dataset.month),1);return; }
+    if (action === 'calendar_today') { state.calendar=state.snapshot?.today||loadingToday;renderHeatmap();return; }
+    if (action === 'year') { const next=calendarStep(Number(value));setCalendar(next.getFullYear(),next.getMonth(),next.getDate());return; }
     closePopups();
     if(action==='snapshot')return command(action,{force:true});
     command(action, id ? {id} : {});
@@ -958,6 +996,8 @@
   });
   window.addEventListener('resize', throttleRAF('resize', positionLibrary), {passive:true});
   $('library-sort').addEventListener('change', event => { state.sort = event.target.value; renderLibrary(); });
+  $('heatmap-year-select').addEventListener('change', event => setCalendar(Number(event.target.value),calendarAnchor().getMonth()));
+  $('heatmap-month-select').addEventListener('change', event => setCalendar(calendarAnchor().getFullYear(),Number(event.target.value),1));
   document.addEventListener('fullscreenchange',() => fullscreenState(!!document.fullscreenElement));
   for (const svg of app.querySelectorAll('.sparkline')) {
     svg.addEventListener('pointermove', throttleRAF('pointer', event => {
