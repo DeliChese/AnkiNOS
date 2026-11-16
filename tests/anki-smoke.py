@@ -90,6 +90,36 @@ def main():
     assert heatmap_calls==[], "Do not compute heatmap data before discarding its HTML"
     assert aqt.mw._review_heatmap.render_for_view(SimpleNamespace(name='stats')) == 'native heatmap'
     until("!!window.AnkiNOS && document.getElementById('connection').textContent.includes('Bộ sưu tập Anki')")
+    # An old import without a thumbnail must never decode its original in the
+    # gallery's opening frame. Build its preview asynchronously and retain it.
+    from aqt.qt import QImage
+    from hashlib import sha256
+    from NOS.media_store import profile_dir
+    image_dir=profile_dir(integration.ROOT, aqt.mw.pm.name)
+    image_dir.mkdir(parents=True,exist_ok=True)
+    legacy_image_id='e'*32
+    original=image_dir/(legacy_image_id+'.png')
+    picture=QImage(1200,800,QImage.Format.Format_RGB32)
+    picture.fill(0xFF557799)
+    assert picture.save(str(original),'PNG')
+    original_hash=sha256(original.read_bytes()).digest()
+    integration.save_settings({'images':[{'id':legacy_image_id,'name':'Legacy photo','ext':'.png'}]})
+    integration.send('settings',integration.public_settings())
+    studio_open_ms=js("(()=>{window.__studioPage=document.getElementById('nos-app');const start=performance.now();window.NOSStudio.open();return performance.now()-start})()")
+    js(f"(()=>{{document.querySelector('[data-photo-id=\"{legacy_image_id}\"]').click();return true}})()")
+    source=js("document.getElementById('studio-preview-image').getAttribute('src')")
+    assert not source or source.endswith('-thumb.png'), 'Never load a full-resolution original into Studio'
+    until("document.querySelector('#studio-gallery img')?.getAttribute('src')?.endsWith('-thumb.png')")
+    assert js("document.getElementById('studio-dialog').open && window.__studioPage===document.getElementById('nos-app')")
+    thumbnail=QImage(str(image_dir/(legacy_image_id+'-thumb.png')))
+    assert 0<max(thumbnail.width(),thumbnail.height())<=480
+    assert sha256(original.read_bytes()).digest()==original_hash
+    assert js("document.querySelector('#studio-gallery img').complete")
+    js("(()=>{window.__studioTile=document.querySelector('#studio-gallery .nos-studio-tile');window.NOSStudio.close();window.NOSStudio.open();return true})()")
+    assert js("window.__studioTile===document.querySelector('#studio-gallery .nos-studio-tile')")
+    js("(()=>{window.NOSStudio.close();return true})()")
+    integration.save_settings({'images':[]})
+    integration.send('settings',integration.public_settings())
     # Redrawing twice within 2 seconds used to silently drop the second page's
     # snapshot, leaving its heatmap empty until the five-minute poll.
     redraw_times=[]
@@ -444,6 +474,7 @@ def main():
     report.update(live_deck_and_note_edits=True,library_stays_open_after_edits=True,
                   create_dialog_stays_open_after_save=True,overview_updates_without_reload=True)
     report.update(calendar_archive_month_navigation=True)
+    report.update(studio_first_open_js_ms=round(studio_open_ms),studio_legacy_preview_in_background=True,studio_reuses_thumbnails=True)
     (ROOT / "previews" / "anki-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print("PASS: " + json.dumps(report),flush=True)
     aqt.mw.unloadProfileAndExit()

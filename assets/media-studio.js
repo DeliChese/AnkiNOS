@@ -24,9 +24,20 @@
   let gallerySignature = '';
   let albumsSignature = '';
   let searchFrame = 0;
+  let prepareTask = 0, prepareIdle = false, previewRequest = '';
+  let photoSource, photoCache = [], albumSource, albumCache = [];
+  const warmImages = new Map();
   const getData = () => window.AnkiNOS?.getSettings?.() || {};
-  const photos = () => (getData().images || []).filter(p => p && UUID.test(p.id) && ORIGINAL.test(p.url || ''));
-  const albums = () => (getData().image_albums || []).filter(a => a && UUID.test(a.id) && typeof a.name === 'string');
+  const photos = () => {
+    const source=getData().images;
+    if(source!==photoSource){photoSource=source;photoCache=(source||[]).filter(p=>p&&UUID.test(p.id)&&ORIGINAL.test(p.url||''));}
+    return photoCache;
+  };
+  const albums = () => {
+    const source=getData().image_albums;
+    if(source!==albumSource){albumSource=source;albumCache=(source||[]).filter(a=>a&&UUID.test(a.id)&&typeof a.name==='string');}
+    return albumCache;
+  };
   const create = (tag, cls, text) => {
     const node = document.createElement(tag);
     if (cls) node.className = cls;
@@ -96,7 +107,10 @@
       img.loading = 'lazy';
       img.decoding = 'async';
       img.alt = '';
-      img.src = PREVIEW.test(photo.thumb_url || '') ? photo.thumb_url : photo.url;
+      // Legacy originals may be 24MP. Wait for a background preview instead
+      // of decoding them all in the opening frame.
+      if (PREVIEW.test(photo.thumb_url || '')) img.src = photo.thumb_url;
+      else img.classList.add('preview-pending');
       const caption = create('span','nos-studio-tile-caption');
       caption.append(create('strong','',photo.name));
       caption.append(create('small','',photo.width && photo.height ?
@@ -115,16 +129,21 @@
       preview.hidden = true;
       preview.removeAttribute('src');
       placeholder.hidden = false;
+      placeholder.textContent = 'Chọn một ảnh trong thư viện để xem trước.';
       $('studio-image-meta').textContent = 'Ảnh nguyên gốc luôn vừa khung, không bị cắt hoặc kéo giãn.';
       return;
     }
     // Reassigning src on every settings event decodes the full image again.
     // The Studio inspector is intentionally small: decode the 480px thumbnail,
     // never a 24MP wallpaper on each click. Originals remain used by pages.
-    const previewUrl = PREVIEW.test(image.thumb_url || '') ? image.thumb_url : image.url;
-    if (preview.getAttribute('src') !== previewUrl) preview.src = previewUrl;
-    preview.hidden = false;
-    placeholder.hidden = true;
+    const previewUrl = PREVIEW.test(image.thumb_url || '') ? image.thumb_url : '';
+    if (!previewUrl) {
+      preview.removeAttribute('src');
+      placeholder.textContent='Đang tải ảnh xem trước…';
+    }
+    if (previewUrl && preview.getAttribute('src') !== previewUrl) preview.src = previewUrl;
+    preview.hidden = !previewUrl;
+    placeholder.hidden = !!previewUrl;
     const meta = [];
     if (image.width && image.height) meta.push(image.width + ' × ' + image.height + ' px');
     if (image.size) meta.push((image.size / 1024 / 1024).toFixed(2) + ' MB');
@@ -169,10 +188,13 @@
   }
   function open() {
     if (dialog.open) return;
-    dialog.showModal();
+    cancelPreparation();
+    // Prepare while hidden, avoiding a second layout immediately after showModal.
     render();
     $('studio-search').value = searchText;
-    $('studio-close').focus({preventScroll:true});
+    dialog.showModal();
+    if(document.activeElement!==$('studio-close'))$('studio-close').focus({preventScroll:true});
+    requestPreviews();
   }
   function close() {
     if (!dialog.open) return;
@@ -183,7 +205,32 @@
     trigger?.focus({preventScroll:true});
   }
   function sync() {
-    if (dialog.open) render();
+    requestPreviews();
+    if (dialog.open) {render();return;}
+    if (prepareTask) return;
+    const prepare=()=>{
+      prepareTask=0;
+      render();
+      // Only small previews for the first visible row are warmed in idle time.
+      const urls=photos().slice(0,6).map(p=>p.thumb_url).filter(url=>PREVIEW.test(url||''));
+      for(const url of warmImages.keys())if(!urls.includes(url))warmImages.delete(url);
+      for(const url of urls)if(!warmImages.has(url)){
+        const img=new Image();img.decoding='async';img.fetchPriority='low';img.src=url;warmImages.set(url,img);
+      }
+    };
+    prepareIdle=typeof requestIdleCallback==='function';
+    prepareTask=prepareIdle?requestIdleCallback(prepare,{timeout:300}):setTimeout(prepare,0);
+  }
+  function cancelPreparation() {
+    if(!prepareTask)return;
+    if(prepareIdle)cancelIdleCallback(prepareTask);else clearTimeout(prepareTask);
+    prepareTask=0;
+  }
+  function requestPreviews() {
+    if(!native)return;
+    const missing=photos().filter(p=>!PREVIEW.test(p.thumb_url||'')).map(p=>p.id).join(',');
+    if(missing && missing!==previewRequest){previewRequest=missing;command('image_previews');}
+    if(!missing)previewRequest='';
   }
   function stopEditing() {
     editing = null;
@@ -333,4 +380,6 @@
     if(event.key==='Enter'){event.preventDefault();saveAlbum();}
   });
   window.NOSStudio={open,close,sync,notice:message=>{if(dialog.open)status(message);}};
+  $('studio-close').autofocus=true;
+  sync();
 })();

@@ -32,6 +32,7 @@
   let snapshotPending=false;
   const historyPending=new Set();
   const loadingToday=iso(new Date());
+  const firstAnkiYear=2006;
   const rafState = {};
   const chartSeries = new Map();
   // Throttle expensive visual handlers to one rAF per frame to avoid layout thrashing.
@@ -519,11 +520,11 @@
   function needsHistory(year) {
     const data=state.snapshot;
     return !!data?.history_loaded_years && !data.history_loaded_years.includes(year)
-      && year >= (data.history_start_year ?? 1900) && year <= Number(data.today.slice(0,4));
+      && year >= Math.max(firstAnkiYear,data.history_start_year ?? firstAnkiYear) && year <= Number(data.today.slice(0,4));
   }
   function setCalendar(year, month, day=calendarAnchor().getDate()) {
     const latest=Number((state.snapshot?.today||loadingToday).slice(0,4));
-    if (!Number.isInteger(year) || year<1900 || year>latest || !Number.isInteger(month) || month<0 || month>11) return;
+    if (!Number.isInteger(year) || year<firstAnkiYear || year>latest || !Number.isInteger(month) || month<0 || month>11) return;
     state.calendar=iso(new Date(year,month,Math.min(day,new Date(year,month+1,0).getDate()),12));
     renderHeatmap();
   }
@@ -558,7 +559,7 @@
     let start, end, from, html = '';
     const yearSelect=$('heatmap-year-select'),monthSelect=$('heatmap-month-select');
     if(yearSelect.dataset.latest!==String(today.getFullYear())){
-      yearSelect.innerHTML=Array.from({length:today.getFullYear()-1899},(_,i)=>today.getFullYear()-i).map(y=>`<option value="${y}">${y}</option>`).join('');
+      yearSelect.innerHTML=Array.from({length:today.getFullYear()-firstAnkiYear+1},(_,i)=>today.getFullYear()-i).map(y=>`<option value="${y}">${y}</option>`).join('');
       yearSelect.dataset.latest=String(today.getFullYear());
     }
     if(!monthSelect.options.length)monthSelect.innerHTML=Array.from({length:12},(_,i)=>`<option value="${i}">Tháng ${i+1}</option>`).join('');
@@ -567,7 +568,7 @@
     const unit=state.period==='year'?'Năm':state.period==='month'?'Tháng':'Tuần';
     for(const step of [-1,1]){
       const button=app.querySelector(`[data-action="year"][data-value="${step}"]`),next=calendarStep(step);
-      button.disabled=next.getFullYear()<1900||next.getFullYear()>today.getFullYear();
+      button.disabled=next.getFullYear()<firstAnkiYear||next.getFullYear()>today.getFullYear();
       button.title=`${unit} ${step<0?'trước':'sau'}`;
       button.setAttribute('aria-label',button.title);
     }

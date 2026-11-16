@@ -46,6 +46,7 @@ _review_changes_only = True
 _history_queries: set[tuple[int, str, int]] = set()
 _stats_request_serial = 0
 _live_context: Any = None
+_image_preview_jobs: set[str] = set()
 ALLOWED_FILES = {".pdf", ".epub", ".txt", ".md", ".csv", ".xlsx", ".docx", ".pptx", ".mp3", ".wav", ".mp4", ".webm", ".png", ".jpg", ".jpeg", ".webp"}
 
 
@@ -315,6 +316,61 @@ def _image_add(album_id: str = "") -> None:
                            "errors": errors[:5]})
 
 
+def _prepare_image_previews() -> None:
+    """Build missing legacy previews without decoding originals on the UI thread."""
+    profile = mw.pm.name
+    if profile in _image_preview_jobs:
+        return
+    directory = profile_dir(ROOT, profile)
+    missing = [entry for entry in valid_images(settings().get("images"))
+               if not (directory / (entry["id"] + THUMBNAIL_SUFFIX)).is_file()]
+    if not missing:
+        return
+    _image_preview_jobs.add(profile)
+
+    def build() -> int:
+        failures = 0
+        for entry in missing:
+            target = directory / (entry["id"] + THUMBNAIL_SUFFIX)
+            temporary = target.with_suffix("." + uuid.uuid4().hex + ".tmp")
+            try:
+                source = directory / (entry["id"] + entry["ext"])
+                if not source.is_file():
+                    continue
+                reader = QImageReader(str(source))
+                reader.setAutoTransform(True)
+                size = reader.size()
+                if (not size.isValid() or size.width() < 1 or size.height() < 1
+                        or size.width() * size.height() > 24_000_000):
+                    raise ValueError("Invalid image dimensions")
+                scale = min(1.0, 480 / max(size.width(), size.height()))
+                reader.setScaledSize(QSize(max(1, round(size.width()*scale)), max(1, round(size.height()*scale))))
+                image = reader.read()
+                if image.isNull() or not image.save(str(temporary), "PNG"):
+                    raise ValueError("Could not create image preview")
+                # A photo deleted while this job ran must stay deleted.
+                if source.is_file():
+                    temporary.replace(target)
+            except Exception:
+                failures += 1
+            finally:
+                temporary.unlink(missing_ok=True)
+        return failures
+
+    def done(future: Any) -> None:
+        _image_preview_jobs.discard(profile)
+        try:
+            failures = future.result()
+        except Exception:
+            failures = 1
+        if mw.col and mw.pm.name == profile:
+            send("settings", public_settings())
+            if failures:
+                send("image_library", {"message": "Một số ảnh chưa tải được bản xem trước.", "errors": []})
+
+    mw.taskman.run_in_background(build, done)
+
+
 def _image_delete(identifier: str) -> None:
     data = settings()
     images = valid_images(data.get("images"))
@@ -532,7 +588,7 @@ def _stats_graphs(scope: str, days: int) -> None:
 
 
 def _history_year(year: int) -> None:
-    if mw.state != 'deckBrowser' or not 1900 <= year <= datetime.now().year:
+    if mw.state != 'deckBrowser' or not 2006 <= year <= datetime.now().year:
         return
     token = (_generation, mw.pm.name, year)
     if token in _history_queries:
@@ -958,6 +1014,8 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         elif action == "apply_settings":
             _save_ui(command.get("values"))
             send("settings", public_settings())
+        elif action == "image_previews":
+            _prepare_image_previews()
         elif action == "image_add":
             _image_add(str(command.get("album_id") or ""))
         elif action == "image_delete":

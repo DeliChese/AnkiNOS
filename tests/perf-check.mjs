@@ -49,6 +49,24 @@ try {
   })()`);
   assert.equal(result.child_buttons,40);
   if(process.env.NOS_PERF_ASSERT){assert(result.unchanged_rows_retained);assert(result.unchanged_chart_retained);assert(result.sibling_retained);}
+  result.media_studio=await evaluate(`(async()=>{
+    const frame=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    document.getElementById('library-close').click();
+    const images=Array.from({length:100},(_,i)=>{const id=(i+1).toString(16).padStart(32,'0');return {id,name:'Photo '+i,ext:'.png',width:6000,height:4000,url:'/_addons/NOS/user_files/'+'b'.repeat(20)+'/'+id+'.png',thumb_url:'/_addons/NOS/user_files/'+'b'.repeat(20)+'/'+id+'-thumb.png'};});
+    window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),images,image_albums:[]}});
+    await new Promise(r=>{if(window.requestIdleCallback)requestIdleCallback(r,{timeout:300});else setTimeout(r,50)});
+    const prepared=document.querySelectorAll('#studio-gallery .nos-studio-tile').length;
+    let start=performance.now();window.NOSStudio.open();const firstJs=performance.now()-start;await frame();const firstFrame=performance.now()-start;
+    const original=document.querySelector('#studio-gallery .nos-studio-tile');
+    window.NOSStudio.close();
+    const reopens=[];
+    for(let i=0;i<6;i++){start=performance.now();window.NOSStudio.open();await frame();reopens.push(performance.now()-start);window.NOSStudio.close();}
+    return {photos:100,prepared_before_open:prepared,first_open_js_ms:Math.round(firstJs),first_frame_ms:Math.round(firstFrame),reopen_median_ms:Math.round(reopens.sort((a,b)=>a-b)[3]),thumbnail_nodes_retained:original===document.querySelector('#studio-gallery .nos-studio-tile')};
+  })()`);
+  if(process.env.NOS_PERF_ASSERT){
+    assert.equal(result.media_studio.prepared_before_open,100,'Prepare the image library before opening it');
+    assert(result.media_studio.thumbnail_nodes_retained);
+  }
   const name=process.env.NOS_PERF_BASELINE?'performance-before.json':'performance-after.json';
   await writeFile(join(root,'previews',name),JSON.stringify(result,null,2));
   console.log(JSON.stringify(result));

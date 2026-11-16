@@ -298,10 +298,11 @@ try {
   assert.equal(await evaluate(`document.getElementById('heatmap').getAttribute('aria-busy')`),'false');
   assert.equal(await evaluate(`document.querySelectorAll('#heatmap .heat-cell[data-tooltip*="42 lượt ôn"]').length`),1,'Loaded archive data must color the heatmap');
   // Gregorian calendar references checked with Python calendar.monthrange().
-  // Includes the century exception (1900), leap century (2000), and leap day.
-  const references=[[1900,1,3,28],[2000,1,1,29],[2024,1,3,29],[2025,1,5,28],[2026,1,6,28],[2026,10,6,30]];
+  // Only years since Anki's first release (2006) are selectable.
+  const references=[[2006,1,2,28],[2008,1,4,29],[2013,1,4,28],[2024,1,3,29],[2025,1,5,28],[2026,1,6,28],[2026,10,6,30]];
   const selectCalendar = (id,value) => evaluate(`(()=>{const s=document.getElementById(${JSON.stringify(id)});s.value=${JSON.stringify(String(value))};s.dispatchEvent(new Event('change',{bubbles:true}))})()`);
-  await evaluate(`window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Calendar',days:{'2024-02-29':{reviews:7},'2025-12-31':{reviews:3},'2026-01-01':{reviews:5}},history_start_year:1900,history_loaded_years:[1900,2000,2024,2025,2026],due:0,total_cards:0,stats:{retention:null,pace:null,milliseconds:0,reviews:0,streak:0,tested:0},decks:[],settings:{goal:200,heatmap_day:'monday'}}})`);
+  await evaluate(`window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Calendar',days:{'2024-02-29':{reviews:7},'2025-12-31':{reviews:3},'2026-01-01':{reviews:5}},history_start_year:2006,history_loaded_years:[2006,2008,2013,2024,2025,2026],due:0,total_cards:0,stats:{retention:null,pace:null,milliseconds:0,reviews:0,streak:0,tested:0},decks:[],settings:{goal:200,heatmap_day:'monday'}}})`);
+  assert.equal(await evaluate(`Math.min(...Array.from(document.getElementById('heatmap-year-select').options,o=>Number(o.value)))`),2006);
   await click('[data-action="period"][data-value="month"]');
   for(const firstDay of ['monday','sunday']){
     await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),heatmap_day:${JSON.stringify(firstDay)}}})`);
@@ -315,6 +316,10 @@ try {
       assert.equal(cells.filter(Boolean).length,count);
     }
   }
+  await selectCalendar('heatmap-year-select',2006);
+  await selectCalendar('heatmap-month-select',0);
+  assert.equal(await evaluate(`document.querySelector('[data-action="year"][data-value="-1"]').disabled`),true,
+    'Month navigation must stop at January 2006');
   await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),heatmap_day:'monday'}})`);
   await selectCalendar('heatmap-year-select',2024);
   await selectCalendar('heatmap-month-select',1);

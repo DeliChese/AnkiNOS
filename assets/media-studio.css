@@ -1,6 +1,6 @@
 /* AnkiNOS Media Studio — independent, responsive image organizer. */
 #nos-app .nos-studio-dialog:not([open]) { display:none !important; }
-#nos-app .nos-studio-dialog { position:fixed; inset:0; margin:auto; width:min(1180px,calc(100vw - 30px)); height:min(780px,calc(100dvh - 30px)); max-width:none; max-height:none; padding:0; border:1px solid #cce3ff4c; border-radius:22px; overflow:hidden; color:#eef5ff; background:#1e2d46; box-shadow:0 28px 95px #020916b3; }
+#nos-app .nos-studio-dialog { position:fixed; inset:0; margin:auto; width:min(1180px,calc(100vw - 30px)); height:min(780px,calc(100dvh - 30px)); max-width:none; max-height:none; padding:0; border:1px solid #cce3ff4c; border-radius:22px; overflow:hidden; color:#eef5ff; background:#1e2d46; box-shadow:0 28px 95px #020916b3; contain:layout paint; }
 #nos-app .nos-studio-dialog::backdrop { background:#061224d6; backdrop-filter:none; -webkit-backdrop-filter:none; }
 #nos-app .nos-studio-dialog * { box-sizing:border-box; }
 #nos-app .nos-studio-shell { height:100%; min-height:0; display:flex; flex-direction:column; }
@@ -42,6 +42,7 @@
 #nos-app .nos-studio-gallery .nos-studio-tile:hover { border-color:#b0d5ff95; transform:translateY(-1px); }
 #nos-app .nos-studio-gallery .nos-studio-tile.selected { border-color:#9fd1ff; box-shadow:inset 0 0 0 1px #9fd1ff; }
 #nos-app .nos-studio-tile img { width:100%; height:124px; display:block; object-fit:contain; background:#14233b; }
+#nos-app .nos-studio-tile img.preview-pending { visibility:hidden; }
 #nos-app .nos-studio-tile-caption { display:block; padding:9px 10px; }
 #nos-app .nos-studio-tile-caption strong { display:block; font-size:10.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #nos-app .nos-studio-tile-caption small { display:block; font-size:9px; color:#a3b7d2; margin-top:3px; }
