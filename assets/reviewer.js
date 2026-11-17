@@ -8,8 +8,15 @@
   const initial=JSON.parse($('nos-review-bootstrap')?.textContent||'{}');
   shell.dataset.theme=initial.theme||'dusk';
   const background = typeof initial.background === 'string' &&
-    /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/.test(initial.background) ? initial.background : '';
+    /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}(?:-wall)?\.(?:png|jpg|webp)$/.test(initial.background) ? initial.background : '';
   shell.dataset.customBackground = background ? 'true' : 'false';
+  {
+    const int=(v,lo,hi,d)=>Number.isInteger(v)?Math.min(hi,Math.max(lo,v)):d, blur=int(initial.wallpaper_blur,0,24,0);
+    shell.style.setProperty('--wall-fit',initial.background_fit==='contain'?'contain':'cover');
+    shell.style.setProperty('--wall-dim',String(int(initial.wallpaper_dim,0,80,28)/100));
+    shell.style.setProperty('--wall-blur',blur+'px');
+    shell.style.setProperty('--wall-scale',blur?'1.06':'1');
+  }
   const wallpaperImage=shell.querySelector('.nos-review-wallpaper-image');
   if(wallpaperImage){
     if(background) wallpaperImage.src=background;

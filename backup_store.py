@@ -15,13 +15,14 @@ import tempfile
 from uuid import uuid4
 import zipfile
 
-from .media_store import MAX_IMAGE_BYTES, SLOTS, profile_dir, valid_albums, valid_images
+from .media_store import (IMAGE_FITS, MAX_IMAGE_BYTES, SLOTS, WALLPAPER_BLUR_MAX, WALLPAPER_DIM_MAX,
+                          profile_dir, valid_albums, valid_images)
 
 FORMAT = "AnkiNOS-profile"
 MAX_TOTAL = 2 * 1024**3
 MAX_FILES = 260
 MAX_CONFIG = 4 * 1024**2
-FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb)?\.(?:png|jpg|webp)|focus\.sqlite3)\Z")
+FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|focus\.sqlite3)\Z")
 
 
 def clean_settings(raw: object) -> dict:
@@ -42,6 +43,12 @@ def clean_settings(raw: object) -> dict:
             result[key] = raw[key]
     if type(raw.get("goal")) is int and 1 <= raw["goal"] <= 100000:
         result["goal"] = raw["goal"]
+    for key, limit in (("wallpaper_dim", WALLPAPER_DIM_MAX), ("wallpaper_blur", WALLPAPER_BLUR_MAX)):
+        if type(raw.get(key)) is int and 0 <= raw[key] <= limit:
+            result[key] = raw[key]
+    for surface in ("dashboard", "overview", "review"):
+        if raw.get("image_fit_" + surface) in IMAGE_FITS:
+            result["image_fit_" + surface] = raw["image_fit_" + surface]
     result["images"] = valid_images(raw.get("images"))
     result["image_albums"] = valid_albums(raw.get("image_albums"))
     image_ids = {entry["id"] for entry in result["images"]}

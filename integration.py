@@ -17,14 +17,15 @@ from aqt.deckbrowser import DeckBrowser
 from aqt.overview import Overview
 from aqt.operations import QueryOp
 from aqt.operations.deck import add_deck, remove_decks
-from aqt.qt import QAction, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QImageReader, QSize, QInputDialog, QLabel, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, Qt, qconnect
+from aqt.qt import QAction, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QColor, QImage, QImageReader, QPainter, QSize, QInputDialog, QLabel, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, Qt, qconnect
 from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, clear_snapshot_cache
 from .graphs_data import collect_native_graphs
 from .study_data import collect_support, insight_cards, clear_cache as clear_support_cache
 from .backup_store import export_archive, inspect_archive, restore_archive
-from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, IMAGE_FITS,
+from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, WALLPAPER_SUFFIX, WALLPAPER_MAX_SIDE,
+                          WALLPAPER_DIM_MAX, WALLPAPER_BLUR_MAX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
                           valid_images, valid_albums, MAX_ALBUMS, profile_dir)
 
@@ -282,8 +283,9 @@ def settings() -> dict[str, Any]:
             "heatmap_day": "monday", "heatmap_palette": "default",
             "images": [], "image_albums": [], "image_dashboard": None, "image_overview": None,
             "image_review": None, "image_avatar": None,
-            "image_fit_dashboard": "contain", "image_fit_overview": "contain",
-            "image_fit_review": "contain", "image_fit_avatar": "cover",
+            "image_fit_dashboard": "cover", "image_fit_overview": "cover",
+            "image_fit_review": "cover", "image_fit_avatar": "cover",
+            "wallpaper_dim": 28, "wallpaper_blur": 0,
             "image_position_dashboard": "center", "image_position_overview": "center",
             "image_position_review": "center", "image_position_avatar": "center",
             **profile}
@@ -367,18 +369,51 @@ def _image_add(album_id: str = "") -> None:
     if added:
         save_settings({"images": images})
         send("settings", public_settings())
+        _prepare_image_previews()  # wallpaper-sized copies are built off the UI thread
     send("image_library", {"message": f"Đã thêm {added} ảnh." if added else "Không có ảnh nào được thêm.",
                            "errors": errors[:5]})
 
 
+def _write_derivative(source: Path, target: Path, max_side: int, fmt: str, quality: int = -1) -> None:
+    """Write a downscaled copy of ``source`` atomically. Never upscales."""
+    temporary = target.with_suffix("." + uuid.uuid4().hex + ".tmp")
+    try:
+        reader = QImageReader(str(source))
+        reader.setAutoTransform(True)
+        size = reader.size()
+        if (not size.isValid() or size.width() < 1 or size.height() < 1
+                or size.width() * size.height() > 24_000_000):
+            raise ValueError("Invalid image dimensions")
+        scale = min(1.0, max_side / max(size.width(), size.height()))
+        reader.setScaledSize(QSize(max(1, round(size.width() * scale)), max(1, round(size.height() * scale))))
+        image = reader.read()
+        if image.isNull():
+            raise ValueError("Could not decode image")
+        if fmt == "JPEG" and image.hasAlphaChannel():
+            # JPEG has no alpha: flatten transparent PNG/WebP onto the dusk gradient colour.
+            canvas = QImage(image.size(), QImage.Format.Format_RGB32)
+            canvas.fill(QColor("#233450"))
+            painter = QPainter(canvas)
+            painter.drawImage(0, 0, image)
+            painter.end()
+            image = canvas
+        if not image.save(str(temporary), fmt, quality):
+            raise ValueError("Could not write image")
+        if source.is_file():  # a photo deleted while this job ran must stay deleted
+            temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _prepare_image_previews() -> None:
-    """Build missing legacy previews without decoding originals on the UI thread."""
+    """Build missing previews and wallpaper copies without blocking the UI thread."""
     profile = mw.pm.name
     if profile in _image_preview_jobs:
         return
     directory = profile_dir(ROOT, profile)
     missing = [entry for entry in valid_images(settings().get("images"))
-               if not (directory / (entry["id"] + THUMBNAIL_SUFFIX)).is_file()]
+               if not (directory / (entry["id"] + THUMBNAIL_SUFFIX)).is_file()
+               or not (directory / (entry["id"] + WALLPAPER_SUFFIX)).is_file()]
     if not missing:
         return
     _image_preview_jobs.add(profile)
@@ -386,30 +421,18 @@ def _prepare_image_previews() -> None:
     def build() -> int:
         failures = 0
         for entry in missing:
-            target = directory / (entry["id"] + THUMBNAIL_SUFFIX)
-            temporary = target.with_suffix("." + uuid.uuid4().hex + ".tmp")
-            try:
-                source = directory / (entry["id"] + entry["ext"])
-                if not source.is_file():
+            source = directory / (entry["id"] + entry["ext"])
+            if not source.is_file():
+                continue
+            for suffix, side, fmt, quality in ((THUMBNAIL_SUFFIX, 480, "PNG", -1),
+                                               (WALLPAPER_SUFFIX, WALLPAPER_MAX_SIDE, "JPEG", 86)):
+                target = directory / (entry["id"] + suffix)
+                if target.is_file():
                     continue
-                reader = QImageReader(str(source))
-                reader.setAutoTransform(True)
-                size = reader.size()
-                if (not size.isValid() or size.width() < 1 or size.height() < 1
-                        or size.width() * size.height() > 24_000_000):
-                    raise ValueError("Invalid image dimensions")
-                scale = min(1.0, 480 / max(size.width(), size.height()))
-                reader.setScaledSize(QSize(max(1, round(size.width()*scale)), max(1, round(size.height()*scale))))
-                image = reader.read()
-                if image.isNull() or not image.save(str(temporary), "PNG"):
-                    raise ValueError("Could not create image preview")
-                # A photo deleted while this job ran must stay deleted.
-                if source.is_file():
-                    temporary.replace(target)
-            except Exception:
-                failures += 1
-            finally:
-                temporary.unlink(missing_ok=True)
+                try:
+                    _write_derivative(source, target, side, fmt, quality)
+                except Exception:
+                    failures += 1
         return failures
 
     def done(future: Any) -> None:
@@ -421,7 +444,7 @@ def _prepare_image_previews() -> None:
         if mw.col and mw.pm.name == profile:
             send("settings", public_settings())
             if failures:
-                send("image_library", {"message": "Một số ảnh chưa tải được bản xem trước.", "errors": []})
+                send("image_library", {"message": "Một số ảnh chưa tạo được bản xem trước hoặc bản nền.", "errors": []})
 
     mw.taskman.run_in_background(build, done)
 
@@ -1133,6 +1156,9 @@ def _save_ui(values: Any) -> None:
         patch["ui_scale"] = values["ui_scale"]
     if type(values.get("study_budget")) is int and values["study_budget"] in {15, 30, 60}:
         patch["study_budget"] = values["study_budget"]
+    for key, limit in (("wallpaper_dim", WALLPAPER_DIM_MAX), ("wallpaper_blur", WALLPAPER_BLUR_MAX)):
+        if type(values.get(key)) is int and 0 <= values[key] <= limit:
+            patch[key] = values[key]
     known_images = {item["id"] for item in public_settings()["images"]}
     for slot in SLOTS:
         if slot not in values:
@@ -1367,7 +1393,7 @@ def install() -> None:
     if _installed:
         return
     _installed = True
-    mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}(?:-thumb)?\.(?:png|jpg|webp))")
+    mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp))")
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
     # Register recovery commands before optional skin patches can fail.
     _toggle_action = QAction("AnkiNOS — Giao diện kính", mw)

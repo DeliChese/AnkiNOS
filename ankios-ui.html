@@ -69,19 +69,24 @@
       <section class="greeting" aria-labelledby="greeting-title"><div><p class="eyebrow" id="today-label">KHÔNG GIAN HỌC TẬP CỦA BẠN</p><h1 id="greeting-title">Chào mừng trở lại <span class="greeting-spark">✦</span></h1><p class="greeting-caption" id="greeting-caption">Mỗi lần ôn tập, một chút tiến bộ.</p></div><button class="daily-goal glass" data-action="set_goal" title="Đổi mục tiêu học mỗi ngày"><span class="goal-ring" id="goal-ring"><span id="goal-percent">0%</span></span><span><span class="goal-label">Mục tiêu hôm nay</span><strong id="goal-copy">— / 200 lượt ôn</strong></span><svg class="icon small"><use href="#i-chevron"/></svg></button></section>
 
 
-      <section id="study-launchpad" class="study-launchpad" aria-labelledby="study-title">
-        <p class="eyebrow">BƯỚC TIẾP THEO CỦA BẠN</p><h2 id="study-title">Chuẩn bị phiên học</h2>
-        <div class="study-selection"><label>Bộ thẻ<select id="study-deck" aria-describedby="study-queue" disabled></select></label><label>Hôm nay tôi có<select id="study-budget"><option value="15">15 phút</option><option value="30" selected>30 phút</option><option value="60">60 phút</option></select></label></div>
-        <p class="study-queue" id="study-queue">Đang đọc lịch học Anki…</p>
-        <p id="study-estimate" aria-live="polite">Bạn có thể bắt đầu ngay khi lịch học sẵn sàng.</p><p id="study-capacity"></p>
-        <details><summary>Cách tính thời gian</summary><p id="study-estimate-source">Ước lượng từ lịch sử cá nhân.</p></details>
-        <div class="study-actions"><button type="button" id="study-now" class="primary-button" disabled>Học ngay</button><button type="button" id="study-focus" class="subtle-button" disabled>Focus 30 phút</button><button type="button" class="subtle-button" data-action="library">Chọn bộ thẻ khác</button></div>
-        <p class="study-planning-note" id="study-planning-note"></p>
-      </section>
+      <div class="home-grid">
       <section class="activity-panel glass panel" id="activity-panel" aria-labelledby="activity-title">
         <div class="panel-heading activity-heading"><div class="heading-title"><span class="section-icon"><svg class="icon"><use href="#i-chart"/></svg></span><h2 id="activity-title">Nhịp điệu học tập</h2><span class="streak-badge" id="streak-badge">🔥 <span id="streak-copy">0 ngày liên tiếp</span></span></div><div class="activity-controls"><div class="year-control"><button class="icon-button small-button" data-action="year" data-value="-1" aria-label="Năm trước"><svg class="icon small flipped"><use href="#i-chevron"/></svg></button><strong id="heatmap-year" hidden></strong><select id="heatmap-month-select" aria-label="Ch&#7885;n th&#225;ng" hidden></select><select id="heatmap-year-select" aria-label="Ch&#7885;n n&#259;m"></select><button class="icon-button small-button" data-action="year" data-value="1" aria-label="Năm sau"><svg class="icon small"><use href="#i-chevron"/></svg></button></div><button class="calendar-today" data-action="calendar_today">H&#244;m nay</button><div class="segmented" aria-label="Khoảng thời gian"><button class="selected" data-action="period" data-value="year" aria-pressed="true">Năm</button><button data-action="period" data-value="month" aria-pressed="false">Tháng</button><button data-action="period" data-value="week" aria-pressed="false">Tuần</button></div><button class="icon-button collapse-button" data-action="collapse_activity" aria-expanded="true" aria-controls="activity-body" title="Thu gọn hoạt động" aria-label="Thu gọn hoạt động"><svg class="icon"><use href="#i-down"/></svg></button></div></div>
         <div id="activity-body"><p id="heatmap-caption" class="heatmap-caption" aria-live="polite"></p><div class="heatmap-scroll"><div class="heatmap" id="heatmap" aria-label="Lịch sử ôn tập"></div></div><div class="activity-footer"><span id="activity-summary">Đang đọc lịch sử ôn tập…</span><span class="heat-legend">Ít <i class="heat-0"></i><i class="heat-1"></i><i class="heat-2"></i><i class="heat-3"></i><i class="heat-4"></i> Nhiều</span></div></div>
       </section>
+      <section id="study-launchpad" class="study-launchpad compact" aria-labelledby="study-title">
+        <p class="eyebrow">BƯỚC TIẾP THEO CỦA BẠN</p><h2 id="study-title">Chuẩn bị phiên học</h2>
+        <label class="study-deck-field">Bộ thẻ<select id="study-deck" aria-describedby="study-queue" disabled></select></label>
+        <p class="study-queue" id="study-queue">Đang đọc lịch học Anki…</p>
+        <p class="study-brief" id="study-brief" aria-live="polite"></p>
+        <div class="study-actions"><button type="button" id="study-now" class="primary-button" disabled>Học ngay</button>
+          <div class="study-focus-row"><button type="button" id="study-focus" class="subtle-button" disabled>Focus 30 phút</button><select id="study-budget" aria-label="Hôm nay tôi có"><option value="15">15 phút</option><option value="30" selected>30 phút</option><option value="60">60 phút</option></select></div></div>
+        <button type="button" class="study-link" data-action="library">Chọn bộ thẻ khác</button>
+        <details class="study-more"><summary>Cách tính thời gian</summary>
+          <p id="study-estimate" aria-live="polite">Bạn có thể bắt đầu ngay khi lịch học sẵn sàng.</p><p id="study-capacity"></p>
+          <p id="study-estimate-source">Ước lượng từ lịch sử cá nhân.</p><p class="study-planning-note" id="study-planning-note"></p></details>
+      </section>
+      </div>
 
       <footer class="workspace-footer"><span>AnkiNOS <span class="footer-dot">·</span> Không gian nhỏ, trí nhớ lớn.</span><span id="page-footnote">Dữ liệu từ bộ sưu tập Anki của bạn</span></footer>
     </main>
@@ -375,7 +380,7 @@
       <div class="nos-studio-shell">
         <header class="nos-studio-head">
           <div class="nos-studio-heading"><span class="nos-studio-logo"><svg class="icon"><use href="#i-folder"/></svg></span>
-            <div><p class="nos-studio-kicker">ANKINOS / MEDIA STUDIO</p><h2 id="studio-title">Thư viện ảnh</h2><p>Ảnh gốc nguyên vẹn · tự động lưu thay đổi vào hồ sơ Anki</p></div>
+            <div><p class="nos-studio-kicker">ANKINOS / MEDIA STUDIO</p><h2 id="studio-title">Thư viện ảnh</h2><p>Ảnh gốc được giữ nguyên · nền dùng bản 2048px nhẹ hơn · tự động lưu</p></div>
           </div>
           <div class="nos-studio-head-actions"><button type="button" id="studio-add" class="nos-studio-import"><svg class="icon small"><use href="#i-plus"/></svg>Nhập ảnh từ máy</button>
             <button type="button" id="studio-close" class="nos-studio-icon" aria-label="Đóng studio" title="Đóng studio"><svg class="icon small"><use href="#i-close"/></svg></button></div>
@@ -410,11 +415,6 @@
             </div>
             <p id="studio-image-meta" class="nos-studio-meta">Ảnh nguyên gốc không bị cắt hoặc kéo giãn.</p>
             <div id="studio-inspector-fields" hidden>
-              <label class="nos-studio-field-label" for="studio-image-name">Tên ảnh</label>
-              <div class="nos-studio-name-row"><input id="studio-image-name" maxlength="80" autocomplete="off"><button id="studio-rename" type="button">Lưu tên</button></div>
-              <label class="nos-studio-field-label" for="studio-image-album">Chuyển vào album</label>
-              <select id="studio-image-album"><option value="">Chưa phân loại</option></select>
-              <div class="nos-studio-divider"></div>
               <div class="nos-studio-label">DÙNG ẢNH NÀY CHO</div>
               <p class="nos-studio-hint">Nhấn chọn để lưu ngay. Nhấn lần nữa để bỏ ảnh về nền mặc định.</p>
               <div id="studio-targets" class="nos-studio-targets">
@@ -423,6 +423,22 @@
                 <button type="button" data-studio-slot="image_review">Lúc ôn tập <span>Chọn</span></button>
                 <button type="button" data-studio-slot="image_avatar">Avatar <span>Chọn</span></button>
               </div>
+              <div class="nos-studio-divider"></div>
+              <div class="nos-studio-label">HIỂN THỊ NỀN</div>
+              <p class="nos-studio-hint">Áp dụng cho nền Dashboard, Chuẩn bị học và Ôn tập. Xem trước ở khung phía trên.</p>
+              <div class="nos-studio-segment" id="studio-fit" role="group" aria-label="Chế độ hiển thị nền">
+                <button type="button" data-studio-fit="cover" aria-pressed="true">Lấp đầy</button>
+                <button type="button" data-studio-fit="contain" aria-pressed="false">Vừa khung</button>
+              </div>
+              <label class="nos-studio-field-label nos-studio-range-label" for="studio-dim">Độ tối <output id="studio-dim-out" for="studio-dim">28%</output></label>
+              <input class="nos-studio-range" type="range" id="studio-dim" min="0" max="80" step="2" value="28">
+              <label class="nos-studio-field-label nos-studio-range-label" for="studio-blur">Độ mờ <output id="studio-blur-out" for="studio-blur">0 px</output></label>
+              <input class="nos-studio-range" type="range" id="studio-blur" min="0" max="24" step="1" value="0">
+              <div class="nos-studio-divider"></div>
+              <label class="nos-studio-field-label" for="studio-image-name">Tên ảnh</label>
+              <div class="nos-studio-name-row"><input id="studio-image-name" maxlength="80" autocomplete="off"><button id="studio-rename" type="button">Lưu tên</button></div>
+              <label class="nos-studio-field-label" for="studio-image-album">Chuyển vào album</label>
+              <select id="studio-image-album"><option value="">Chưa phân loại</option></select>
               <button id="studio-remove-image" class="nos-studio-danger" type="button">Xóa ảnh khỏi thư viện</button>
             </div>
             <p id="studio-status" class="nos-studio-status" role="status" aria-live="polite">Thay đổi được lưu tự động · không có nút Áp dụng</p>

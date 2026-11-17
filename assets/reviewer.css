@@ -51,14 +51,15 @@ html.nos-review-page body { margin: 0; padding: 0; }
 #nos-review-shell .nos-review-wallpaper { overflow: hidden; }
 #nos-review-shell .nos-review-wallpaper-image {
   position: absolute; inset: 0; display: block; width: 100%; height: 100%;
-  object-fit: contain; object-position: center; pointer-events: none;
-  background: transparent;
+  object-fit: var(--wall-fit, cover); object-position: center; pointer-events: none;
+  background: transparent; filter: blur(var(--wall-blur, 0px)); transform: scale(var(--wall-scale, 1));
 }
 #nos-review-shell .nos-review-wallpaper-image[hidden] { display:none !important; }
 #nos-review-shell .nos-review-wallpaper::after {
   content:''; position:absolute; inset:0; pointer-events:none;
   background:linear-gradient(115deg,rgba(17,28,50,.23),rgba(19,27,49,.10));
 }
+#nos-review-shell[data-custom-background="true"] .nos-review-wallpaper::after { background:rgba(12,20,38,var(--wall-dim,.28)); }
 
 /* Toolbar contrast is independent of arbitrary card CSS and wallpaper. */
 #nos-review-shell { --nos-toolbar:#203450; --nos-fg:#f7f9ff; --nos-secondary:#d3e0f4; }

@@ -31,11 +31,13 @@ class BackupTests(unittest.TestCase):
         self.photo = "a" * 32
         self.settings = {"theme": "night", "goal": 123, "study_budget": 30,
             "images": [{"id": self.photo, "name": "Summer", "ext": ".png"}],
-            "image_dashboard": self.photo, "favorites": ["100"], "colors": {"100": "blue"}, "last_study_deck": "100"}
+            "image_dashboard": self.photo, "image_fit_dashboard": "cover", "wallpaper_dim": 40, "wallpaper_blur": 6,
+            "favorites": ["100"], "colors": {"100": "blue"}, "last_study_deck": "100"}
         folder = backup.profile_dir(self.root, "Alice")
         folder.mkdir(parents=True)
         (folder / (self.photo + ".png")).write_bytes(b"original image bytes")
         (folder / (self.photo + "-thumb.png")).write_bytes(b"thumbnail bytes")
+        (folder / (self.photo + "-wall.jpg")).write_bytes(b"wallpaper bytes")
         focus = Focus(self.root, "Alice")
         focus.start(30); focus.answer(); focus.stop()
         self.archive = backup.export_archive(self.root, "Alice", self.settings, self.root / "archive.nosbackup", deck_names={"100": "Languages::English"})
@@ -52,6 +54,15 @@ class BackupTests(unittest.TestCase):
             for name, data in files.items():
                 archive.writestr(name, data)
         return path
+
+    def test_wallpaper_copy_and_display_options_are_backed_up(self):
+        with zipfile.ZipFile(self.archive) as archive:
+            self.assertIn("profile/" + self.photo + "-wall.jpg", archive.namelist())
+        preview = backup.inspect_archive(self.root, self.archive)
+        stored = preview["settings"]
+        self.assertEqual((stored["image_fit_dashboard"], stored["wallpaper_dim"], stored["wallpaper_blur"]), ("cover", 40, 6))
+        bad = backup.clean_settings({"wallpaper_dim": 999, "wallpaper_blur": -1, "image_fit_review": "stretch"})
+        self.assertNotIn("wallpaper_dim", bad); self.assertNotIn("wallpaper_blur", bad); self.assertNotIn("image_fit_review", bad)
 
     def test_complete_round_trip_remaps_decks_and_preserves_other_profile(self):
         preview = backup.inspect_archive(self.root, self.archive)

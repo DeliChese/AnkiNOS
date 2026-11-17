@@ -75,12 +75,14 @@ def _review_content(content: Any, context: Any) -> None:
         current_settings = _settings()
         selected = current_settings.get("image_review")
         background = next(
-            (image["url"] for image in current_settings.get("images", []) if image["id"] == selected),
+            (image.get("wall_url") or image["url"] for image in current_settings.get("images", []) if image["id"] == selected),
             None,
         )
         initial = {"deck": deck["name"], "theme": current_settings.get("theme", "dusk"),
                    "answered": _answered, "focus": focus_store().status(), "background": background,
-                   "background_fit": current_settings.get("image_fit_review", "contain"),
+                   "background_fit": current_settings.get("image_fit_review", "cover"),
+                   "wallpaper_dim": current_settings.get("wallpaper_dim", 28),
+                   "wallpaper_blur": current_settings.get("wallpaper_blur", 0),
                    "background_position": current_settings.get("image_position_review", "center"),
                    "ui_scale": current_settings.get("ui_scale", 100),
                    "animations": current_settings.get("animations", True)}
