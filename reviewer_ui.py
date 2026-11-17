@@ -156,6 +156,9 @@ def _bridge(handled: tuple[bool,Any], message: str, context: Any) -> tuple[bool,
         mw.moveToState("deckBrowser")
     elif action == "more":
         mw.reviewer.showContextMenu()
+    elif action == "notebook":
+        from .study_tools_ui import open_notebook
+        open_notebook()
     elif action == "native":
         from .integration import _fallback
         _fallback(RuntimeError("Không thể nạp giao diện phiên học."))

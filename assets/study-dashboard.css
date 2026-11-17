@@ -1,4 +1,8 @@
 /* Readable surfaces keep personal backgrounds visible without sacrificing text. */
+#nos-app .study-extra{display:flex;gap:15px;flex-wrap:wrap;margin-top:7px}
+#nos-app .command-preview-dialog{width:min(800px,calc(100vw - 24px));height:min(650px,85vh);padding:0;border:1px solid #9abce2;border-radius:18px;background:#172b47;overflow:hidden}
+#nos-app .command-preview-dialog iframe{width:100%;height:100%;border:0}
+#nos-app .command-preview-dialog::backdrop{background:#10233b99}
 #nos-app .study-launchpad { max-width:880px; margin:0 0 20px; padding:22px 24px; background:rgba(33,49,78,.94); border:1px solid #a9bedb60; border-radius:20px; color:#f5f8ff; }
 #nos-app .study-launchpad h2 { font-size:19px; margin:3px 0 14px; }
 #nos-app .study-launchpad .eyebrow { color:#c9d9ef; }

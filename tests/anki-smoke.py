@@ -59,7 +59,7 @@ def main():
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html"):
+    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "legacy_learning_backup.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
     set_lang("en_US")

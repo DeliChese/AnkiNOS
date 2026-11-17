@@ -20,9 +20,24 @@ from .media_store import (IMAGE_FITS, MAX_IMAGE_BYTES, SLOTS, WALLPAPER_BLUR_MAX
 
 FORMAT = "AnkiNOS-profile"
 MAX_TOTAL = 2 * 1024**3
-MAX_FILES = 260
+MAX_FILES = 310
 MAX_CONFIG = 4 * 1024**2
-FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|focus\.sqlite3)\Z")
+FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|(?:focus|learning|workspace)\.sqlite3)\Z")
+DATABASES = {"focus.sqlite3", "learning.sqlite3", "workspace.sqlite3"}
+
+
+def _file_limit(name: str) -> int:
+    return (64 if name=="focus.sqlite3" else 256)*1024**2 if name in DATABASES else MAX_IMAGE_BYTES
+
+
+def _check_database(name: str, path: Path) -> dict:
+    if name=="focus.sqlite3":
+        return {"sessions":_check_focus(path)}
+    if name=="learning.sqlite3":
+        from .legacy_learning_backup import validate_database
+    else:
+        from .workspace_store import validate_database
+    return validate_database(path)
 
 
 def clean_settings(raw: object) -> dict:
@@ -141,19 +156,19 @@ def export_archive(root: Path, profile: str, settings: dict, destination: Path, 
                         sources[path.name] = path
         if len(sources) > MAX_FILES - 1:
             raise ValueError("Gói sao lưu có quá nhiều tệp.")
-        if "focus.sqlite3" in sources:
-            snapshot = scratch / "focus.sqlite3"
-            with closing(sqlite3.connect(sources["focus.sqlite3"].as_uri() + "?mode=ro", uri=True)) as src, closing(sqlite3.connect(snapshot)) as target:
+        for name in DATABASES.intersection(sources):
+            snapshot = scratch / name
+            with closing(sqlite3.connect(sources[name].as_uri() + "?mode=ro", uri=True)) as src, closing(sqlite3.connect(snapshot)) as target:
                 src.backup(target)
-            _check_focus(snapshot)
-            sources["focus.sqlite3"] = snapshot
+            _check_database(name,snapshot)
+            sources[name] = snapshot
         for entry in config["images"]:
             if entry["id"] + entry["ext"] not in sources:
                 raise ValueError("Thiếu ảnh trong thư viện: " + entry["name"])
         sizes = {name: path.stat().st_size for name, path in sources.items()}
-        if sum(sizes.values()) > MAX_TOTAL or any(size > (64 * 1024**2 if name == "focus.sqlite3" else MAX_IMAGE_BYTES) for name, size in sizes.items()):
+        if sum(sizes.values()) > MAX_TOTAL or any(size > _file_limit(name) for name, size in sizes.items()):
             raise ValueError("Dữ liệu vượt giới hạn dung lượng sao lưu.")
-        manifest = {"format": FORMAT, "version": 1, "profile": profile,
+        manifest = {"format": FORMAT, "version": 2, "profile": profile,
             "created_at": datetime.now(timezone.utc).isoformat(), "settings": config,
             "deck_names": {str(k): str(v) for k, v in (deck_names or {}).items()},
             "files": {name: {"size": sizes[name], "sha256": _hash_file(path)} for name, path in sources.items()}}
@@ -182,7 +197,7 @@ def _read_archive(path: Path, stage: Path) -> dict:
         if archive.getinfo("manifest.json").file_size > MAX_CONFIG or sum(x.file_size for x in infos) > MAX_TOTAL:
             raise ValueError("Gói sao lưu vượt giới hạn dung lượng.")
         manifest = json.loads(archive.read("manifest.json"))
-        if not isinstance(manifest, dict) or manifest.get("format") != FORMAT or type(manifest.get("version")) is not int or manifest["version"] != 1:
+        if not isinstance(manifest, dict) or manifest.get("format") != FORMAT or type(manifest.get("version")) is not int or manifest["version"] not in {1,2}:
             raise ValueError("Định dạng hoặc phiên bản gói sao lưu không được hỗ trợ.")
         manifest["settings"] = clean_settings(manifest.get("settings"))
         files = manifest.get("files")
@@ -192,7 +207,7 @@ def _read_archive(path: Path, stage: Path) -> dict:
             if not FILE_NAME.fullmatch(name) or not isinstance(meta, dict):
                 raise ValueError("Bản kê tệp không hợp lệ.")
             info = archive.getinfo("profile/" + name)
-            limit = 64 * 1024**2 if name == "focus.sqlite3" else MAX_IMAGE_BYTES
+            limit = _file_limit(name)
             if info.file_size > limit or info.file_size != meta.get("size"):
                 raise ValueError("Dung lượng tệp không khớp bản kê.")
             target = stage / name
@@ -204,6 +219,8 @@ def _read_archive(path: Path, stage: Path) -> dict:
             if image["id"] + image["ext"] not in files:
                 raise ValueError("Gói sao lưu thiếu ảnh đã đăng ký.")
         manifest["focus_sessions"] = _check_focus(stage / "focus.sqlite3") if "focus.sqlite3" in files else 0
+        for name in ("learning.sqlite3","workspace.sqlite3"):
+            manifest[name.split('.')[0]] = _check_database(name,stage/name) if name in files else {}
         if not isinstance(manifest.get("deck_names", {}), dict):
             raise ValueError("Danh sách bộ thẻ không hợp lệ.")
         return manifest
@@ -217,7 +234,7 @@ def inspect_archive(root: Path, path: Path, *, validate_image=None) -> dict:
         manifest = _read_archive(path, stage)
         if validate_image:
             for name in manifest["files"]:
-                if name != "focus.sqlite3":
+                if name not in DATABASES:
                     validate_image(stage / name)
         if _hash_file(path) != expected_hash:
             raise ValueError("Gói sao lưu đã thay đổi trong khi đọc. Hãy chọn lại.")
@@ -254,7 +271,7 @@ def restore_archive(root: Path, profile: str, path: Path, expected_hash: str, cu
         # Unknown profile files are preserved; archives never overwrite them.
         if live.exists():
             for extra in live.iterdir():
-                if extra.name in {"focus.sqlite3-wal", "focus.sqlite3-shm", "focus.sqlite3-journal"}:
+                if any(extra.name==name+suffix for name in DATABASES for suffix in ("-wal","-shm","-journal")):
                     continue
                 if not FILE_NAME.fullmatch(extra.name):
                     if not extra.is_file() or extra.is_symlink():

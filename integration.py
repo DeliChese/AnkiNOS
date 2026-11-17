@@ -55,6 +55,7 @@ _support_query: tuple | None = None
 _backup_busy = False
 _session_error = ""
 _quick_plan: tuple | None = None
+_landing_page: str | None = None
 ALLOWED_FILES = {".pdf", ".epub", ".txt", ".md", ".csv", ".xlsx", ".docx", ".pptx", ".mp3", ".wav", ".mp4", ".webm", ".png", ".jpg", ".jpeg", ".webp"}
 
 
@@ -583,7 +584,7 @@ def refresh() -> None:
         _dashboard_tree = None
 
     def success(snapshot: dict[str, Any] | None) -> None:
-        global _active_query, _review_changes_only
+        global _active_query, _review_changes_only, _landing_page
         if _active_query == token:
             _active_query = None
         if token != (_generation, mw.pm.name) or not mw.col:
@@ -598,6 +599,8 @@ def refresh() -> None:
         snapshot = {**snapshot, 'profile':profile_name, 'settings':public_settings(), 'fullscreen':mw.isFullScreen(), 'selected_deck':str(mw.col.decks.selected()), 'support_revision':_data_revision}
         if not overview and _library_focus:
             snapshot["library_focus"] = _library_focus
+        if not overview and _landing_page:
+            snapshot["open_page"], _landing_page = _landing_page, None
         send("overview_snapshot" if overview else "snapshot", snapshot)
 
     def failure(error: Exception) -> None:
@@ -675,6 +678,16 @@ def _quick_study(did: int, minutes: Any = None) -> None:
     set_current_deck(parent=mw, deck_id=did).success(success).failure(failure).run_in_background(initiator=mw.deckBrowser)
 
 
+def _start_overview_review() -> None:
+    global _quick_plan
+    plan, _quick_plan = _quick_plan, None
+    if plan and plan[:2] == (mw.pm.name, str(mw.col.decks.selected())) and plan[2]:
+        from .reviewer_ui import prepare_focus
+        prepare_focus(plan[2])
+    _begin_navigation()
+    mw.overview._linkHandler("study")
+
+
 def _insight_browse(did: int, kind: str) -> None:
     token = (_generation, mw.pm.name)
     def success(ids: list[int]) -> None:
@@ -741,8 +754,9 @@ def _backup_restore() -> None:
             + "<br>Tạo lúc: " + html.escape(str(manifest.get("created_at", "")))
             + f"<br>Ảnh: {len(values['images'])} · Album: {len(values['image_albums'])} · Phiên Focus: {manifest['focus_sessions']}"
             + f"<br>Tham chiếu tài nguyên: {len(values['resources'])}"
+            + f"<br>Ghi chú: {manifest.get('workspace',{}).get('notes',0)}"
             + "<br><br>Hồ sơ nhận: <b>" + html.escape(profile) + "</b>"
-            + "<br>Cấu hình, ảnh và Focus sẽ được thay thế. Bản dự phòng hiện tại được lưu vào user_files/backups trước khi thay thế."
+            + "<br>Cấu hình, ảnh, Focus và sổ tay sẽ được thay thế. Dữ liệu lưu trữ cũ được giữ trong gói. Bản dự phòng hiện tại được lưu vào user_files/backups trước khi thay thế."
             + "<br>Thẻ Anki không nằm trong gói này. Tài nguyên ngoài add-on chỉ lưu đường dẫn, có thể cần gắn lại khi đổi máy."
             + "<br><br>Khôi phục vào hồ sơ này?")
         send("backup_status", {"busy": False, "message": "Đã kiểm tra toàn vẹn gói. Đang chờ xác nhận khôi phục."})
@@ -753,6 +767,8 @@ def _backup_restore() -> None:
             mw.moveToState("deckBrowser")
         from .reviewer_ui import reset_focus_store
         reset_focus_store()
+        from .study_tools_ui import reset_tools
+        reset_tools()
         original = settings()
         names = {str(d.id): d.name for d in mw.col.decks.all_names_and_ids()}
         def persist(values: dict) -> None:
@@ -803,6 +819,18 @@ def _stats_pdf() -> None:
         return
     destination = str(Path(path).with_suffix(".pdf"))
     mw.web.page().printToPdf(destination)
+
+
+def open_statistics() -> None:
+    global _landing_page
+    if not enabled():
+        mw.onStats()
+        return
+    _landing_page = "stats"
+    if mw.state != "deckBrowser":
+        mw.moveToState("deckBrowser")
+    else:
+        refresh()
 
 
 def _stats_graphs(scope: str, days: int) -> None:
@@ -1071,6 +1099,9 @@ def _create_deck(parent_id: int | None = None) -> None:
 
 def _deck_menu(did: int) -> None:
     menu = QMenu(mw)
+    from .study_tools_ui import open_notebook
+    _menu_action(menu, "Sổ tay & tài liệu…", lambda: open_notebook(did))
+    menu.addSeparator()
     starred = str(did) in settings()["favorites"]
     _menu_action(menu, "Bỏ gắn sao" if starred else "Gắn sao bộ thẻ", lambda: _favorite(str(did)))
     _menu_action(menu, "Duyệt thẻ", lambda: _browse(did))
@@ -1204,12 +1235,9 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             native_action = command.get("command")
             if native_action in {"study", "decks", "opts", "studymore", "description", "refresh", "empty", "unbury"}:
                 if native_action == "study":
-                    plan, _quick_plan = _quick_plan, None
-                    if plan and plan[:2] == (mw.pm.name, str(mw.col.decks.selected())) and plan[2]:
-                        from .reviewer_ui import prepare_focus
-                        prepare_focus(plan[2])
-                    _begin_navigation()
-                mw.overview._linkHandler(native_action)
+                    _start_overview_review()
+                else:
+                    mw.overview._linkHandler(native_action)
         elif action == "back":
             mw.moveToState("deckBrowser")
         elif action == "snapshot":
@@ -1219,6 +1247,13 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             refresh()
         elif action == "study_support":
             _study_support(command.get("force") is True)
+        elif action == "commands":
+            from .study_tools_ui import open_commands
+            open_commands()
+        elif action == "notebook":
+            from .study_tools_ui import open_notebook
+            did = _deck_id(command["id"]) if command.get("id") else mw.col.decks.selected()
+            open_notebook(did)
         elif action == "quick_study":
             _quick_study(_deck_id(command.get("id")), command.get("minutes"))
         elif action == "insight_browse":
@@ -1341,12 +1376,13 @@ def _operation_finished(changes: Any, initiator: Any) -> None:
 
 
 def _profile_closing() -> None:
-    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial, _live_context
+    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page
     _live_context = None
     _generation += 1
     _stats_request_serial += 1
     _active_query = None
     _library_focus = None
+    _landing_page = None
     _dashboard_tree = None
     _data_revision += 1
     _review_changes_only = False
@@ -1430,5 +1466,7 @@ def install() -> None:
     qconnect(_refresh_timer.timeout, refresh)
     from .reviewer_ui import install as install_reviewer
     install_reviewer(lambda: bool(enabled()), public_settings)
+    from .study_tools_ui import install as install_tools
+    install_tools()
     _integration_ready = True
     _toggle_action.setChecked(enabled())

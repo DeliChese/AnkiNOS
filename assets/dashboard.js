@@ -802,6 +802,17 @@
     closePopups();
   }
 
+  function openCommands() {
+    if(native){command('commands');return;}
+    let dialog=$('command-preview-dialog');
+    if(!dialog){
+      dialog=document.createElement('dialog');dialog.id='command-preview-dialog';dialog.className='command-preview-dialog';dialog.setAttribute('aria-label','Lệnh nhanh AnkiNOS');
+      const frame=document.createElement('iframe');frame.src='ankios-tools.html?tool=palette';frame.title='Lệnh nhanh';dialog.append(frame);app.append(dialog);
+      window.addEventListener('message',event=>{if(event.source===frame.contentWindow&&event.data?.nosToolClose===true)dialog.close();});
+    }
+    dialog.showModal();
+  }
+
   function receive({event, payload}) {
     if(event==='study_support'){window.NOSStudy?.receive(payload);return;}
     if(event==='study_support_error'){window.NOSStudy?.error(payload);return;}
@@ -892,6 +903,7 @@
       openLibrary({focusDeck:payload.library_focus});
       command('library_ack',{id:payload.library_focus});
     }
+    if(event==='snapshot'&&payload.open_page)changePage(payload.open_page);
   }
   window.AnkiNOS = {
     receive,
@@ -983,7 +995,7 @@
     }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
-      openLibrary({search:true});
+      if(event.shiftKey)openLibrary({search:true});else openCommands();
     }
     if ((event.ctrlKey || event.metaKey) && event.key === ',') {
       event.preventDefault();

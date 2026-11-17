@@ -1,0 +1,16 @@
+{
+  "keyboard_palette": true,
+  "accent_insensitive_search": true,
+  "stale_search_ignored": true,
+  "plain_text_rendering": true,
+  "contextual_notes": true,
+  "trash_restore": true,
+  "archived_readonly": true,
+  "widths": [
+    320,
+    390,
+    768,
+    1024
+  ],
+  "horizontal_overflow": false
+}
