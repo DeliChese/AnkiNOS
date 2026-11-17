@@ -1,6 +1,14 @@
 # AnkiNOS
 
-Giao diện kính mờ cho màn hình danh sách bộ thẻ Anki, thống nhất từ ba ảnh tham chiếu. Nền hồ hoàng hôn xanh tím, thư mục pastel, thanh điều hướng gọn và bảng hồ sơ mở từ avatar. Thư viện mở thành popup; hoạt động và thanh bộ lọc có thể thu gọn.
+Dashboard Anki với giao diện kính, học nhanh, Focus, thư viện ảnh, lệnh nhanh và sổ tay.
+
+Hệ thống học nhiều mode của NOS đã được gỡ. Học thẻ dùng reviewer và lịch ôn gốc của Anki; không còn gán trường hoặc thống kê học NOS. Tệp dữ liệu học cũ được giữ trên máy và vẫn có trong gói sao lưu, không được mở hay nâng cấp khi khởi động add-on.
+
+## Lệnh nhanh và sổ tay
+
+- **Ctrl+K** tìm bộ thẻ, tài nguyên, ghi chú hoặc lệnh Anki. **Ctrl+Shift+K** mở thư viện bộ thẻ trên dashboard.
+- **Sổ tay & tài liệu** lưu ghi chú theo bộ thẻ/note, tìm không dấu, gắn tài nguyên và có thùng rác/khôi phục. Trong reviewer, nút **Ghi chú** mở sổ tay cho note đang học.
+- Sổ tay lưu cục bộ trong `workspace.sqlite3` theo hồ sơ; tài nguyên bên ngoài chỉ lưu đường dẫn.
 
 ## Học nhanh, Focus và nhận xét học tập — 0.2.0
 
@@ -12,9 +20,9 @@ Giao diện kính mờ cho màn hình danh sách bộ thẻ Anki, thống nhất
 
 ## Sao lưu đầy đủ và quay về Anki gốc
 
-Vào **Cài đặt AnkiNOS → Dữ liệu → Tạo gói sao lưu** để xuất `.nosbackup` gồm cấu hình của hồ sơ hiện tại, ảnh gốc, thumbnail và bản chụp SQLite nhất quán của lịch sử Focus. Gói có bản kê phiên bản và SHA-256 từng tệp. Đây là dữ liệu add-on; thẻ và lịch sử ôn của collection vẫn dùng chức năng sao lưu của Anki. Tài nguyên gắn ngoài add-on chỉ lưu tham chiếu, cần gắn lại nếu đường dẫn đổi trên máy khác.
+Vào **Cài đặt AnkiNOS → Dữ liệu → Tạo gói sao lưu** để xuất `.nosbackup` gồm cấu hình của hồ sơ hiện tại, ảnh gốc, thumbnail, ảnh nền tối ưu và bản chụp SQLite nhất quán của Focus, sổ tay, liên kết tài nguyên, ánh xạ trường và lịch sử luyện tập. Gói có bản kê phiên bản và SHA-256 từng tệp. Đây là dữ liệu add-on; thẻ và lịch sử ôn của collection vẫn dùng chức năng sao lưu của Anki. Tài nguyên gắn ngoài add-on chỉ lưu tham chiếu, cần gắn lại nếu đường dẫn đổi trên máy khác.
 
-**Chọn gói khôi phục…** kiểm tra toàn vẹn, đường dẫn, loại tệp, dung lượng và cấu trúc Focus trước khi hiện hộp xem trước: hồ sơ nguồn/đích, ngày tạo, số ảnh, album và phiên Focus. Chỉ sau khi xác nhận mới thay thế dữ liệu. Mỗi lần khôi phục tạo một gói của trạng thái trước đó tại `user_files/backups/before-restore-….nosbackup`; có thể chọn gói này để quay lại. Nếu thao tác ghi thất bại, thư mục và cấu hình cũ được phục hồi. Các bản dự phòng được giữ lại, không tự xóa. Gói giới hạn 2 GB, mỗi ảnh 16 MB, SQLite Focus 64 MB; không nhận phiên bản gói mới hơn mà mã hiện tại chưa hỗ trợ.
+**Chọn gói khôi phục…** kiểm tra toàn vẹn, đường dẫn, loại tệp, dung lượng và cấu trúc SQLite trước khi hiện hộp xem trước: hồ sơ nguồn/đích, ngày tạo, ảnh, album, phiên Focus, ghi chú và phiên/lượt luyện. Chỉ sau khi xác nhận mới thay thế dữ liệu. Mỗi lần khôi phục tạo một gói của trạng thái trước đó tại `user_files/backups/before-restore-….nosbackup`; có thể chọn gói này để quay lại. Nếu thao tác ghi thất bại, thư mục và cấu hình cũ được phục hồi. Các bản dự phòng được giữ lại, không tự xóa. Gói giới hạn 2 GB, mỗi ảnh 16 MB, SQLite Focus 64 MB, mỗi SQLite sổ tay/luyện tập 256 MB. Bản 0.3.0 xuất định dạng gói v2, đọc cả v1 và v2; bản add-on 0.2.0 không đọc được gói v2. Không nhận phiên bản gói mới hơn mà mã hiện tại chưa hỗ trợ.
 
 Khi chuyển sang collection khác, dấu sao/màu và bộ học gần nhất được đối chiếu bằng **tên đầy đủ** của bộ thẻ; mục không khớp được bỏ qua thay vì gắn vào ID trùng nhưng khác nội dung. Gói chỉ áp dụng vào hồ sơ đang chọn, không ảnh hưởng hồ sơ khác và không tự tải lên AnkiWeb. **Xuất/Nhập JSON** cũ vẫn chỉ phục vụ tùy chỉnh giao diện; không thay thế gói sao lưu đầy đủ.
 
@@ -22,14 +30,14 @@ Khi chuyển sang collection khác, dấu sao/màu và bộ học gần nhất �
 
 ## Sử dụng
 
-Thư mục này đã nằm trong `Anki2/addons21/NOS`. Khởi động lại Anki, mở **Decks** để sử dụng. Trong **Tools → AnkiNOS — Giao diện kính**, bỏ chọn để trở về giao diện gốc. Add-on bổ sung giao diện cho dashboard, chuẩn bị học và lúc trả lời thẻ; giữ trình sửa thẻ, nội dung mẫu thẻ và thuật toán lên lịch của Anki.
+Đặt thư mục add-on trong `Anki2/addons21/` (bản làm việc hiện tại có tên `AnkiNOS`). Khởi động lại Anki, mở **Decks** để sử dụng. Trong **Tools → AnkiNOS — Giao diện kính**, bỏ chọn để trở về giao diện gốc. Add-on bổ sung giao diện cho dashboard, chuẩn bị học và lúc trả lời thẻ; giữ trình sửa thẻ, nội dung mẫu thẻ và thuật toán lên lịch của Anki.
 
 - Nhấn avatar ở góc trên phải để mở hồ sơ; nhấn lại, nhấn ngoài bảng hoặc Escape để đóng.
 - Nút **Bộ thẻ** (biểu tượng các lớp) trên sidebar mở bảng **Bộ thẻ & tài nguyên** dạng popup, giữ nguyên trang tổng quan phía sau. Bảng không còn nằm trên giao diện chính và không mở tab khác. Mũi tam giác nối về nút sidebar, chuyển xuống cạnh dưới khi dùng thanh điều hướng di động.
 - **Trang chính** gồm không gian nền cá nhân, cụm học nhanh và **heatmap**. Retention / Pace / Time / Studied nằm trong **Thống kê** trên sidebar. Menu chức năng AnkiNOS không còn nút mở thống kê riêng.
 - **Trang Thống kê AnkiNOS** dùng dữ liệu graph gốc do Anki tính (không mở popup hay chép ảnh giao diện Anki): Hôm nay, Dự báo, Lượt ôn, Thời gian ôn, Phân loại thẻ, Khoảng cách ôn, Độ dễ, các chỉ số FSRS (Stability / Difficulty / Retrievability), True Retention, phân bố giờ học, nút trả lời và lịch sử thêm thẻ. Heatmap chỉ ở trang chính, không lặp tại trang Thống kê.
 - Nút **Lưu PDF** trong Thống kê xuất toàn bộ báo cáo AnkiNOS ở trang hiện tại, với CSS in A4, thay cho nút trong cửa sổ Anki mặc định.\n- Có thể lọc thống kê theo **bộ thẻ hiện tại/toàn bộ bộ sưu tập** và **12 tháng/tất cả lịch sử**. Số liệu được truy vấn không đồng bộ qua `QueryOp` từ `col._backend.graphs()` (cùng nguồn với thống kê gốc của Anki), kết quả được cache theo bộ lọc; nhấn **Làm mới báo cáo** để đọc lại. 
-- Popup sử dụng chính bảng thư viện hiện có: tìm kiếm, lọc, dạng lưới/danh sách, tài nguyên, thêm/sửa/xóa và học. Đóng bằng **×**, **Escape** hoặc bấm nền ngoài; focus quay về nút mở. **Ctrl+K** mở popup và đưa focus vào ô tìm kiếm.
+- Popup sử dụng chính bảng thư viện hiện có: tìm kiếm, lọc, dạng lưới/danh sách, tài nguyên, thêm/sửa/xóa và học. Đóng bằng **×**, **Escape** hoặc bấm nền ngoài; focus quay về nút mở. **Ctrl+Shift+K** mở popup và đưa focus vào ô tìm kiếm; **Ctrl+K** mở lệnh nhanh.
 - Ở hàng deck cha, bấm **Xem … deck con** để mở nhánh. Mỗi dòng con có nút **Học** riêng; deck con còn có nhánh sâu hơn thì tiếp tục bấm **Xem deck con**. Màn hình chuẩn bị học của deck cha cũng có **Xem deck con**, đưa về đúng nhánh trong popup.
 - Trong **Thêm → Bộ thẻ mới**, chọn **Bộ thẻ cha** để tạo deck con; chọn **Không có** để tạo deck cấp cao nhất. Menu từng deck có **Tạo deck con…** chọn sẵn deck cha, hỗ trợ cả nhánh nhiều cấp. Heatmap dashboard được thu gọn với ô vuông; mục **Bộ thẻ** được bỏ khỏi menu 6 chấm, vẫn mở thư viện từ sidebar.
 - Thêm, xóa, đổi tên deck và lưu chỉnh sửa thẻ cập nhật dữ liệu ngay trên trang đang mở, kể cả khi cửa sổ Thêm thẻ hoặc Duyệt thẻ đang có focus. Thư viện giữ nguyên bộ lọc và các nhánh đang mở. Hộp tạo deck giữ mở sau khi **Tạo** thành công, báo đã lưu và cho phép tạo tiếp; dùng **Đóng** khi hoàn tất.
@@ -64,8 +72,8 @@ Mở **menu 6 chấm → Thư viện ảnh** để quản lý kho ảnh riêng c
 - **Album**: tạo album, đổi tên, xóa album, chuyển ảnh vào album. Xóa một album **không xóa ảnh** — ảnh được chuyển vào “Chưa phân loại”. Lọc ảnh theo album, tìm kiếm theo tên.
 - **Đổi tên**: chọn ảnh, thay tên tại bảng bên phải → **Lưu tên**. Không đổi tên file ảnh gốc nên không làm mất liên kết. **Xóa ảnh** vẫn yêu cầu xác nhận và chỉ xóa bản sao trong add-on.
 - **Xem trước ngay**: chọn ảnh trong lưới, ảnh đầy đủ hiển thị tại bảng xem trước nhỏ bên phải. Bấm **Dashboard**, **Chuẩn bị học**, **Lúc ôn tập** hoặc **Avatar** để lưu ảnh cho từng nơi tức thì; nhấn lại mục đang bật để trả về nền mặc định. **Không có nút Áp dụng.**
-- **Chỉ hiển thị vừa khung**: không có các nút crop/cover/căn trên/dưới/trái/phải. Hình nền được trình duyệt vẽ bằng phần tử ảnh `object-fit: contain`, giữ nguyên tỷ lệ, không lặp lại, không cắt rìa. Ảnh dọc/vuông sẽ có khoảng trống với nền theo theme; ảnh đại diện chuyển sang khung bo góc để hạn chế cắt góc ảnh.
-- **Ảnh cũ vẫn còn**: ảnh trong thư viện từ các phiên bản trước được giữ nguyên. Tùy chọn fit/căn cũ không còn tác động tới UI.
+- **Cách hiển thị nền**: chọn **Lấp đầy** (`cover`) hoặc **Vừa khung** (`contain`), chỉnh **Độ tối** và **Độ mờ** trong Studio; thay đổi được lưu ngay. Lấp đầy giữ tỷ lệ và có thể cắt rìa; Vừa khung giữ toàn ảnh và có khoảng trống nếu khác tỷ lệ cửa sổ. Avatar dùng khung bo góc.
+- **Ảnh gốc và ảnh nền nhẹ**: ảnh gốc giữ nguyên; nền dùng bản JPEG có cạnh dài tối đa 2048 px để giảm tải giải mã. Ảnh cũ vẫn còn và được tạo bản nền nhẹ khi cần.
 - **Dữ liệu cục bộ**: file ảnh không chứa trong config.json hay bộ thẻ Anki, không sync AnkiWeb. Sao lưu `user_files` khi chuyển máy. Update add-on bình thường giữ lại `user_files`.
 
 Kiểm tra cơ bản: `python -m unittest discover -s tests -p 'test_media.py'`, `node tests/ui-check.mjs`. Kiểm tra thực tế trong Anki trên hồ sơ thử trước khi phân phối rộng.
@@ -130,6 +138,9 @@ Ngày học theo giờ chuyển ngày của Anki, không mặc định đổi ng
 - `data.py`: truy vấn chỉ đọc chạy trên luồng nền qua `QueryOp`.
 - `study_data.py`, `assets/study-dashboard.*`: lối vào học nhanh, ước lượng thời gian và nhận xét có hành động.
 - `backup_store.py`: bản kê, kiểm tra gói dữ liệu, sao lưu trước khôi phục và quay lại dữ liệu cũ khi lỗi ghi.
+- `study_tools_ui.py`, `study_tools_data.py`: lệnh nhanh, sổ tay và cửa sổ lịch sử chỉ đọc.
+- `workspace_store.py`: ghi chú theo collection/bộ thẻ/note, thùng rác và liên kết tài nguyên.
+- `ankios-tools.html`, `assets/tools.css`, `assets/tools.js`, `assets/commands.js`, `assets/notebook.js`: công cụ và bản xem trước bằng `?tool=palette`, `?tool=workspace` hoặc `?tool=workspace` (lịch sử).
 - `ankios-ui.html`, `assets/dashboard.css`, `assets/dashboard.js`: giao diện không phụ thuộc CDN hoặc Tailwind.
 - `ankios-overview.html`, `assets/overview.css`, `assets/overview.js`: màn hình chuẩn bị học bộ thẻ.
 - `reviewer_ui.py`, `assets/reviewer*.css`, `assets/reviewer*.js`: giao diện phiên học và nút đánh giá; `ankios-review.html` là bản xem trước.
@@ -139,7 +150,6 @@ Ngày học theo giờ chuyển ngày của Anki, không mặc định đổi ng
 
 ## Kiểm tra
 
-Đã chạy kiểm tra dữ liệu trên collection dùng một lần; kiểm tra Chromium cho tìm kiếm, bộ lọc, dạng lưới, profile, thu gọn, biểu đồ và kích thước màn hình; kiểm tra Anki thật bằng profile riêng cho nạp add-on, pycmd, chọn bộ thẻ, trả lời thẻ, cập nhật thống kê, lưu cấu hình và trở về danh sách bộ thẻ gốc. Không mở hoặc thay đổi collection người dùng trong kiểm tra.
 
 ```powershell
 # Chạy bằng Python đi kèm Anki, có package anki/aqt.
@@ -147,6 +157,7 @@ Ngày học theo giờ chuyển ngày của Anki, không mặc định đổi ng
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/test_data.py
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/anki-smoke.py
 node tests/ui-check.mjs
+node tests/tools-ui.mjs
 node tests/perf-check.mjs
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/data-perf.py
 ```

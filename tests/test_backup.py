@@ -42,6 +42,23 @@ class BackupTests(unittest.TestCase):
         focus.start(30); focus.answer(); focus.stop()
         self.archive = backup.export_archive(self.root, "Alice", self.settings, self.root / "archive.nosbackup", deck_names={"100": "Languages::English"})
 
+    def test_removed_learning_data_still_round_trips_without_an_engine(self):
+        import sqlite3
+        from contextlib import closing
+        legacy=backup.profile_dir(self.root,"Alice")/"learning.sqlite3"
+        with closing(sqlite3.connect(legacy)) as db:
+            db.executescript('\n                CREATE TABLE IF NOT EXISTS mappings(collection_key TEXT,deck_id TEXT,model_id TEXT,config TEXT NOT NULL,\n                    PRIMARY KEY(collection_key,deck_id,model_id));\n                CREATE TABLE IF NOT EXISTS sources(source_key TEXT,revision TEXT,snapshot TEXT NOT NULL,active INTEGER NOT NULL DEFAULT 1,\n                    PRIMARY KEY(source_key,revision));\n                CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,collection_key TEXT NOT NULL,started_at TEXT NOT NULL,\n                    ended_at TEXT,status TEXT NOT NULL,planned TEXT NOT NULL);\n                CREATE TABLE IF NOT EXISTS presentations(id TEXT PRIMARY KEY,session_id TEXT NOT NULL,source_key TEXT NOT NULL,\n                    revision TEXT NOT NULL,mode TEXT NOT NULL,prior_exposure INTEGER NOT NULL);\n                CREATE TABLE IF NOT EXISTS exposures(id TEXT PRIMARY KEY,session_id TEXT NOT NULL,source_key TEXT NOT NULL,\n                    revision TEXT NOT NULL,presentation_id TEXT NOT NULL,kind TEXT NOT NULL,at TEXT NOT NULL);\n                CREATE TABLE IF NOT EXISTS attempts(id TEXT PRIMARY KEY,session_id TEXT NOT NULL,presentation_id TEXT NOT NULL,\n                    request TEXT NOT NULL,result TEXT NOT NULL,at TEXT NOT NULL);\n                CREATE INDEX IF NOT EXISTS exposure_source ON exposures(session_id,source_key,revision);\n                CREATE INDEX IF NOT EXISTS attempt_presentation ON attempts(presentation_id);\n                PRAGMA user_version=3;\n            ')
+            db.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?)",("old","collection","2026-11-17",None,"stopped",'["source"]'))
+            db.commit()
+        original=legacy.read_bytes()
+        archive=backup.export_archive(self.root,"Alice",self.settings,self.root/"legacy.nosbackup")
+        preview=backup.inspect_archive(self.root,archive)
+        self.assertEqual(preview["learning"]["sessions"],1)
+        backup.restore_archive(self.root,"Bob",archive,preview["archive_sha256"],{},lambda _:None)
+        restored=backup.profile_dir(self.root,"Bob")/"learning.sqlite3"
+        with closing(sqlite3.connect(restored)) as db:self.assertEqual(db.execute("SELECT id FROM sessions").fetchone()[0],"old")
+        self.assertEqual(legacy.read_bytes(),original)
+
     def tearDown(self):
         self.tmp.cleanup()
 

@@ -131,6 +131,7 @@
   $('study-budget').addEventListener('change',e=>{budget=Number(e.target.value);command('save_ui',{values:{study_budget:budget}});render();});
   $('study-now').addEventListener('click',()=>command('quick_study',{id:selected}));
   $('study-focus').addEventListener('click',()=>command('quick_study',{id:selected,minutes:budget}));
+  $('study-notebook').addEventListener('click',()=>command('notebook',{id:selected}));
   $('study-insight-scope').addEventListener('change',renderInsights);
   $('study-insights-refresh').addEventListener('click',()=>request(true));
   $('stats-refresh')?.addEventListener('click',()=>request(true));

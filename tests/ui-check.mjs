@@ -331,7 +331,7 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('#children-u2 > [data-deck-id="w2"]').length`),1);
   assert.equal(await evaluate(`document.querySelectorAll('#children-u2 [data-deck-id="ow"]').length`),0);
   await click('#library-close');
-  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true}))`);
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,shiftKey:true,bubbles:true}))`);
   assert.equal(await evaluate(`document.getElementById('library-dialog').open`),true);
   assert.equal(await evaluate(`document.activeElement.id`),'library-search');
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:2,y:2,button:'left',clickCount:1});
