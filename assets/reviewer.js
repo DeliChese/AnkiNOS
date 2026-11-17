@@ -16,7 +16,19 @@
     wallpaperImage.hidden=!background;
   }
   shell.dataset.side='question';
+  shell.style.zoom=String(([85,90,100,110,120].includes(initial.ui_scale)?initial.ui_scale:100)/100);
+  shell.classList.toggle('no-motion',initial.animations===false);
+  const summary=document.createElement('section');
+  summary.id='nos-focus-summary';summary.hidden=true;summary.setAttribute('role','status');
+  const summaryText=document.createElement('p');summaryText.id='nos-focus-summary-text';
+  const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Tiếp tục học';
+  dismiss.addEventListener('click',()=>{summary.hidden=true;});
+  const back=document.createElement('button');back.type='button';back.textContent='Về trang chủ';
+  back.addEventListener('click',()=>{if(typeof window.pycmd==='function')window.pycmd('nos-review:back');});
+  summary.append(summaryText,dismiss,back);shell.querySelector('#nos-review-stage').before(summary);
+  let lastSummary='';
   $('nos-review-header').innerHTML=`<button data-nos-review="back" aria-label="Về danh sách bộ thẻ"><svg viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span class="nos-back-label">Bộ thẻ</span></button><div id="nos-review-heading"><span id="nos-review-deck"></span><span id="nos-review-progress"></span></div><div id="nos-review-tools"><span id="nos-review-side">Mặt trước</span><div class="nos-focus-controls"><select id="nos-focus-duration" aria-label="Thời lượng Focus"><option value="5">5 phút</option><option value="15">15 phút</option><option value="25" selected>25 phút</option><option value="45">45 phút</option><option value="60">60 phút</option><option value="90">90 phút</option></select><span id="nos-focus-time" aria-live="off">25:00</span><button type="button" id="nos-focus-start" data-nos-review="focus:start" title="Bắt đầu tập trung">Focus</button><button type="button" id="nos-focus-pause" data-nos-review="focus:pause" hidden>Tạm dừng</button><button type="button" id="nos-focus-resume" data-nos-review="focus:resume" hidden>Tiếp tục</button><button type="button" id="nos-focus-stop" data-nos-review="focus:stop" hidden>Kết thúc</button></div><button data-nos-review="more" aria-label="Tùy chọn thẻ" title="Tùy chọn thẻ (M)">⋯</button></div>`;
+  $('nos-focus-duration').add(new Option('30 phút','30'),$('nos-focus-duration').querySelector('[value="45"]'));
   $('nos-review-deck').textContent=initial.deck||'Phiên ôn tập';
   $('nos-review-deck').title=initial.deck||'Phiên ôn tập';
   const format=new Intl.NumberFormat('vi-VN');
@@ -66,6 +78,18 @@
     focusAnchor=performance.now();
     completionSent=false;
     const active=!!value.active,paused=!!value.paused;
+    const duration=String(value.target_seconds/60);
+    if(Array.from($('nos-focus-duration').options).some(option=>option.value===duration))$('nos-focus-duration').value=duration;
+    const ended=value.last_session;
+    if(!active&&ended){
+      const key=JSON.stringify(ended);
+      if(key!==lastSummary){
+        lastSummary=key;
+        summaryText.textContent=(ended.status==='completed'?'Đã đủ thời gian Focus. ':'Đã lưu phiên Focus. ')+
+          Math.floor(ended.seconds/60)+' phút '+(ended.seconds%60)+' giây tập trung · '+ended.cards+' lượt trả lời. Bạn có thể nghỉ hoặc tiếp tục khi sẵn sàng.';
+        summary.hidden=false;
+      }
+    } else if(active){summary.hidden=true;lastSummary='';}
     $('nos-focus-duration').hidden=active;
     $('nos-focus-start').hidden=active;
     $('nos-focus-pause').hidden=!active||paused;

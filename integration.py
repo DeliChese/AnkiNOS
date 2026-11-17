@@ -22,6 +22,8 @@ from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, clear_snapshot_cache
 from .graphs_data import collect_native_graphs
+from .study_data import collect_support, insight_cards, clear_cache as clear_support_cache
+from .backup_store import export_archive, inspect_archive, restore_archive
 from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
                           valid_images, valid_albums, MAX_ALBUMS, profile_dir)
@@ -30,6 +32,7 @@ ROOT = Path(__file__).resolve().parent
 MODULE = __package__ or "NOS"
 _generation = 0
 _installed = False
+_integration_ready = False
 _active_query: tuple[int, str] | None = None
 _refresh_timer: QTimer | None = None
 _toggle_action: QAction | None = None
@@ -47,11 +50,55 @@ _history_queries: set[tuple[int, str, int]] = set()
 _stats_request_serial = 0
 _live_context: Any = None
 _image_preview_jobs: set[str] = set()
+_support_query: tuple | None = None
+_backup_busy = False
+_session_error = ""
+_quick_plan: tuple | None = None
 ALLOWED_FILES = {".pdf", ".epub", ".txt", ".md", ".csv", ".xlsx", ".docx", ".pptx", ".mp3", ".wav", ".mp4", ".webm", ".png", ".jpg", ".jpeg", ".webp"}
 
 
+def enabled() -> bool:
+    return _integration_ready and not _session_error and bool(config().get("enabled", True))
+
+
+def _fallback(error: Exception) -> None:
+    """A failed skin must never strand the user on an empty deck browser."""
+    global _session_error, _navigating
+    if _session_error:
+        return
+    _session_error = str(error)
+    _navigating = False
+    _restore_chrome()
+    if _toggle_action:
+        _toggle_action.setChecked(False)
+    def recover() -> None:
+        if mw.col:
+            mw.moveToState("deckBrowser")
+        showWarning("AnkiNOS đã chuyển về giao diện Anki gốc để bạn tiếp tục học.\n"
+                    "Có thể bật lại từ Tools sau khi kiểm tra tương thích.\n\n" + _session_error, parent=mw)
+    QTimer.singleShot(0, recover)
+
+
+def _compatibility() -> None:
+    from importlib.metadata import PackageNotFoundError, version
+    try:
+        anki_version = version("anki")
+    except PackageNotFoundError:
+        anki_version = "không xác định"
+    checks = [("Danh sách bộ thẻ", callable(getattr(DeckBrowser, "_renderDeckTree", None))),
+        ("Chuyển bộ thẻ", callable(getattr(DeckBrowser, "set_current_deck", None))),
+        ("Bắt đầu học", callable(getattr(Overview, "_linkHandler", None))),
+        ("Thống kê gốc", bool(mw.col and callable(getattr(mw.col._backend, "graphs", None))))]
+    text = "Anki " + anki_version + "\n\n" + "\n".join(
+        ("Có: " if okay else "Chưa hỗ trợ: ") + name for name, okay in checks)
+    if _session_error:
+        text += "\n\nLần lỗi gần nhất: " + _session_error
+    from aqt.utils import showInfo
+    showInfo(text + "\n\nĐây là kiểm tra khả năng API, không phải chứng nhận mọi add-on đều tương thích.", parent=mw)
+
+
 def _dashboard_active() -> bool:
-    return bool(getattr(mw, "col", None) and config().get("enabled", True)
+    return bool(getattr(mw, "col", None) and enabled()
                 and (mw.state in {"deckBrowser", "review"} or (mw.state == "overview" and _overview_rendered)))
 
 
@@ -75,11 +122,15 @@ def _restore_chrome() -> None:
 
 
 def _state_changing(new: str, _old: str) -> None:
-    global _overview_rendered, _overview_pending, _navigating, _live_context
+    global _overview_rendered, _overview_pending, _navigating, _live_context, _quick_plan
     _live_context = None
     _navigating = False
     _overview_rendered = False
     _overview_pending = False
+    if new not in {"overview", "review"}:
+        _quick_plan = None
+    if new == "review" and mw.col and enabled():
+        save_settings({"last_study_deck": str(mw.col.decks.selected())})
     # Restore before Anki applies the destination screen's own toolbar policy.
     if new not in {"deckBrowser", "overview"}:
         _restore_chrome()
@@ -113,7 +164,7 @@ def config() -> dict[str, Any]:
 
 def _config_updated(values: dict[str, Any]) -> None:
     global _config_cache
-    previous_enabled = config().get("enabled", True)
+    previous_enabled = enabled()
     _config_cache = values
     _sync_chrome()
     # Changing profile appearance must not recreate the entire WebView.
@@ -144,7 +195,7 @@ def _guard_unused_heatmaps(*_args: Any) -> None:
     def render(view: Any, *args: Any, **kwargs: Any) -> str:
         # These legacy heatmaps are replaced entirely by NOS. Skip their SQL
         # and HTML construction as well as their pixels. Other views delegate.
-        if config().get("enabled", True) and getattr(view, "name", "") in {"deckbrowser", "overview"}:
+        if enabled() and getattr(view, "name", "") in {"deckbrowser", "overview"}:
             return ""
         return original(view, *args, **kwargs)
 
@@ -153,7 +204,9 @@ def _guard_unused_heatmaps(*_args: Any) -> None:
 
 
 def _guard_unused_deck_html() -> None:
-    original = DeckBrowser._renderDeckTree
+    original = getattr(DeckBrowser, "_renderDeckTree", None)
+    if not callable(original):
+        return
     if getattr(original, '_nos_guard', False):
         return
 
@@ -161,7 +214,7 @@ def _guard_unused_deck_html() -> None:
     def render(browser: Any, tree: Any) -> str:
         # NOS replaces this entire table later. Retain Anki's scheduler query
         # and hooks, but avoid building thousands of HTML rows to discard them.
-        if config().get('enabled', True):
+        if enabled():
             return ''
         return original(browser, tree)
 
@@ -171,15 +224,17 @@ def _guard_unused_deck_html() -> None:
 
 def _live_updates(view: Any) -> bool:
     return bool(view is _live_context and mw.col and not _navigating
-                and config().get("enabled", True)
+                and enabled()
                 and ((isinstance(view, DeckBrowser) and mw.state == "deckBrowser")
                      or (isinstance(view, Overview) and mw.state == "overview" and _overview_rendered)))
 
 
 def _guard_live_updates() -> None:
     def guard(view_type: Any) -> None:
-        original_op = view_type.op_executed
-        original_refresh = view_type.refresh
+        original_op = getattr(view_type, "op_executed", None)
+        original_refresh = getattr(view_type, "refresh", None)
+        if not callable(original_op) or not callable(original_refresh):
+            return
         if getattr(original_op, "_nos_guard", False):
             return
 
@@ -482,14 +537,14 @@ def save_settings(patch: dict[str, Any]) -> None:
 
 
 def send(event: str, payload: Any) -> None:
-    if mw.col and mw.state in {"deckBrowser", "overview"} and config().get("enabled", True):
+    if mw.col and mw.state in {"deckBrowser", "overview"} and enabled():
         encoded = json.dumps({"event": event, "payload": payload}, ensure_ascii=True)
         mw.web.eval(f"window.AnkiNOS && window.AnkiNOS.receive({encoded});")
 
 
 def refresh() -> None:
     global _active_query, _dashboard_tree
-    if _navigating or not mw.col or mw.state not in {"deckBrowser", "overview"} or not config().get("enabled", True):
+    if _navigating or not mw.col or mw.state not in {"deckBrowser", "overview"} or not enabled():
         return
     overview = mw.state == "overview"
     if overview and not _overview_rendered:
@@ -517,7 +572,7 @@ def refresh() -> None:
             return
         if not overview:
             _review_changes_only = True
-        snapshot = {**snapshot, 'profile':profile_name, 'settings':public_settings(), 'fullscreen':mw.isFullScreen()}
+        snapshot = {**snapshot, 'profile':profile_name, 'settings':public_settings(), 'fullscreen':mw.isFullScreen(), 'selected_deck':str(mw.col.decks.selected()), 'support_revision':_data_revision}
         if not overview and _library_focus:
             snapshot["library_focus"] = _library_focus
         send("overview_snapshot" if overview else "snapshot", snapshot)
@@ -539,6 +594,178 @@ def refresh() -> None:
 
     QueryOp(parent=mw, op=read,
             success=success).failure(failure).run_in_background()
+
+
+def _study_support(force: bool = False) -> None:
+    global _support_query
+    if not mw.col or mw.state != "deckBrowser" or _navigating:
+        return
+    token = (_generation, mw.pm.name, _data_revision)
+    if _support_query == token:
+        return
+    if force:
+        clear_support_cache()
+    _support_query = token
+    def success(payload: dict | None) -> None:
+        global _support_query
+        if _support_query == token:
+            _support_query = None
+        if token != (_generation, mw.pm.name, _data_revision):
+            if mw.state == "deckBrowser":
+                _study_support()
+            return
+        if payload:
+            send("study_support", payload)
+    def failure(error: Exception) -> None:
+        global _support_query
+        if _support_query == token:
+            _support_query = None
+        if token[:2] == (_generation, mw.pm.name):
+            send("study_support_error", "Không thể đọc nhận xét học tập: " + str(error))
+    QueryOp(parent=mw, op=lambda col: collect_support(col, token[2])
+            if token == (_generation, mw.pm.name, _data_revision) and not _navigating else None,
+            success=success).failure(failure).run_in_background()
+
+
+def _quick_study(did: int, minutes: Any = None) -> None:
+    if _navigating:
+        return
+    if minutes is not None and (type(minutes) is not int or minutes not in {15, 30, 60}):
+        raise ValueError("Chọn thời lượng 15, 30 hoặc 60 phút.")
+    from aqt.operations.deck import set_current_deck
+    profile = mw.pm.name
+    _begin_navigation()
+    generation = _generation
+    def success(_result: Any) -> None:
+        global _navigating, _quick_plan
+        if not mw.col or mw.pm.name != profile or generation != _generation or mw.state != "deckBrowser" or not enabled():
+            _navigating = False
+            return
+        _quick_plan = (profile, str(did), minutes)
+        # Start from the loaded overview's bridge. An immediate second setHtml
+        # can let its asynchronous load overwrite the reviewer's card page.
+        mw.onOverview()
+    def failure(error: Exception) -> None:
+        global _navigating
+        _navigating = False
+        send("error", "Không thể bắt đầu phiên học: " + str(error))
+    set_current_deck(parent=mw, deck_id=did).success(success).failure(failure).run_in_background(initiator=mw.deckBrowser)
+
+
+def _insight_browse(did: int, kind: str) -> None:
+    token = (_generation, mw.pm.name)
+    def success(ids: list[int]) -> None:
+        if token != (_generation, mw.pm.name) or not mw.col:
+            return
+        if not ids:
+            send("study_support_error", "Các thẻ liên quan đã thay đổi. Hãy làm mới nhận xét.")
+            return
+        browser = dialogs.open("Browser", mw)
+        browser.search_for("cid:" + ",".join(str(cid) for cid in ids))
+        browser.show(); browser.raise_(); browser.activateWindow()
+    QueryOp(parent=mw, op=lambda col: insight_cards(col, did, kind), success=success).failure(
+        lambda error: send("study_support_error", str(error))).run_in_background()
+
+
+def _backup_job(task: Any, done: Any) -> None:
+    global _backup_busy
+    if _backup_busy:
+        return
+    _backup_busy = True
+    send("backup_status", {"busy": True, "message": "Đang kiểm tra và xử lý gói dữ liệu…"})
+    def finished(future: Any) -> None:
+        global _backup_busy
+        _backup_busy = False
+        try:
+            done(future.result())
+        except Exception as error:
+            message = "Không thể xử lý gói sao lưu: " + str(error)
+            send("backup_status", {"busy": False, "message": message})
+            showWarning(message, parent=mw)
+    mw.taskman.with_progress(task, finished, label="Đang xử lý sao lưu AnkiNOS…", immediate=True, uses_collection=False)
+
+
+def _backup_export() -> None:
+    if _backup_busy:
+        return
+    path, _ = QFileDialog.getSaveFileName(mw, "Sao lưu đầy đủ AnkiNOS", "AnkiNOS-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".nosbackup", "Gói AnkiNOS (*.nosbackup)")
+    if not path:
+        return
+    from .reviewer_ui import checkpoint_focus
+    checkpoint_focus()
+    profile, values = mw.pm.name, settings()
+    names = {str(d.id): d.name for d in mw.col.decks.all_names_and_ids()}
+    def done(destination: Path) -> None:
+        send("backup_status", {"busy": False, "message": "Đã sao lưu đầy đủ tại " + str(destination)})
+        if not enabled():
+            from aqt.utils import showInfo
+            showInfo("Đã sao lưu đầy đủ tại " + str(destination), parent=mw)
+    _backup_job(lambda: export_archive(ROOT, profile, values, Path(path).with_suffix(".nosbackup"), deck_names=names), done)
+
+
+def _backup_restore() -> None:
+    if _backup_busy:
+        return
+    path, _ = QFileDialog.getOpenFileName(mw, "Chọn gói AnkiNOS để xem trước", "", "Gói AnkiNOS (*.nosbackup)")
+    if not path:
+        return
+    profile = mw.pm.name
+    def preview(manifest: dict) -> None:
+        if not mw.col or mw.pm.name != profile:
+            return
+        values = manifest["settings"]
+        text = ("<b>Xem trước khôi phục AnkiNOS</b><br><br>Hồ sơ nguồn: " + html.escape(str(manifest.get("profile", "")))
+            + "<br>Tạo lúc: " + html.escape(str(manifest.get("created_at", "")))
+            + f"<br>Ảnh: {len(values['images'])} · Album: {len(values['image_albums'])} · Phiên Focus: {manifest['focus_sessions']}"
+            + f"<br>Tham chiếu tài nguyên: {len(values['resources'])}"
+            + "<br><br>Hồ sơ nhận: <b>" + html.escape(profile) + "</b>"
+            + "<br>Cấu hình, ảnh và Focus sẽ được thay thế. Bản dự phòng hiện tại được lưu vào user_files/backups trước khi thay thế."
+            + "<br>Thẻ Anki không nằm trong gói này. Tài nguyên ngoài add-on chỉ lưu đường dẫn, có thể cần gắn lại khi đổi máy."
+            + "<br><br>Khôi phục vào hồ sơ này?")
+        send("backup_status", {"busy": False, "message": "Đã kiểm tra toàn vẹn gói. Đang chờ xác nhận khôi phục."})
+        if not askUser(text, parent=mw, defaultno=True):
+            send("backup_status", {"busy": False, "message": "Đã hủy khôi phục. Dữ liệu hiện tại được giữ nguyên."})
+            return
+        if mw.state == "review":
+            mw.moveToState("deckBrowser")
+        from .reviewer_ui import reset_focus_store
+        reset_focus_store()
+        original = settings()
+        names = {str(d.id): d.name for d in mw.col.decks.all_names_and_ids()}
+        def persist(values: dict) -> None:
+            # Disk I/O stays off the UI thread; only Anki's config API runs here.
+            from threading import Event
+            completed, errors = Event(), []
+            def write() -> None:
+                try:
+                    conf = config()
+                    conf.setdefault("profiles", {})[profile] = values
+                    mw.addonManager.writeConfig(MODULE, conf)
+                except Exception as error:
+                    errors.append(error)
+                finally:
+                    completed.set()
+            mw.taskman.run_on_main(write)
+            completed.wait()
+            if errors:
+                raise errors[0]
+        def restored(backup: Path) -> None:
+            global _data_revision
+            _data_revision += 1
+            clear_support_cache()
+            send("settings", public_settings())
+            refresh()
+            send("backup_status", {"busy": False, "message": "Đã khôi phục đầy đủ. Bản trước khôi phục: " + str(backup)})
+            if not enabled():
+                from aqt.utils import showInfo
+                showInfo("Đã khôi phục dữ liệu AnkiNOS. Bản trước khôi phục: " + str(backup), parent=mw)
+        _backup_job(lambda: restore_archive(ROOT, profile, Path(path), manifest["archive_sha256"], original, persist, deck_names=names), restored)
+    def validate_image(path: Path) -> None:
+        reader = QImageReader(str(path))
+        size = reader.size()
+        if not reader.canRead() or size.width() <= 0 or size.height() <= 0 or size.width() * size.height() > 24_000_000:
+            raise ValueError("Ảnh trong gói không hợp lệ hoặc vượt 24 megapixel: " + path.name)
+    _backup_job(lambda: inspect_archive(ROOT, Path(path), validate_image=validate_image), preview)
 
 
 def _stats_pdf() -> None:
@@ -618,9 +845,9 @@ def _history_year(year: int) -> None:
     QueryOp(parent=mw, op=read, success=success).failure(failure).run_in_background()
 
 
-def replace_content(content: Any, context: Any) -> None:
+def _replace_content(content: Any, context: Any) -> None:
     global _generation, _overview_rendered, _overview_pending, _dashboard_tree, _live_context
-    if not isinstance(context, (DeckBrowser, Overview)) or not config().get("enabled", True):
+    if not isinstance(context, (DeckBrowser, Overview)) or not enabled():
         return
     _live_context = context
     overview = isinstance(context, Overview)
@@ -635,6 +862,7 @@ def replace_content(content: Any, context: Any) -> None:
     content.body = content.body.replace('id="nos-app"', 'id="nos-app" data-native="true"', 1)
     if overview:
         initial = overview_base(mw.col)
+        initial["auto_start"] = bool(_quick_plan and _quick_plan[:2] == (mw.pm.name, str(initial["id"])))
         initial.update(profile=mw.pm.name, settings=public_settings(), fullscreen=mw.isFullScreen())
         content.body += '<textarea id="nos-overview-bootstrap" hidden>' + html.escape(json.dumps(initial, ensure_ascii=True)) + '</textarea>'
     package = mw.addonManager.addonFromModule(MODULE)
@@ -645,6 +873,7 @@ def replace_content(content: Any, context: Any) -> None:
     if overview:
         content.css = [p for p in content.css if p != "css/overview.css"]
         content.css.append(f"{base}/overview.css")
+    content.js.append(f"{base}/runtime-guard.js")
     content.js.append(f"{base}/overview.js" if overview else f"{base}/dashboard.js")
     if not overview:
         content.css.append(f"{base}/stats-page.css")
@@ -653,6 +882,18 @@ def replace_content(content: Any, context: Any) -> None:
         content.js.append(f"{base}/focus-dashboard.js")
         content.css.append(f"{base}/media-studio.css")
         content.js.append(f"{base}/media-studio.js")
+        content.css.append(f"{base}/study-dashboard.css")
+        content.js.append(f"{base}/study-dashboard.js")
+
+
+
+def replace_content(content: Any, context: Any) -> None:
+    original = (content.body, list(content.css), list(content.js))
+    try:
+        _replace_content(content, context)
+    except Exception as error:
+        content.body, content.css, content.js = original
+        _fallback(error)
 
 
 def _deck_id(raw: Any) -> int:
@@ -890,6 +1131,8 @@ def _save_ui(values: Any) -> None:
         patch["goal"] = values["goal"]
     if type(values.get("ui_scale")) is int and values["ui_scale"] in {85, 90, 100, 110, 120}:
         patch["ui_scale"] = values["ui_scale"]
+    if type(values.get("study_budget")) is int and values["study_budget"] in {15, 30, 60}:
+        patch["study_budget"] = values["study_budget"]
     known_images = {item["id"] for item in public_settings()["images"]}
     for slot in SLOTS:
         if slot not in values:
@@ -911,10 +1154,10 @@ def _save_ui(values: Any) -> None:
 
 
 def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool, Any]:
-    global _library_focus, _data_revision, _review_changes_only
+    global _library_focus, _data_revision, _review_changes_only, _quick_plan
     if handled[0] or not isinstance(context, (DeckBrowser, Overview)) or not message.startswith("nos:"):
         return handled
-    if not mw.col or mw.state not in {"deckBrowser", "overview"} or not config().get("enabled", True):
+    if not mw.col or mw.state not in {"deckBrowser", "overview"} or not enabled():
         return (True, None)
     if (isinstance(context, Overview) and mw.state != "overview") or (isinstance(context, DeckBrowser) and mw.state != "deckBrowser"):
         return (True, None)
@@ -935,6 +1178,10 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             native_action = command.get("command")
             if native_action in {"study", "decks", "opts", "studymore", "description", "refresh", "empty", "unbury"}:
                 if native_action == "study":
+                    plan, _quick_plan = _quick_plan, None
+                    if plan and plan[:2] == (mw.pm.name, str(mw.col.decks.selected())) and plan[2]:
+                        from .reviewer_ui import prepare_focus
+                        prepare_focus(plan[2])
                     _begin_navigation()
                 mw.overview._linkHandler(native_action)
         elif action == "back":
@@ -944,6 +1191,22 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
                 _data_revision += 1
                 _review_changes_only = False
             refresh()
+        elif action == "study_support":
+            _study_support(command.get("force") is True)
+        elif action == "quick_study":
+            _quick_study(_deck_id(command.get("id")), command.get("minutes"))
+        elif action == "insight_browse":
+            _insight_browse(_deck_id(command.get("id")), command.get("kind"))
+        elif action == "backup_export":
+            _backup_export()
+        elif action == "backup_restore":
+            _backup_restore()
+        elif action == "compatibility":
+            _compatibility()
+        elif action == "native_mode":
+            _toggle(False)
+        elif action == "runtime_failure":
+            _fallback(RuntimeError(str(command.get("message", "Không thể nạp giao diện."))[:1000]))
         elif action == 'history_year':
             _history_year(int(command.get('year')))
         elif action == "graphs":
@@ -1063,6 +1326,7 @@ def _profile_closing() -> None:
     _review_changes_only = False
     _history_queries.clear()
     clear_snapshot_cache()
+    clear_support_cache()
     if _refresh_timer:
         _refresh_timer.stop()
     _restore_chrome()
@@ -1074,27 +1338,49 @@ def _sync_finished(*_args: Any) -> None:
     _data_revision += 1
     _review_changes_only = False
     clear_snapshot_cache()
+    clear_support_cache()
     if _refresh_timer and _dashboard_active():
         _refresh_timer.start(120)
 
 
-def _toggle(enabled: bool) -> None:
+def _toggle(active: bool) -> None:
+    global _session_error
+    if active and not _integration_ready:
+        if _toggle_action:
+            _toggle_action.setChecked(False)
+        showWarning("AnkiNOS chưa khởi tạo đầy đủ. Hãy kiểm tra phiên bản Anki và khởi động lại trước khi bật lại.", parent=mw)
+        return
+    _session_error = ""
     conf = config()
-    conf["enabled"] = enabled
+    conf["enabled"] = active
     mw.addonManager.writeConfig(MODULE, conf)
-    if not enabled:
+    if _toggle_action:
+        _toggle_action.setChecked(bool(active))
+    if not active:
         _restore_chrome()
     if mw.col:
         mw.moveToState("deckBrowser")
 
 
 def install() -> None:
-    global _installed, _refresh_timer, _toggle_action, _chrome_guard
+    global _installed, _refresh_timer, _toggle_action, _chrome_guard, _integration_ready
     if _installed:
         return
     _installed = True
     mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}(?:-thumb)?\.(?:png|jpg|webp))")
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
+    # Register recovery commands before optional skin patches can fail.
+    _toggle_action = QAction("AnkiNOS — Giao diện kính", mw)
+    _toggle_action.setCheckable(True)
+    qconnect(_toggle_action.triggered, _toggle)
+    mw.form.menuTools.addAction(_toggle_action)
+    compatibility_action = QAction("AnkiNOS — Kiểm tra tương thích", mw)
+    qconnect(compatibility_action.triggered, _compatibility)
+    mw.form.menuTools.addAction(compatibility_action)
+    data_menu = QMenu("AnkiNOS — Sao lưu và khôi phục", mw)
+    _menu_action(data_menu, "Tạo gói sao lưu…", _backup_export)
+    _menu_action(data_menu, "Khôi phục từ gói…", _backup_restore)
+    mw.form.menuTools.addMenu(data_menu)
     _guard_unused_heatmaps()
     _guard_unused_deck_html()
     _guard_live_updates()
@@ -1116,10 +1402,7 @@ def install() -> None:
     _refresh_timer = QTimer(mw)
     _refresh_timer.setSingleShot(True)
     qconnect(_refresh_timer.timeout, refresh)
-    _toggle_action = QAction("AnkiNOS — Giao diện kính", mw)
-    _toggle_action.setCheckable(True)
-    _toggle_action.setChecked(bool(config().get("enabled", True)))
-    qconnect(_toggle_action.triggered, _toggle)
-    mw.form.menuTools.addAction(_toggle_action)
     from .reviewer_ui import install as install_reviewer
-    install_reviewer(lambda: bool(config().get("enabled", True)), public_settings)
+    install_reviewer(lambda: bool(enabled()), public_settings)
+    _integration_ready = True
+    _toggle_action.setChecked(enabled())

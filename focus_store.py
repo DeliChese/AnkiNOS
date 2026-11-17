@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing, contextmanager
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from .media_store import profile_dir
 
-DURATIONS = (5, 15, 25, 45, 60, 90)
+DURATIONS = (5, 15, 25, 30, 45, 60, 90)
 MAX_RECORDS = 2000
 
 
@@ -22,6 +23,7 @@ class FocusStore:
         self.running_since: float | None = None
         self.target = 25 * 60
         self.cards = 0
+        self.last_session: dict | None = None
         with self._db() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS sessions (
                 id INTEGER PRIMARY KEY, started_at TEXT NOT NULL,
@@ -31,8 +33,11 @@ class FocusStore:
             # Interrupted sessions retain only previously checkpointed active time.
             db.execute("UPDATE sessions SET status='interrupted', ended_at=datetime('now','localtime') WHERE status IN ('running','paused')")
 
+    @contextmanager
     def _db(self):
-        return sqlite3.connect(self.path, timeout=3)
+        with closing(sqlite3.connect(self.path, timeout=3)) as db:
+            with db:
+                yield db
 
     def _seconds(self) -> float:
         return max(0.0, self.elapsed + (max(0.0, time.monotonic() - self.running_since)
@@ -43,6 +48,7 @@ class FocusStore:
             raise ValueError("Thời lượng Focus không hợp lệ.")
         if self.session_id is not None:
             self.stop("stopped")
+        self.last_session = None
         self.target = minutes * 60
         self.elapsed = 0
         self.cards = 0
@@ -92,6 +98,8 @@ class FocusStore:
             seconds = min(self._seconds(), self.target)
             if seconds >= self.target:
                 reason = "completed"
+            self.last_session = {"seconds": int(seconds), "target_seconds": self.target,
+                                 "cards": self.cards, "status": reason}
             with self._db() as db:
                 db.execute("UPDATE sessions SET ended_at=?,seconds=?,cards=?,status=? WHERE id=?",
                            (datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -108,7 +116,7 @@ class FocusStore:
         return {"active": self.session_id is not None,
                 "paused": self.session_id is not None and self.running_since is None,
                 "seconds": int(min(self._seconds(), self.target)) if self.session_id is not None else 0,
-                "target_seconds": self.target, "cards": self.cards}
+                "target_seconds": self.target, "cards": self.cards, "last_session": self.last_session}
 
     def history(self) -> dict:
         today = datetime.now().astimezone().date()

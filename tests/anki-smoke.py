@@ -59,7 +59,7 @@ def main():
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html"):
+    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
     set_lang("en_US")
@@ -444,10 +444,89 @@ def main():
     assert col.decks.get(deletion_id,default=False) is not None
     integration.askUser=original_ask
     until("!!window.AnkiNOS && !!document.getElementById('library-panel')")
+    # One click from the dashboard must enter the real reviewer with Focus.
+    launch_id = col.decks.id("Launchpad test")
+    for index in range(3):
+        launch_note = col.new_note(col.models.current())
+        launch_note.fields[0] = "Launchpad question " + str(index)
+        launch_note.fields[1] = "Real scheduler answer"
+        col.add_note(launch_note, launch_id)
+    integration.save_settings({"last_study_deck": str(launch_id), "study_budget": 30})
+    aqt.mw.moveToState("deckBrowser")
+    until(f"document.querySelector('#study-deck option[value=\"{launch_id}\"]') !== null")
+    js(f"(()=>{{const x=document.getElementById('study-deck');x.value='{launch_id}';x.dispatchEvent(new Event('change'));document.getElementById('study-focus').click();return true}})()")
+    until("!!window.NOSReview && !!document.getElementById('qa')")
+    assert aqt.mw.state == "review"
+    from NOS import reviewer_ui
+    assert reviewer_ui.focus_store().status()["active"]
+    assert reviewer_ui.focus_store().status()["target_seconds"] == 1800
+    assert integration.settings()["last_study_deck"] == str(launch_id)
+    reviewer_ui.focus_store().resume()
+    before = reviewer_ui.focus_store().cards
+    aqt.mw.reviewer._showAnswer()
+    aqt.mw.reviewer._answerCard(3)
+    end = time.monotonic() + 5
+    while reviewer_ui.focus_store().cards == before and time.monotonic() < end:
+        wait(30)
+    assert reviewer_ui.focus_store().cards == before + 1
+    reviewer_ui.focus_store().elapsed = 1800
+    reviewer_ui.focus_store().running_since = time.monotonic()
+    reviewer_ui._focus_tick()
+    until("!document.getElementById('nos-focus-summary').hidden")
+    assert js("document.getElementById('nos-focus-summary-text').textContent.includes('1 lượt trả lời')")
+    assert not reviewer_ui.focus_store().status()["active"]
+    aqt.mw.moveToState("deckBrowser")
+    until("!!window.NOSStudy && !document.getElementById('study-now').disabled")
+    # Exercise the production async export/preview/restore bridge on this profile.
+    from unittest.mock import patch
+    backup_path = base / "profile.nosbackup"
+    integration.save_settings({"theme": "night"})
+    with patch.object(integration.QFileDialog, "getSaveFileName", return_value=(str(backup_path), "")):
+        integration._backup_export()
+        end = time.monotonic() + 10
+        while integration._backup_busy and time.monotonic() < end:
+            wait(30)
+    assert backup_path.is_file() and not integration._backup_busy
+    integration.save_settings({"theme": "light"})
+    with patch.object(integration.QFileDialog, "getOpenFileName", return_value=(str(backup_path), "")), patch.object(integration, "askUser", return_value=False):
+        integration._backup_restore()
+        end = time.monotonic() + 10
+        while integration._backup_busy and time.monotonic() < end:
+            wait(30)
+    assert integration.settings()["theme"] == "light", "Cancelling preview must not change settings"
+    with patch.object(integration.QFileDialog, "getOpenFileName", return_value=(str(backup_path), "")), patch.object(integration, "askUser", return_value=True):
+        integration._backup_restore()
+        end = time.monotonic() + 10
+        while integration._backup_busy and time.monotonic() < end:
+            wait(30)
+    assert not integration._backup_busy
+    assert integration.settings()["theme"] == "night"
+    assert reviewer_ui.focus_store().history()["completed_sessions"] >= 1
+    assert list((integration.ROOT / "user_files/backups").glob("before-restore-*.nosbackup"))
+    # Failed rendering restores native content, and explicit re-enable recovers.
+    with patch.object(integration, "showWarning"):
+        integration._fallback(RuntimeError("Injected rendering error on disposable profile"))
+        until("!document.getElementById('nos-app') && !!document.getElementById('studiedToday')")
+    assert not aqt.mw.toolbarWeb.isHidden() and not aqt.mw.bottomWeb.isHidden()
+    integration._toggle(True)
+    until("!!window.NOSStudy")
     # The native deck browser can be restored without disabling the add-on.
     integration._toggle(False)
     until("!document.getElementById('nos-app') && !!document.getElementById('studiedToday')")
     assert not aqt.mw.toolbarWeb.isHidden() and not aqt.mw.bottomWeb.isHidden()
+    recovery_menu = next(action.menu() for action in aqt.mw.form.menuTools.actions()
+                         if action.menu() and action.menu().title() == "AnkiNOS — Sao lưu và khôi phục")
+    assert len(recovery_menu.actions()) == 2
+    from aqt import utils as aqt_utils
+    with patch.object(aqt_utils, "showInfo") as info, patch.object(integration.QFileDialog, "getSaveFileName", return_value=(str(base / "native-mode.nosbackup"), "")):
+        integration._compatibility()
+        assert "Anki " in info.call_args.args[0]
+        recovery_menu.actions()[0].trigger()
+        end = time.monotonic() + 10
+        while integration._backup_busy and time.monotonic() < end:
+            wait(30)
+        assert (base / "native-mode.nosbackup").is_file()
+        assert "sao lưu" in info.call_args.args[0]
     integration._toggle(True)
     until("!!window.AnkiNOS && document.getElementById('connection')?.textContent.includes('Bộ sưu tập Anki')")
     integration.save_settings({"theme":"dusk", "activity_collapsed":False})
@@ -474,6 +553,10 @@ def main():
     report.update(live_deck_and_note_edits=True,library_stays_open_after_edits=True,
                   create_dialog_stays_open_after_save=True,overview_updates_without_reload=True)
     report.update(calendar_archive_month_navigation=True)
+    report.update(dashboard_to_native_focus=True,focus_30_minutes=True,focus_summary=True,
+        full_backup_roundtrip=True,restore_cancel_preserves_settings=True,restore_creates_recovery=True,
+        automatic_native_fallback=True)
+    report.update(backup_tools_available_in_native_mode=True,compatibility_report=True)
     report.update(studio_first_open_js_ms=round(studio_open_ms),studio_legacy_preview_in_background=True,studio_reuses_thumbnails=True)
     (ROOT / "previews" / "anki-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print("PASS: " + json.dumps(report),flush=True)

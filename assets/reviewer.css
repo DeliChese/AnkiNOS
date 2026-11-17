@@ -59,3 +59,39 @@ html.nos-review-page body { margin: 0; padding: 0; }
   content:''; position:absolute; inset:0; pointer-events:none;
   background:linear-gradient(115deg,rgba(17,28,50,.23),rgba(19,27,49,.10));
 }
+
+/* Toolbar contrast is independent of arbitrary card CSS and wallpaper. */
+#nos-review-shell { --nos-toolbar:#203450; --nos-fg:#f7f9ff; --nos-secondary:#d3e0f4; }
+#nos-review-header { background:var(--nos-toolbar); margin:0; padding:14px 24px; height:auto; min-height:78px; gap:14px; grid-template-columns:auto minmax(0,1fr) auto; border-bottom:1px solid #a7c3e366; }
+#nos-review-header button { min-height:38px; font-size:13px; background:#ffffff0d; border-color:#b6cce466; }
+#nos-review-deck { font-size:14px; }
+#nos-review-progress { color:var(--nos-secondary); font-size:12px; }
+#nos-review-tools { flex-wrap:wrap; gap:8px; }
+#nos-review-side { color:var(--nos-secondary); font-size:12px; }
+#nos-review-shell[data-theme="light"] { --nos-toolbar:#f1f5fc; --nos-fg:#193453; --nos-secondary:#3c5372; }
+#nos-review-shell[data-theme="light"] #nos-review-side { color:#193453; border-color:#597595; }
+#nos-review-shell[data-theme="light"][data-side="answer"] #nos-review-side { color:#165c43; background:#d9f1e6; }
+#nos-focus-summary { margin:16px 24px 0; padding:18px; border:1px solid #9fc6e8; border-radius:14px; background:#203450; color:#f7f9ff; font:14px/1.6 'Segoe UI',sans-serif; }
+#nos-focus-summary[hidden] { display:none; }
+#nos-focus-summary p { margin:0 0 12px; }
+#nos-focus-summary button { background:#344f75; color:white; border:1px solid #91afcf; padding:8px 12px; margin:0 8px 6px 0; border-radius:8px; cursor:pointer; font:inherit; }
+#nos-focus-summary button:focus-visible { outline:3px solid #9ac7ff; outline-offset:3px; }
+@media(max-width:980px) {
+  #nos-review-header { padding:13px 16px; grid-template-columns:auto minmax(0,1fr); }
+  #nos-review-tools { grid-column:1/-1; justify-content:flex-start; }
+  #nos-review-heading { text-align:left; }
+  #nos-review-tools .nos-focus-controls { flex-wrap:wrap; }
+  #nos-review-tools .nos-focus-controls button { min-height:36px; font-size:12px; padding:8px 10px; }
+  #nos-review-tools .nos-focus-controls select { font-size:12px; max-width:95px; padding:8px 5px; }
+  #nos-review-tools #nos-focus-time { font-size:13px; }
+  #nos-review-header .nos-back-label { display:inline; }
+  #nos-review-stage { min-height:calc(100vh - 130px); }
+}
+@media(max-width:480px) {
+  #nos-review-header { gap:10px; }
+  #nos-review-header .nos-back-label { display:none; }
+  #nos-review-stage { padding:18px 12px; }
+  #nos-focus-summary { margin:12px; }
+}
+@media(prefers-reduced-motion:reduce) { #nos-review-header *,#nos-focus-summary * { transition:none!important; animation:none!important; } }
+#nos-review-shell.no-motion #nos-review-header * { transition:none!important; animation:none!important; }

@@ -1,0 +1,61 @@
+/* Readable surfaces keep personal backgrounds visible without sacrificing text. */
+#nos-app .study-launchpad { max-width:880px; margin:0 0 20px; padding:22px 24px; background:rgba(33,49,78,.94); border:1px solid #a9bedb60; border-radius:20px; color:#f5f8ff; }
+#nos-app .study-launchpad h2 { font-size:19px; margin:3px 0 14px; }
+#nos-app .study-launchpad .eyebrow { color:#c9d9ef; }
+#nos-app .study-selection { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; align-items:end; }
+#nos-app .study-selection label { display:grid; gap:6px; min-width:0; font-size:12px; color:#dfebfb; }
+#nos-app .study-selection select { width:100%; min-width:0; max-width:100%; border:1px solid #9bb7db80; border-radius:10px; background:#243c60; color:#fff; padding:10px; font-size:14px; }
+#nos-app .study-selection select option { background:#243c60; color:#fff; }
+#nos-app .study-launchpad p { font-size:13px; color:#e5edfa; margin-top:10px; line-height:1.65; }
+#nos-app .study-launchpad .study-queue { color:#c8e0ff; font-weight:600; }
+#nos-app .study-launchpad details { margin:10px 0; font-size:12px; color:#d0ddf0; line-height:1.6; }
+#nos-app .study-launchpad summary { cursor:pointer; width:fit-content; }
+#nos-app .study-launchpad summary:focus-visible { outline:2px solid #b9ddff; outline-offset:3px; }
+#nos-app .study-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+#nos-app .study-actions button { min-height:42px; padding:10px 15px; font-size:13px; }
+#nos-app .study-actions .primary-button { background:#3567c7; border-color:#91b8ff; }
+#nos-app .study-actions .subtle-button { color:#f5f8ff; border-color:#9ab2d366; }
+#nos-app .study-launchpad .study-planning-note { font-size:12px; color:#cbd9ed; }
+#nos-app .study-insights { margin:0 0 24px; padding:22px; background:var(--glass); border:1px solid var(--edge); border-radius:18px; }
+#nos-app .study-insights-head { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:10px; }
+#nos-app .study-insights-head h2 { margin-right:auto; }
+#nos-app .study-insights-head select { background:#233b5e; color:#fff; border:1px solid #91afcd; border-radius:8px; padding:8px; max-width:100%; }
+#nos-app .study-insights p { font-size:13px; line-height:1.65; }
+#nos-app .study-insights small { display:block; font-size:12px; line-height:1.6; color:var(--muted); margin:8px 0; }
+#nos-app #study-insights-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr)); gap:12px; margin-top:14px; }
+#nos-app .study-insight { background:#203551; color:#f4f7ff; border:1px solid #9bb9db66; border-radius:13px; padding:17px; min-width:0; overflow-wrap:anywhere; }
+#nos-app .study-insight h3 { font-size:14px; margin-bottom:9px; }
+#nos-app .study-insight small { color:#ccdcef; }
+#nos-app .study-insight button { color:#fff; min-height:38px; white-space:normal; font-size:12px; }
+#nos-app .backup-row { align-items:flex-start; flex-wrap:wrap; gap:12px; }
+#nos-app .backup-row p { max-width:490px; }
+#nos-app .backup-status { font-size:12px; color:var(--text); overflow-wrap:anywhere; margin:12px 0; }
+#nos-app button:focus-visible,#nos-app input:focus-visible,#nos-app select:focus-visible { outline:3px solid #9ac7ff; outline-offset:3px; }
+#nos-app .deck-name { font-size:14px; }
+#nos-app .deck-meta,#nos-app .deck-counts,#nos-app .study-button,#nos-app .filter-button,#nos-app .stat-label { font-size:12px; }
+#nos-app .stat-detail,#nos-app .stat-trend { font-size:11px; }
+#nos-app .deck-column-hint { font-size:10px; }
+#nos-app[data-theme="light"] .study-launchpad { background:#f4f7fd; color:#1c3357; border-color:#aabbd3; }
+#nos-app[data-theme="light"] .study-launchpad p,#nos-app[data-theme="light"] .study-launchpad .eyebrow,#nos-app[data-theme="light"] .study-selection label,#nos-app[data-theme="light"] .study-launchpad details { color:#324d72; }
+#nos-app[data-theme="light"] .study-actions .subtle-button { color:#203c62; border-color:#7189ad; }
+@media(max-width:900px) {
+  #nos-app .study-launchpad { padding:19px; }
+  #nos-app .library-body { grid-template-columns:145px minmax(0,1fr); gap:12px; padding:14px; }
+  #nos-app .deck-row { flex-wrap:wrap; gap:7px; }
+  #nos-app .deck-info { flex:1 1 130px; }
+  #nos-app .deck-counts { min-width:92px; }
+  #nos-app .library-top-actions { min-width:0; }
+  #nos-app .search-box { max-width:100%; }
+}
+@media(max-width:600px) {
+  #nos-app .study-selection { grid-template-columns:minmax(0,1fr); gap:12px; }
+  #nos-app .study-selection label:last-child { grid-template-columns:minmax(0,1fr) 115px; align-items:center; }
+  #nos-app .study-actions button { flex:1 1 130px; }
+  #nos-app .study-launchpad h2 { font-size:18px; }
+  #nos-app .study-insights { padding:16px; }
+  #nos-app .settings-row { flex-wrap:wrap; gap:10px; }
+  #nos-app .settings-row>div:first-child { min-width:0; }
+  #nos-app .settings-row button { white-space:normal; }
+  #nos-app .study-insights-head select { width:100%; }
+}
+@media print { #nos-app .study-insight button,#nos-app .study-insights-head button { display:none; } #nos-app .study-insights,#nos-app .study-insight { break-inside:avoid; background:white; color:#172b48; } #nos-app .study-insight small {color:#324d72;} }

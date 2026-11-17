@@ -785,6 +785,13 @@
   }
 
   function receive({event, payload}) {
+    if(event==='study_support'){window.NOSStudy?.receive(payload);return;}
+    if(event==='study_support_error'){window.NOSStudy?.error(payload);return;}
+    if(event==='backup_status'){
+      const status=$('backup-status');if(status)status.textContent=payload.message;
+      app.querySelectorAll('[data-action="backup_export"],[data-action="backup_restore"]').forEach(button=>{button.disabled=!!payload.busy;});
+      if(!payload.busy)toast(payload.message);return;
+    }
     const previousGoal=state.settings.goal;
     const previousHeatmapDay=state.settings.heatmap_day;
     const previousLibrarySettings = JSON.stringify([
@@ -846,6 +853,7 @@
     }
     if (!state.snapshot) return;
     applySettings();
+    if(event==='snapshot')window.NOSStudy?.sync(payload);
     if (event === 'settings' || event === 'snapshot') window.NOSStudio?.sync();
     if(event==='snapshot'||state.settings.goal!==previousGoal) {
       renderStats();
@@ -870,6 +878,7 @@
   window.AnkiNOS = {
     receive,
     getSettings: () => state.settings,
+    getSnapshot: () => state.snapshot,
     studioCommand: (action, payload) => command(action, payload),
     studioUpdate(patch) {
       Object.assign(state.settings, patch);
@@ -1046,7 +1055,7 @@
       trends:{retention:trend(92.4,89.9,'30 ngày trước'),pace:trend(109,Math.round(yesterday.reviews/yesterday.milliseconds*3600000),'cùng giờ hôm qua'),milliseconds:trend(6120000,yesterday.milliseconds,'cùng giờ hôm qua'),reviews:trend(186,yesterday.reviews,'cùng giờ hôm qua')},
       stats:{retention:92.4,pace:109,milliseconds:6120000,reviews:186,streak:27,tested:3248},
       decks:[deck('101','Tiếng Anh — Từ vựng',4872,'blue',[deck('111','Từ vựng theo chủ đề',1520,'blue'),deck('112','Collocations & Phrasal Verbs',2180,'purple'),deck('113','Idioms',1172,'purple')]),deck('102','Tiếng Nhật — N5',1986,'pink'),deck('103','Y học cơ sở',1204,'green'),deck('104','Lịch sử Việt Nam',642,'amber')],
-      settings:{goal:200,theme:'dusk',view:'list',favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
+      settings:{goal:200,theme:'dusk',view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
   }
   // Show the calendar structure immediately, then request real data without
   // introducing an artificial startup delay.

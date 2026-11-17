@@ -13,6 +13,8 @@ from anki.lang import set_lang
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('nos_data',ROOT/'data.py')
 data=importlib.util.module_from_spec(spec);spec.loader.exec_module(data)
+spec=importlib.util.spec_from_file_location('nos_study',ROOT/'study_data.py')
+study=importlib.util.module_from_spec(spec);spec.loader.exec_module(study)
 set_lang('en_US')
 scratch=ROOT/'tests'/'.tmp'/('data-perf-'+uuid.uuid4().hex)
 scratch.mkdir(parents=True)
@@ -42,6 +44,11 @@ try:
     answer,after=collect(1,True)
     assert after['stats']['reviews']==out['stats']['reviews']+1
     result={'cards':20000,'revlog_rows':600000,'cold_ms':cold,'unchanged_refresh_ms':warm,'after_review_ms':answer,'history_days':len(out['days']),'streak':out['stats']['streak']}
+    started=time.perf_counter();support=study.collect_support(col,1)
+    result['study_support_cold_ms']=round((time.perf_counter()-started)*1000,1)
+    started=time.perf_counter();assert study.collect_support(col,1) is support
+    result['study_support_cached_ms']=round((time.perf_counter()-started)*1000,1)
+    assert support['timing']['all']['samples']>=20
     if hasattr(data,'collect_history_year'):
         started=time.perf_counter();archive=data.collect_history_year(col,out['history_start_year'],revision=1)
         result['archive_year_ms']=round((time.perf_counter()-started)*1000,1)

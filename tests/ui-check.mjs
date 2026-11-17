@@ -107,6 +107,34 @@ try {
   await click('.rail-main [data-action="page"][data-value="home"]');
   await mkdir(join(root,'previews'),{recursive:true});
   async function shot(name) {const result=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(join(root,'previews',name),Buffer.from(result.data,'base64'));}
+  // Exercise the new study actions without letting preview fixtures impersonate Anki.
+  assert.equal(await evaluate(`document.getElementById('study-now').disabled`),false);
+  assert(await evaluate(`document.getElementById('study-estimate-source').textContent.includes('250')`));
+  await evaluate(`window.__studyCommands=[];window.__realStudyCommand=window.AnkiNOS.studioCommand;window.AnkiNOS.studioCommand=(action,args)=>window.__studyCommands.push({action,...args})`);
+  await evaluate(`(()=>{const budget=document.getElementById('study-budget');budget.value='15';budget.dispatchEvent(new Event('change'));document.getElementById('study-focus').click();document.getElementById('study-now').click()})()`);
+  assert.deepEqual(await evaluate(`window.__studyCommands.filter(x=>x.action==='quick_study')`),
+    [{action:'quick_study',id:'101',minutes:15},{action:'quick_study',id:'101'}]);
+  await evaluate(`window.NOSStudy.receive({timing:{all:{samples:4,median_ms:null}},decks:{}})`);
+  assert(await evaluate(`document.getElementById('study-estimate').textContent.includes('Chưa đủ 20')`));
+  assert.equal(await evaluate(`document.getElementById('study-focus').disabled`),false,'Sparse data must not prevent a study session');
+  await evaluate(`window.NOSStudy.receive({timing:{all:{samples:30,median_ms:20000,low_ms:10000,high_ms:30000}},decks:{'101':{name:'<img src=x onerror=alert(1)>',samples:30,previous_samples:40,retention:70,previous_retention:90,change_points:-20,repeated_lapses:1}}})`);
+  assert.equal(await evaluate(`document.querySelectorAll('#study-insights-list img').length`),0);
+  await click('#study-insights-list button');
+  assert.deepEqual(await evaluate(`window.__studyCommands.at(-1)`),{action:'insight_browse',id:'101',kind:'retention_drop'});
+  await evaluate(`window.AnkiNOS.studioCommand=window.__realStudyCommand;window.NOSStudy.refresh(true);const budget=document.getElementById('study-budget');budget.value='30';budget.dispatchEvent(new Event('change'))`);
+  for(const width of [1024,768,600,390,320]){
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth && document.getElementById('nos-app').scrollWidth<=innerWidth`),`Study home must fit ${width}px`);
+    await click('#stats-toggle');
+    assert(await evaluate(`document.getElementById('stats-page').scrollWidth<=innerWidth`),`Insights must fit ${width}px`);
+    await click('.rail-main [data-action="page"][data-value="home"]');
+  }
+  for(const scale of [85,100,120]){
+    await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),ui_scale:${scale}}})`);
+    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),`Home must fit at ${scale}% scale`);
+  }
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),ui_scale:100}})`);
+  await cdp('Emulation.setDeviceMetricsOverride',{width:1600,height:1080,deviceScaleFactor:1,mobile:false});
   await shot('dashboard.png');
   await click('#profile-toggle');
   assert.equal(await evaluate(`document.getElementById('profile-panel').hidden`),false);
@@ -410,6 +438,20 @@ try {
   await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
   await shot('review-mobile.png');
   assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),true,'Review overflows on mobile');
+  await evaluate(`window.NOSReview.setFocus({active:false,paused:false,seconds:0,target_seconds:1800,cards:0,last_session:{seconds:1800,target_seconds:1800,cards:42,status:'completed'}})`);
+  assert.equal(await evaluate(`document.getElementById('nos-focus-summary').hidden`),false);
+  assert.equal(await evaluate(`document.getElementById('nos-focus-duration').value`),'30');
+  assert(await evaluate(`document.getElementById('nos-focus-summary-text').textContent.includes('42 lượt trả lời')`));
+  for(const width of [768,600,390,320]){
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:false});
+    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),`Review summary must fit ${width}px`);
+    assert(await evaluate(`parseFloat(getComputedStyle(document.getElementById('nos-review-progress')).fontSize)>=12`));
+    assert(await evaluate(`getComputedStyle(document.getElementById('nos-review-header')).backgroundColor!=='rgba(0, 0, 0, 0)'`));
+  }
+  for(const scale of [85,100,120]){
+    await evaluate(`document.getElementById('nos-review-shell').style.zoom='${scale/100}'`);
+    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),`Reviewer must fit at ${scale}% scale`);
+  }
   assert.deepEqual(errors,[],'JavaScript errors');
   console.log('PASS: profile, collapse, nested decks, grid, Vietnamese search, filters, chart periods, mobile layout, escaped deck names; screenshots in previews/');
 } finally {

@@ -188,6 +188,7 @@
   if (native && bootstrap) {
     try {receive({event:'overview_snapshot',payload:JSON.parse(bootstrap.textContent)});}
     catch {command('snapshot');}
+    if(state.snapshot?.auto_start && state.snapshot.available)start();
     // Paint the bootstrap immediately. Fetch the heavier live stats only after
     // the initial view has settled, rather than blocking the first interaction.
     const fetchFull=()=>{if(!state.started && !document.hidden)command('snapshot');};

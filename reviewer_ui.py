@@ -18,6 +18,21 @@ _focus: FocusStore | None = None
 _focus_profile: str | None = None
 _focus_timer: QTimer | None = None
 _focus_guard: QObject | None = None
+_pending_focus: tuple | None = None
+
+
+def prepare_focus(minutes: int) -> None:
+    global _pending_focus
+    _pending_focus = (mw.pm.name, str(mw.col.decks.selected()), minutes)
+
+
+def checkpoint_focus() -> None:
+    if _focus is not None:
+        _focus.checkpoint()
+
+
+def reset_focus_store() -> None:
+    _profile_close()
 
 
 def focus_store() -> FocusStore:
@@ -50,7 +65,7 @@ def _focus_tick() -> None:
             _emit_focus()
 
 
-def _content(content: Any, context: Any) -> None:
+def _review_content(content: Any, context: Any) -> None:
     if not _enabled() or not isinstance(context, (Reviewer, ReviewerBottomBar)):
         return
     package = mw.addonManager.addonFromModule(__package__)
@@ -66,7 +81,9 @@ def _content(content: Any, context: Any) -> None:
         initial = {"deck": deck["name"], "theme": current_settings.get("theme", "dusk"),
                    "answered": _answered, "focus": focus_store().status(), "background": background,
                    "background_fit": current_settings.get("image_fit_review", "contain"),
-                   "background_position": current_settings.get("image_position_review", "center")}
+                   "background_position": current_settings.get("image_position_review", "center"),
+                   "ui_scale": current_settings.get("ui_scale", 100),
+                   "animations": current_settings.get("animations", True)}
         content.body = (
             '<div id="nos-review-shell"><div class="nos-review-wallpaper" aria-hidden="true"><img class="nos-review-wallpaper-image" alt="" hidden></div>'
             '<header id="nos-review-header"></header><main id="nos-review-stage">'
@@ -75,12 +92,23 @@ def _content(content: Any, context: Any) -> None:
         )
         content.css.append(f"{base}/reviewer.css")
         content.css.append(f"{base}/focus-review.css")
+        content.js.append(f"{base}/runtime-guard.js")
         content.js.append(f"{base}/reviewer.js")
     else:
         keys = {str(i): mw.pm.get_answer_key(i) or "" for i in (1,2,3,4)}
         content.body += '<textarea id="nos-rating-keys" hidden>' + html.escape(json.dumps(keys)) + '</textarea>'
         content.css.append(f"{base}/reviewer-bottom.css")
         content.js.append(f"{base}/reviewer-bottom.js")
+
+
+def _content(content: Any, context: Any) -> None:
+    original = (content.body, list(content.css), list(content.js))
+    try:
+        _review_content(content, context)
+    except Exception as error:
+        content.body, content.css, content.js = original
+        from .integration import _fallback
+        _fallback(error)
 
 
 def _show(card: Any, side: str) -> None:
@@ -106,11 +134,14 @@ def _answered_card(_reviewer: Any, _card: Any, _ease: int) -> None:
 
 
 def _state(new: str, old: str) -> None:
-    global _answered
+    global _answered, _pending_focus
     if old == "review" and new != "review" and _focus is not None:
         _focus.stop("stopped")
     if new == "review" and old != "review":
         _answered = 0
+        planned, _pending_focus = _pending_focus, None
+        if _enabled() and planned and planned[:2] == (mw.pm.name, str(mw.col.decks.selected())):
+            focus_store().start(planned[2])
 
 
 def _bridge(handled: tuple[bool,Any], message: str, context: Any) -> tuple[bool,Any]:
@@ -123,6 +154,9 @@ def _bridge(handled: tuple[bool,Any], message: str, context: Any) -> tuple[bool,
         mw.moveToState("deckBrowser")
     elif action == "more":
         mw.reviewer.showContextMenu()
+    elif action == "native":
+        from .integration import _fallback
+        _fallback(RuntimeError("Không thể nạp giao diện phiên học."))
     elif action.startswith("focus:"):
         part = action.split(":")
         operation = part[1] if len(part) > 1 else ""
@@ -156,11 +190,12 @@ class _FocusWindowGuard(QObject):
 
 
 def _profile_close() -> None:
-    global _focus, _focus_profile
+    global _focus, _focus_profile, _pending_focus
     if _focus is not None:
         _focus.stop("stopped")
     _focus = None
     _focus_profile = None
+    _pending_focus = None
 
 
 def install(enabled: Callable[[],bool], settings: Callable[[],dict[str,Any]]) -> None:

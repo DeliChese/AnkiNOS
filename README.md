@@ -2,13 +2,31 @@
 
 Giao diện kính mờ cho màn hình danh sách bộ thẻ Anki, thống nhất từ ba ảnh tham chiếu. Nền hồ hoàng hôn xanh tím, thư mục pastel, thanh điều hướng gọn và bảng hồ sơ mở từ avatar. Thư viện mở thành popup; hoạt động và thanh bộ lọc có thể thu gọn.
 
+## Học nhanh, Focus và nhận xét học tập — 0.2.0
+
+- **Tiếp tục học trên trang chủ**: chọn bộ thẻ trong cụm **Bước tiếp theo của bạn**, bấm **Học ngay** để vào reviewer qua luồng chuẩn của Anki. AnkiNOS nhớ bộ đã học gần nhất; khi bộ đó chưa có thẻ sẵn sàng, gợi ý bộ có lịch học. Danh sách nhanh giới hạn 12 lựa chọn để thư viện lớn không làm chậm trang; **Chọn bộ thẻ khác** mở thư viện đầy đủ.
+- **Quỹ thời gian 15 / 30 / 60 phút**: bấm **Focus … phút** để chọn bộ thẻ, dựng hàng đợi bằng Anki và bắt đầu Focus trong một thao tác. Khi đủ giờ, hiện tổng kết thời gian tập trung và số lượt trả lời; người dùng quyết định nghỉ hoặc học tiếp. Không tự thay đổi lịch FSRS, giới hạn ngày, thứ tự thẻ hay đánh giá đáp án. Nếu hàng đợi đã hết trong lúc điều hướng, Anki hiển thị trạng thái hoàn thành của nó.
+- **Ước lượng có nguồn**: từ các lượt trả lời thật trong 30 ngày học Anki, loại bản ghi thủ công và thời gian thiếu/ngoài 1–120 giây. Cần ít nhất 20 mẫu có thời gian; dùng phân vị 25/50/75% theo loại lượt khi đủ mẫu, nếu thiếu dùng mẫu chung của collection. Khoảng phút quy đổi từ thời gian từng lượt và số lượt hiện có; đây không phải khoảng tin cậy của toàn phiên. Thẻ mới/học lại có thể xuất hiện nhiều lần, âm thanh và thời gian nghỉ có thể làm phiên kéo dài. Không đủ mẫu thì ghi rõ, vẫn cho bắt đầu Focus.
+- **Thống kê → Điều đáng chú ý**: so sánh tỷ lệ trả lời đúng của lượt ôn đến hạn trong hai khoảng 30 ngày liền kề. Chỉ nhắc mức giảm từ 5 điểm phần trăm khi mỗi khoảng có ít nhất 20 lượt. Một nhận xét khác phát hiện thẻ được trả lời **Quên ít nhất 3 lần** trong 30 ngày (ôn đến hạn/học lại). Hiển thị số mẫu, nguồn, mốc ngày và không kết luận nguyên nhân. Nút **Xem các thẻ liên quan** mở đúng ID thẻ trong Browse, không chỉnh sửa thẻ. Bộ con tính về đúng nhánh cha, thẻ lọc tính về bộ gốc; tránh lặp nhận xét của cả cha và con.
+- **Dễ đọc trong cửa sổ nhỏ**: thanh reviewer có nền đủ tương phản độc lập với ảnh nền và CSS mẫu thẻ. Các điều khiển Focus tự xuống hàng, thông tin quan trọng có chữ lớn hơn, focus bàn phím dễ nhận biết. Có kiểm tra bố cục ở độ rộng 320–1024 px. Mẫu thẻ và nút đánh giá gốc vẫn được giữ.
+
+## Sao lưu đầy đủ và quay về Anki gốc
+
+Vào **Cài đặt AnkiNOS → Dữ liệu → Tạo gói sao lưu** để xuất `.nosbackup` gồm cấu hình của hồ sơ hiện tại, ảnh gốc, thumbnail và bản chụp SQLite nhất quán của lịch sử Focus. Gói có bản kê phiên bản và SHA-256 từng tệp. Đây là dữ liệu add-on; thẻ và lịch sử ôn của collection vẫn dùng chức năng sao lưu của Anki. Tài nguyên gắn ngoài add-on chỉ lưu tham chiếu, cần gắn lại nếu đường dẫn đổi trên máy khác.
+
+**Chọn gói khôi phục…** kiểm tra toàn vẹn, đường dẫn, loại tệp, dung lượng và cấu trúc Focus trước khi hiện hộp xem trước: hồ sơ nguồn/đích, ngày tạo, số ảnh, album và phiên Focus. Chỉ sau khi xác nhận mới thay thế dữ liệu. Mỗi lần khôi phục tạo một gói của trạng thái trước đó tại `user_files/backups/before-restore-….nosbackup`; có thể chọn gói này để quay lại. Nếu thao tác ghi thất bại, thư mục và cấu hình cũ được phục hồi. Các bản dự phòng được giữ lại, không tự xóa. Gói giới hạn 2 GB, mỗi ảnh 16 MB, SQLite Focus 64 MB; không nhận phiên bản gói mới hơn mà mã hiện tại chưa hỗ trợ.
+
+Khi chuyển sang collection khác, dấu sao/màu và bộ học gần nhất được đối chiếu bằng **tên đầy đủ** của bộ thẻ; mục không khớp được bỏ qua thay vì gắn vào ID trùng nhưng khác nội dung. Gói chỉ áp dụng vào hồ sơ đang chọn, không ảnh hưởng hồ sơ khác và không tự tải lên AnkiWeb. **Xuất/Nhập JSON** cũ vẫn chỉ phục vụ tùy chỉnh giao diện; không thay thế gói sao lưu đầy đủ.
+
+**Tools → AnkiNOS — Kiểm tra tương thích** kiểm tra các API đang có ở bản Anki thực tế. Trong **Dữ liệu** cũng có **Dùng giao diện Anki gốc**. Nếu dựng giao diện Python hoặc khởi tạo JavaScript chính bị lỗi, add-on trả về giao diện gốc và khôi phục các thanh chức năng; có thể bật lại AnkiNOS từ Tools. **Tools → AnkiNOS — Sao lưu và khôi phục** vẫn truy cập được khi giao diện AnkiNOS tắt hoặc gặp lỗi. Khôi phục khi đang ôn sẽ kết thúc phiên Focus sau bước xác nhận. Kiểm tra API không đồng nghĩa đã xác minh mọi tổ hợp add-on hoặc mọi hệ điều hành.
+
 ## Sử dụng
 
 Thư mục này đã nằm trong `Anki2/addons21/NOS`. Khởi động lại Anki, mở **Decks** để sử dụng. Trong **Tools → AnkiNOS — Giao diện kính**, bỏ chọn để trở về giao diện gốc. Add-on bổ sung giao diện cho dashboard, chuẩn bị học và lúc trả lời thẻ; giữ trình sửa thẻ, nội dung mẫu thẻ và thuật toán lên lịch của Anki.
 
 - Nhấn avatar ở góc trên phải để mở hồ sơ; nhấn lại, nhấn ngoài bảng hoặc Escape để đóng.
 - Nút **Bộ thẻ** (biểu tượng các lớp) trên sidebar mở bảng **Bộ thẻ & tài nguyên** dạng popup, giữ nguyên trang tổng quan phía sau. Bảng không còn nằm trên giao diện chính và không mở tab khác. Mũi tam giác nối về nút sidebar, chuyển xuống cạnh dưới khi dùng thanh điều hướng di động.
-- **Trang chính** tập trung vào không gian nền cá nhân, điều hướng học và **heatmap**. Retention / Pace / Time / Studied chuyển sang mục **Thống kê** trên sidebar, thay cho mục Thông tin. Menu chức năng AnkiNOS không còn nút mở thống kê riêng.
+- **Trang chính** gồm không gian nền cá nhân, cụm học nhanh và **heatmap**. Retention / Pace / Time / Studied nằm trong **Thống kê** trên sidebar. Menu chức năng AnkiNOS không còn nút mở thống kê riêng.
 - **Trang Thống kê AnkiNOS** dùng dữ liệu graph gốc do Anki tính (không mở popup hay chép ảnh giao diện Anki): Hôm nay, Dự báo, Lượt ôn, Thời gian ôn, Phân loại thẻ, Khoảng cách ôn, Độ dễ, các chỉ số FSRS (Stability / Difficulty / Retrievability), True Retention, phân bố giờ học, nút trả lời và lịch sử thêm thẻ. Heatmap chỉ ở trang chính, không lặp tại trang Thống kê.
 - Nút **Lưu PDF** trong Thống kê xuất toàn bộ báo cáo AnkiNOS ở trang hiện tại, với CSS in A4, thay cho nút trong cửa sổ Anki mặc định.\n- Có thể lọc thống kê theo **bộ thẻ hiện tại/toàn bộ bộ sưu tập** và **12 tháng/tất cả lịch sử**. Số liệu được truy vấn không đồng bộ qua `QueryOp` từ `col._backend.graphs()` (cùng nguồn với thống kê gốc của Anki), kết quả được cache theo bộ lọc; nhấn **Làm mới báo cáo** để đọc lại. 
 - Popup sử dụng chính bảng thư viện hiện có: tìm kiếm, lọc, dạng lưới/danh sách, tài nguyên, thêm/sửa/xóa và học. Đóng bằng **×**, **Escape** hoặc bấm nền ngoài; focus quay về nút mở. **Ctrl+K** mở popup và đưa focus vào ô tìm kiếm.
@@ -30,7 +48,7 @@ Thư mục này đã nằm trong `Anki2/addons21/NOS`. Khởi động lại Anki
 
 ## Focus Mode — phiên tập trung và lịch sử
 
-Trong màn hình ôn tập, chọn 5/15/25/45/60/90 phút rồi nhấn **Focus**. Bộ đếm ngược có **Tạm dừng**, **Tiếp tục** và **Kết thúc**. Chế độ tự kết thúc khi đủ thời lượng, tự tạm dừng khi cửa sổ Anki mất focus và kết thúc khi rời màn hình ôn tập. Cơ chế chấm điểm, nút trả lời và lịch FSRS vẫn do Anki quản lý.
+Trong màn hình ôn tập, chọn 5/15/25/30/45/60/90 phút rồi nhấn **Focus**. Bộ đếm ngược có **Tạm dừng**, **Tiếp tục** và **Kết thúc**. Chế độ tự kết thúc khi đủ thời lượng, tự tạm dừng khi cửa sổ Anki mất focus và kết thúc khi rời màn hình ôn tập. Cơ chế chấm điểm, nút trả lời và lịch FSRS vẫn do Anki quản lý.
 
 Vào **Thống kê → Focus Mode** để xem thời gian hôm nay, 7 ngày, tổng thời gian, số phiên, số phiên đạt mục tiêu, thời lượng trung bình, tổng lượt ôn trong Focus, biểu đồ 14 ngày và 40 phiên gần nhất. Thời gian nghỉ không được tính. Lịch sử là dữ liệu ghi từ lúc sử dụng tính năng, không suy diễn ngược từ revlog.
 
@@ -110,6 +128,8 @@ Ngày học theo giờ chuyển ngày của Anki, không mặc định đổi ng
 
 - `__init__.py`, `integration.py`: hooks Anki, cầu nối WebView, các thao tác gốc và cấu hình.
 - `data.py`: truy vấn chỉ đọc chạy trên luồng nền qua `QueryOp`.
+- `study_data.py`, `assets/study-dashboard.*`: lối vào học nhanh, ước lượng thời gian và nhận xét có hành động.
+- `backup_store.py`: bản kê, kiểm tra gói dữ liệu, sao lưu trước khôi phục và quay lại dữ liệu cũ khi lỗi ghi.
 - `ankios-ui.html`, `assets/dashboard.css`, `assets/dashboard.js`: giao diện không phụ thuộc CDN hoặc Tailwind.
 - `ankios-overview.html`, `assets/overview.css`, `assets/overview.js`: màn hình chuẩn bị học bộ thẻ.
 - `reviewer_ui.py`, `assets/reviewer*.css`, `assets/reviewer*.js`: giao diện phiên học và nút đánh giá; `ankios-review.html` là bản xem trước.
@@ -123,6 +143,7 @@ Ngày học theo giờ chuyển ngày của Anki, không mặc định đổi ng
 
 ```powershell
 # Chạy bằng Python đi kèm Anki, có package anki/aqt.
+& 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/run-unit.py
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/test_data.py
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/anki-smoke.py
 node tests/ui-check.mjs

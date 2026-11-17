@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="assets/media-studio.css">
   <link rel="stylesheet" href="assets/stats-page.css">
   <link rel="stylesheet" href="assets/focus-dashboard.css">
+  <link rel="stylesheet" href="assets/study-dashboard.css">
 </head>
 <body>
   <div id="nos-app" data-theme="dusk" data-page="home">
@@ -68,6 +69,15 @@
       <section class="greeting" aria-labelledby="greeting-title"><div><p class="eyebrow" id="today-label">KHÔNG GIAN HỌC TẬP CỦA BẠN</p><h1 id="greeting-title">Chào mừng trở lại <span class="greeting-spark">✦</span></h1><p class="greeting-caption" id="greeting-caption">Mỗi lần ôn tập, một chút tiến bộ.</p></div><button class="daily-goal glass" data-action="set_goal" title="Đổi mục tiêu học mỗi ngày"><span class="goal-ring" id="goal-ring"><span id="goal-percent">0%</span></span><span><span class="goal-label">Mục tiêu hôm nay</span><strong id="goal-copy">— / 200 lượt ôn</strong></span><svg class="icon small"><use href="#i-chevron"/></svg></button></section>
 
 
+      <section id="study-launchpad" class="study-launchpad" aria-labelledby="study-title">
+        <p class="eyebrow">BƯỚC TIẾP THEO CỦA BẠN</p><h2 id="study-title">Chuẩn bị phiên học</h2>
+        <div class="study-selection"><label>Bộ thẻ<select id="study-deck" aria-describedby="study-queue" disabled></select></label><label>Hôm nay tôi có<select id="study-budget"><option value="15">15 phút</option><option value="30" selected>30 phút</option><option value="60">60 phút</option></select></label></div>
+        <p class="study-queue" id="study-queue">Đang đọc lịch học Anki…</p>
+        <p id="study-estimate" aria-live="polite">Bạn có thể bắt đầu ngay khi lịch học sẵn sàng.</p><p id="study-capacity"></p>
+        <details><summary>Cách tính thời gian</summary><p id="study-estimate-source">Ước lượng từ lịch sử cá nhân.</p></details>
+        <div class="study-actions"><button type="button" id="study-now" class="primary-button" disabled>Học ngay</button><button type="button" id="study-focus" class="subtle-button" disabled>Focus 30 phút</button><button type="button" class="subtle-button" data-action="library">Chọn bộ thẻ khác</button></div>
+        <p class="study-planning-note" id="study-planning-note"></p>
+      </section>
       <section class="activity-panel glass panel" id="activity-panel" aria-labelledby="activity-title">
         <div class="panel-heading activity-heading"><div class="heading-title"><span class="section-icon"><svg class="icon"><use href="#i-chart"/></svg></span><h2 id="activity-title">Nhịp điệu học tập</h2><span class="streak-badge" id="streak-badge">🔥 <span id="streak-copy">0 ngày liên tiếp</span></span></div><div class="activity-controls"><div class="year-control"><button class="icon-button small-button" data-action="year" data-value="-1" aria-label="Năm trước"><svg class="icon small flipped"><use href="#i-chevron"/></svg></button><strong id="heatmap-year" hidden></strong><select id="heatmap-month-select" aria-label="Ch&#7885;n th&#225;ng" hidden></select><select id="heatmap-year-select" aria-label="Ch&#7885;n n&#259;m"></select><button class="icon-button small-button" data-action="year" data-value="1" aria-label="Năm sau"><svg class="icon small"><use href="#i-chevron"/></svg></button></div><button class="calendar-today" data-action="calendar_today">H&#244;m nay</button><div class="segmented" aria-label="Khoảng thời gian"><button class="selected" data-action="period" data-value="year" aria-pressed="true">Năm</button><button data-action="period" data-value="month" aria-pressed="false">Tháng</button><button data-action="period" data-value="week" aria-pressed="false">Tuần</button></div><button class="icon-button collapse-button" data-action="collapse_activity" aria-expanded="true" aria-controls="activity-body" title="Thu gọn hoạt động" aria-label="Thu gọn hoạt động"><svg class="icon"><use href="#i-down"/></svg></button></div></div>
         <div id="activity-body"><p id="heatmap-caption" class="heatmap-caption" aria-live="polite"></p><div class="heatmap-scroll"><div class="heatmap" id="heatmap" aria-label="Lịch sử ôn tập"></div></div><div class="activity-footer"><span id="activity-summary">Đang đọc lịch sử ôn tập…</span><span class="heat-legend">Ít <i class="heat-0"></i><i class="heat-1"></i><i class="heat-2"></i><i class="heat-3"></i><i class="heat-4"></i> Nhiều</span></div></div>
@@ -92,6 +102,10 @@
         <article class="stat-card glass peach" id="card-studied"><span class="stat-icon"><svg class="icon"><use href="#i-layers"/></svg></span><div class="stat-body"><span class="stat-label">Đã ôn <span>Studied</span></span><strong class="stat-value" id="stat-studied">— <small>lượt</small></strong><span class="stat-detail" id="studied-detail">Hôm nay</span><span class="stat-trend" id="trend-studied"></span></div><svg class="sparkline" id="spark-studied" viewBox="0 0 160 62" role="img" tabindex="0"></svg></article>
       </section>
 
+      </section>
+      <section class="study-insights" aria-labelledby="study-insights-title">
+        <div class="study-insights-head"><h2 id="study-insights-title">Điều đáng chú ý</h2><select id="study-insight-scope" aria-label="Phạm vi nhận xét"><option value="all">Mọi bộ thẻ</option><option value="selected">Bộ đang chọn ở trang chủ</option></select><button type="button" class="subtle-button" id="study-insights-refresh">Làm mới nhận xét</button></div>
+        <p id="study-insights-status" role="status">Đang đọc lịch sử học…</p><small id="study-insight-period"></small><div id="study-insights-list"></div>
       </section>
       <section id="nos-focus-history" aria-labelledby="nos-focus-title">
         <div class="nos-focus-head"><div><h2 id="nos-focus-title">Focus Mode · Lịch sử tập trung</h2><p id="nos-focus-history-status">Bắt đầu Focus khi ôn tập để lưu lịch sử.</p></div><button type="button" id="nos-focus-refresh">Làm mới Focus</button></div>
@@ -325,6 +339,11 @@
 
             <!-- TAB 6: Dữ liệu -->
             <div class="settings-tab-pane" id="stab-data" hidden>
+              <div class="settings-group-title">Sao lưu đầy đủ AnkiNOS</div>
+              <div class="settings-row backup-row"><div><strong>Cấu hình, ảnh và lịch sử Focus</strong><p>Gói .nosbackup của hồ sơ hiện tại. Thẻ Anki dùng chức năng sao lưu của Anki; file tài nguyên bên ngoài chỉ lưu tham chiếu.</p></div><button type="button" class="subtle-button" data-action="backup_export">Tạo gói sao lưu</button></div>
+              <div class="settings-row backup-row"><div><strong>Khôi phục có xem trước</strong><p>Kiểm tra gói, xem hồ sơ nguồn và nội dung trước khi xác nhận. Dữ liệu hiện tại được sao lưu tự động trước khi thay thế.</p></div><button type="button" class="subtle-button" data-action="backup_restore">Chọn gói khôi phục…</button></div>
+              <p id="backup-status" class="backup-status" role="status">Gói lưu trên máy, không tự đồng bộ AnkiWeb.</p>
+              <div class="settings-row backup-row"><div><strong>Kiểm tra và khôi phục giao diện gốc</strong><p>Kiểm tra các chức năng tích hợp với bản Anki đang dùng.</p></div><button type="button" class="subtle-button" data-action="compatibility">Kiểm tra tương thích</button><button type="button" class="subtle-button" data-action="native_mode">Dùng giao diện Anki gốc</button></div>
               <div class="settings-group-title">Quản lý cấu hình</div>
               <div class="settings-row">
                 <div><strong>Xuất cấu hình</strong><p>Tải file JSON chứa các thiết lập của profile hiện tại</p></div>
@@ -422,5 +441,6 @@
   <script src="assets/media-studio.js"></script>
   <script src="assets/stats-page.js"></script>
   <script src="assets/focus-dashboard.js"></script>
+  <script src="assets/study-dashboard.js"></script>
 </body>
 </html>
