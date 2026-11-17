@@ -41,7 +41,7 @@
 #nos-app .nos-studio-gallery .nos-studio-tile { display:block; min-width:0; border:1px solid #c8daff29; background:#a1bfff0c; border-radius:12px; overflow:hidden; padding:0; text-align:left; transition:border-color .12s,transform .12s; }
 #nos-app .nos-studio-gallery .nos-studio-tile:hover { border-color:#b0d5ff95; transform:translateY(-1px); }
 #nos-app .nos-studio-gallery .nos-studio-tile.selected { border-color:#9fd1ff; box-shadow:inset 0 0 0 1px #9fd1ff; }
-#nos-app .nos-studio-tile img { width:100%; height:124px; display:block; object-fit:contain; background:#14233b; }
+#nos-app .nos-studio-tile img { width:100%; height:124px; display:block; object-fit:cover; background:#14233b; }
 #nos-app .nos-studio-tile img.preview-pending { visibility:hidden; }
 #nos-app .nos-studio-tile-caption { display:block; padding:9px 10px; }
 #nos-app .nos-studio-tile-caption strong { display:block; font-size:10.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -49,7 +49,8 @@
 #nos-app .nos-studio-gallery-empty { grid-column:1/-1; padding:50px 15px; text-align:center; color:#c6d6eb; font-size:12px; line-height:1.7; border:1px dashed #adc9f84d; border-radius:13px; }
 #nos-app .nos-studio-inspector { min-width:0; overflow-y:auto; padding:21px 20px; border-left:1px solid #d5e8ff25; background:linear-gradient(145deg,#253752,#1b2a41); }
 #nos-app .nos-studio-preview { position:relative; width:100%; aspect-ratio:16/10; border:1px solid #b9d5fc45; margin:12px 0 9px; border-radius:11px; background:linear-gradient(140deg,#485f82,#243652); overflow:hidden; display:grid; place-items:center; }
-#nos-app .nos-studio-preview img { display:block; width:100%; height:100%; object-fit:contain; object-position:center; }
+#nos-app .nos-studio-preview img { display:block; width:100%; height:100%; object-fit:var(--wall-fit,cover); object-position:center; filter:blur(calc(var(--wall-blur,0px) * .2)); transform:scale(var(--wall-scale,1)); }
+#nos-app .nos-studio-preview::after { content:''; position:absolute; inset:0; pointer-events:none; background:rgba(12,20,38,var(--wall-dim,.28)); }
 #nos-app .nos-studio-preview p { font-size:11px; text-align:center; color:#b0c2dd; padding:16px; }
 #nos-app .nos-studio-meta { color:#a8bfdb; font-size:10px; margin:8px 0 18px; }
 #nos-app .nos-studio-field-label { display:block; color:#c5d7ef; font-size:10px; font-weight:600; margin:14px 0 7px; }
@@ -92,3 +93,12 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 174px;
 }
+
+/* Wallpaper display options: fit, scrim and blur apply to all three page backgrounds. */
+#nos-app .nos-studio-segment { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:3px; border:1px solid #b0caff43; border-radius:10px; background:#172640; }
+#nos-app .nos-studio-segment button { padding:8px 6px; border-radius:7px; font-size:10.5px; color:#bcd0ea; }
+#nos-app .nos-studio-segment button[aria-pressed="true"] { background:#89baff30; color:#fff; box-shadow:inset 0 0 0 1px #9fd1ff80; }
+#nos-app .nos-studio-range-label { display:flex; justify-content:space-between; align-items:baseline; }
+#nos-app .nos-studio-range-label output { color:#a6e5c7; font-variant-numeric:tabular-nums; font-weight:600; }
+#nos-app .nos-studio-range { width:100%; accent-color:#85baff; margin:0 0 2px; }
+#nos-app .nos-studio-segment button:focus-visible, #nos-app .nos-studio-range:focus-visible { outline:2px solid #98c5ff; outline-offset:2px; }

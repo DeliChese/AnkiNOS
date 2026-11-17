@@ -324,10 +324,27 @@
     }
   }
 
-  const MEDIA_URL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/;
-  function mediaUrl(slot, settings = state.settings) {
+  const MEDIA_URL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}(?:-wall)?\.(?:png|jpg|webp)$/;
+  const THUMB_URL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}-thumb\.png$/;
+  // kind 'wall': screen-sized copy for wallpapers (falls back to the original
+  // until it exists); kind 'thumb': 480px copy, enough for a 36px avatar.
+  function mediaUrl(slot, settings = state.settings, kind = 'wall') {
     const entry = (settings.images || []).find(image => image.id === settings[slot]);
-    return entry && MEDIA_URL.test(entry.url || '') ? entry.url : '';
+    if (!entry) return '';
+    if (kind === 'thumb' && THUMB_URL.test(entry.thumb_url || '')) return entry.thumb_url;
+    const wall = kind === 'wall' ? entry.wall_url : '';
+    if (wall && MEDIA_URL.test(wall)) return wall;
+    return MEDIA_URL.test(entry.url || '') ? entry.url : '';
+  }
+  const clampInt = (value, low, high, fallback) =>
+    Number.isInteger(value) ? Math.min(high, Math.max(low, value)) : fallback;
+  // Shared by every page: the fit/dim/blur options are plain CSS variables.
+  function wallpaperVars(settings, surface) {
+    const fit = settings['image_fit_' + surface] === 'contain' ? 'contain' : 'cover';
+    const dim = clampInt(settings.wallpaper_dim, 0, 80, 28);
+    const blur = clampInt(settings.wallpaper_blur, 0, 24, 0);
+    return {'--wall-fit': fit, '--wall-dim': String(dim / 100), '--wall-blur': blur + 'px',
+            '--wall-scale': blur ? '1.06' : '1'};
   }
 
   function applySettings() {
@@ -337,8 +354,8 @@
       s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
       s.heatmap_palette,s.activity_collapsed,s.sidebar_collapsed,s.view,
       s.image_dashboard,s.image_avatar,
-      (s.images || []).find(image => image.id === s.image_dashboard)?.url,
-      (s.images || []).find(image => image.id === s.image_avatar)?.url
+      s.image_fit_dashboard,s.wallpaper_dim,s.wallpaper_blur,
+      mediaUrl('image_dashboard', s), mediaUrl('image_avatar', s, 'thumb')
     ]);
     if (signature === lastAppliedSettings) return;
     lastAppliedSettings = signature;
@@ -347,13 +364,14 @@
     app.dataset.customBackground = background ? 'true' : 'false';
     // One actual <img> layer; the browser fits the full image once, with
     // no CSS tiling/compositing seam or destructive background-size crop.
+    for (const [name, value] of Object.entries(wallpaperVars(s, 'dashboard'))) app.style.setProperty(name, value);
     const wallpaperImage = app.querySelector('.nos-wallpaper-image');
     if (wallpaperImage) {
       if (background && wallpaperImage.getAttribute('src') !== background) wallpaperImage.src = background;
       if (!background) wallpaperImage.removeAttribute('src');
       wallpaperImage.hidden = !background;
     }
-    const avatar = mediaUrl('image_avatar', s);
+    const avatar = mediaUrl('image_avatar', s, 'thumb');
     for (const node of [$('avatar-initials'), $('profile-initials')]) {
       if (!node) continue;
       node.classList.toggle('has-image', !!avatar);

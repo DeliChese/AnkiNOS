@@ -608,10 +608,15 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .wallpaper { overflow: hidden; }
 #nos-app .wallpaper .nos-wallpaper-image {
   display: block; position: absolute; inset: 0;
-  width: 100%; height: 100%; object-fit: contain; object-position: center;
+  width: 100%; height: 100%; object-fit: var(--wall-fit, cover); object-position: center;
   pointer-events: none; user-select: none; background: transparent;
+  filter: blur(var(--wall-blur, 0px)); transform: scale(var(--wall-scale, 1));
 }
 #nos-app .wallpaper .nos-wallpaper-image[hidden] { display:none !important; }
+/* Adjustable scrim keeps text readable on bright photos (Media Studio → Độ tối). */
+#nos-app[data-custom-background="true"] .wallpaper::after { background: rgba(12,20,38,var(--wall-dim,.28)); }
+#nos-app[data-theme="light"][data-custom-background="true"] .wallpaper::after { background: rgba(236,243,255,var(--wall-dim,.28)); }
+#nos-app[data-theme="oled"][data-custom-background="true"] .wallpaper::after { background: rgba(0,0,0,var(--wall-dim,.28)); }
 #nos-app[data-custom-background="true"] .wallpaper {
   background-image: linear-gradient(130deg,#344c73,#233450) !important;
 }

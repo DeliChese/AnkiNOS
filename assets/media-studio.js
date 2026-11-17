@@ -120,6 +120,22 @@
     }
     gallery.append(fragment);
   }
+  const wallFit = () => getData().image_fit_dashboard === 'contain' ? 'contain' : 'cover';
+  const wallDim = () => Number.isInteger(getData().wallpaper_dim) ? getData().wallpaper_dim : 28;
+  const wallBlur = () => Number.isInteger(getData().wallpaper_blur) ? getData().wallpaper_blur : 0;
+  function showDisplayOptions() {
+    const fit = wallFit(), dim = wallDim(), blur = wallBlur(), preview = $('studio-preview');
+    preview.style.setProperty('--wall-fit', fit);
+    preview.style.setProperty('--wall-dim', String(dim / 100));
+    preview.style.setProperty('--wall-blur', blur + 'px');
+    preview.style.setProperty('--wall-scale', blur ? '1.06' : '1');
+    for (const button of $('studio-fit').querySelectorAll('[data-studio-fit]'))
+      button.setAttribute('aria-pressed', String(button.dataset.studioFit === fit));
+    if (document.activeElement !== $('studio-dim')) $('studio-dim').value = String(dim);
+    if (document.activeElement !== $('studio-blur')) $('studio-blur').value = String(blur);
+    $('studio-dim-out').textContent = dim + '%';
+    $('studio-blur-out').textContent = blur + ' px';
+  }
   function showInspector() {
     const image = photos().find(p => p.id === selected);
     $('studio-inspector-fields').hidden = !image;
@@ -148,7 +164,9 @@
     if (image.width && image.height) meta.push(image.width + ' × ' + image.height + ' px');
     if (image.size) meta.push((image.size / 1024 / 1024).toFixed(2) + ' MB');
     meta.push(image.ext.toUpperCase().replace('.',''));
-    $('studio-image-meta').textContent = meta.join(' · ') + ' · Không cắt';
+    meta.push(wallFit() === 'cover' ? 'Lấp đầy khung' : 'Vừa khung, không cắt');
+    $('studio-image-meta').textContent = meta.join(' · ');
+    showDisplayOptions();
     if (document.activeElement !== $('studio-image-name'))
       $('studio-image-name').value = image.name;
     const select = $('studio-image-album');
@@ -228,7 +246,7 @@
   }
   function requestPreviews() {
     if(!native)return;
-    const missing=photos().filter(p=>!PREVIEW.test(p.thumb_url||'')).map(p=>p.id).join(',');
+    const missing=photos().filter(p=>!PREVIEW.test(p.thumb_url||'')||p.wall_ready===false).map(p=>p.id).join(',');
     if(missing && missing!==previewRequest){previewRequest=missing;command('image_previews');}
     if(!missing)previewRequest='';
   }
@@ -295,6 +313,11 @@
       status('Đã xóa album; ảnh được giữ nguyên.');
       return;
     }
+    if (button.dataset.studioFit) {
+      const fit = button.dataset.studioFit === 'contain' ? 'contain' : 'cover';
+      saveDisplay({image_fit_dashboard: fit, image_fit_overview: fit, image_fit_review: fit});
+      return;
+    }
     if (button.id === 'studio-rename') {renamePhoto();return;}
     if (button.id === 'studio-remove-image') {deletePhoto();return;}
     const slot=button.dataset.studioSlot;
@@ -307,6 +330,29 @@
       render();
     }
   });
+  function saveDisplay(patch) {
+    window.AnkiNOS?.studioUpdate?.(patch);
+    command('save_ui', {values: patch});
+    render();
+  }
+  // Sliders update the live preview while dragging and persist once on release.
+  let sliderFrame = 0;
+  for (const [id, key] of [['studio-dim', 'wallpaper_dim'], ['studio-blur', 'wallpaper_blur']]) {
+    $(id).addEventListener('input', event => {
+      const value = Number(event.target.value);
+      if (!Number.isInteger(value)) return;
+      getData()[key] = value;
+      if (sliderFrame) return;
+      sliderFrame = requestAnimationFrame(() => {
+        sliderFrame = 0;
+        window.AnkiNOS?.studioUpdate?.({[key]: Number($(id).value)});
+      });
+    });
+    $(id).addEventListener('change', event => {
+      const value = Number(event.target.value);
+      if (Number.isInteger(value)) saveDisplay({[key]: value});
+    });
+  }
   function saveAlbum() {
     const name = $('studio-album-title').value.trim();
     if (!name || name.length > 80) {status('Tên album phải có từ 1 đến 80 ký tự.',true);return;}

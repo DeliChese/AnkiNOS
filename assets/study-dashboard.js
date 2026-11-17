@@ -66,6 +66,12 @@
     $('study-now').textContent=available?'Học ngay':'Chưa có thẻ sẵn sàng';
     $('study-focus').textContent=`Focus ${budget} phút`;
     $('study-budget').value=String(budget);
+    const brief=$('study-brief');
+    if(brief){
+      if(!available) brief.textContent=deck?'Bộ thẻ này đã xong lúc này.':'Mở thư viện để quản lý bộ thẻ.';
+      else if(estimated) brief.textContent=`Khoảng ${n(Math.min(available,estimated.capacity))} lượt trong ${budget} phút · cả hàng đợi ${estimated.low}–${estimated.high} phút`;
+      else brief.textContent=pending?'Đang ước lượng thời gian…':'Chưa đủ dữ liệu ước lượng · vẫn bắt đầu Focus được.';
+    }
     if(!available){
       $('study-estimate').textContent=deck?'Bộ thẻ này đã xong lúc này. Bạn có thể chọn bộ khác hoặc quay lại khi thẻ đến hạn.':'Mở thư viện để quản lý bộ thẻ.';
       $('study-capacity').textContent='';

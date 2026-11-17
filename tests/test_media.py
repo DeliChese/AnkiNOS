@@ -69,6 +69,25 @@ class ImageLibraryTests(unittest.TestCase):
         self.assertFalse(preview.exists())
         self.assertTrue(self.source.exists())
 
+    def test_wallpaper_copy_is_preferred_deleted_with_image_and_falls_back(self):
+        entry = media.add_image(self.root, "Alice", self.source, "png", width=3000, height=2000)
+        directory = media.profile_dir(self.root, "Alice")
+        legacy = media.public_images(self.root, "Alice", [entry], "NOS")[0]
+        self.assertFalse(legacy["wall_ready"])
+        self.assertEqual(legacy["wall_url"], legacy["url"])
+        wall = directory / (entry["id"] + media.WALLPAPER_SUFFIX)
+        wall.write_bytes(b"screen-sized copy")
+        ready = media.public_images(self.root, "Alice", [entry], "NOS")[0]
+        self.assertTrue(ready["wall_ready"])
+        self.assertTrue(ready["wall_url"].endswith("-wall.jpg"))
+        self.assertNotEqual(ready["wall_url"], ready["url"])
+        media.delete_image(self.root, "Alice", [entry], entry["id"])
+        self.assertFalse(wall.exists())
+        self.assertTrue(self.source.exists())
+
+    def test_display_option_limits_are_exposed(self):
+        self.assertEqual((media.WALLPAPER_DIM_MAX, media.WALLPAPER_BLUR_MAX, media.WALLPAPER_MAX_SIDE), (80, 24, 2048))
+
     def test_legacy_library_without_thumbnails_stays_valid(self):
         entry = media.add_image(self.root, "Old", self.source, "png")
         legacy = {key:entry[key] for key in ("id", "name", "ext")}

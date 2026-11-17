@@ -64,8 +64,15 @@
   function theme() {
     app.dataset.theme=state.settings.theme||'dusk';
     const selected = (state.settings.images || []).find(image => image.id === state.settings.image_overview);
-    const imageUrl = selected?.url && /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/.test(selected.url) ? selected.url : '';
+    const safe = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}(?:-wall)?\.(?:png|jpg|webp)$/;
+    const imageUrl = [selected?.wall_url, selected?.url].find(url => url && safe.test(url)) || '';
     app.dataset.customBackground = imageUrl ? 'true' : 'false';
+    const st = state.settings, int = (v, lo, hi, d) => Number.isInteger(v) ? Math.min(hi, Math.max(lo, v)) : d;
+    const blur = int(st.wallpaper_blur, 0, 24, 0);
+    app.style.setProperty('--wall-fit', st.image_fit_overview === 'contain' ? 'contain' : 'cover');
+    app.style.setProperty('--wall-dim', String(int(st.wallpaper_dim, 0, 80, 28) / 100));
+    app.style.setProperty('--wall-blur', blur + 'px');
+    app.style.setProperty('--wall-scale', blur ? '1.06' : '1');
     const wallpaperImage=app.querySelector('.nos-wallpaper-image');
     if (wallpaperImage) {
       if(imageUrl && wallpaperImage.getAttribute('src')!==imageUrl) wallpaperImage.src=imageUrl;

@@ -20,6 +20,11 @@ SLOTS = ("image_dashboard", "image_overview", "image_review", "image_avatar")
 IMAGE_FITS = ("contain", "cover")
 IMAGE_POSITIONS = ("center", "top", "bottom", "left", "right")
 THUMBNAIL_SUFFIX = "-thumb.png"
+# Screen-sized JPEG used for wallpapers, so pages never decode a 24-megapixel original.
+WALLPAPER_SUFFIX = "-wall.jpg"
+WALLPAPER_MAX_SIDE = 2048
+WALLPAPER_DIM_MAX = 80
+WALLPAPER_BLUR_MAX = 24
 _ID = re.compile(r"[0-9a-f]{32}\Z")
 
 
@@ -121,6 +126,7 @@ def delete_image(root: Path, profile: str, entries: object, identifier: str) -> 
     directory = profile_dir(root, profile)
     (directory / (entry["id"] + entry["ext"])).unlink(missing_ok=True)
     (directory / (entry["id"] + THUMBNAIL_SUFFIX)).unlink(missing_ok=True)
+    (directory / (entry["id"] + WALLPAPER_SUFFIX)).unlink(missing_ok=True)
     return [item for item in images if item["id"] != identifier]
 
 
@@ -134,9 +140,14 @@ def public_images(root: Path, profile: str, entries: object, package: str) -> li
         filename = entry["id"] + entry["ext"]
         if (directory / filename).is_file():
             url_root = f"/_addons/{package}/user_files/{directory.name}/"
+            wall_ready = (directory / (entry["id"] + WALLPAPER_SUFFIX)).is_file()
             result.append({
                 **entry,
                 "url": url_root + filename,
+                # Wallpaper-sized copy; falls back to the original until the
+                # background job has produced it (legacy imports).
+                "wall_url": url_root + (entry["id"] + WALLPAPER_SUFFIX if wall_ready else filename),
+                "wall_ready": wall_ready,
                 # Old imports without previews still use their full-resolution
                 # original in the gallery, with no destructive migration.
                 "thumb_url": (

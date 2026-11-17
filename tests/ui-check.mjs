@@ -69,6 +69,9 @@ try {
     'Annual heatmap cells must stay square instead of stretching across the dashboard');
   assert(await evaluate(`document.getElementById('activity-panel').getBoundingClientRect().width <= 880`),
     'Dashboard activity panel must remain compact on wide screens');
+  assert(await evaluate(`(()=>{const a=document.getElementById('activity-panel').getBoundingClientRect(),b=document.getElementById('study-launchpad').getBoundingClientRect();return a.top<=b.top+1 && b.left>=a.right && b.width<=430})()`),
+    'Heatmap leads and the compact study card sits on its right on wide screens');
+  assert.equal(await evaluate(`document.getElementById('study-brief').textContent.length>0`),true,'Compact study card keeps a one-line summary');
   assert.equal(await evaluate(`document.querySelectorAll('#launcher [data-action="library"]').length`),0,
     'Deck library must leave the six-dot menu');
   assert.equal(await evaluate(`document.getElementById('heatmap').getAttribute('aria-busy')`),'false');
@@ -183,6 +186,7 @@ try {
     event:'settings',payload:{...data,
     image_albums:[],images:[{id:'${photoId}',name:'Phong cảnh.png',ext:'.png',width:1400,height:900,
     url:'/_addons/NOS/user_files/${profileId}/${photoId}.png',
+    wall_url:'/_addons/NOS/user_files/${profileId}/${photoId}-wall.jpg',wall_ready:true,
     thumb_url:'/_addons/NOS/user_files/${profileId}/${photoId}-thumb.png'}]}
   })})()`);
   assert.equal(await evaluate(`document.querySelectorAll('#studio-gallery .nos-studio-tile').length`),1);
@@ -192,13 +196,27 @@ try {
     'Selecting a photo must keep existing thumbnail DOM and decoded image');
   assert.equal(await evaluate(`document.getElementById('studio-preview-image').hidden`),false,
     'Selecting a picture previews immediately without Apply');
-  assert.equal(await evaluate(`getComputedStyle(document.getElementById('studio-preview-image')).objectFit`),'contain');
+  assert.equal(await evaluate(`getComputedStyle(document.getElementById('studio-preview-image')).objectFit`),'cover',
+    'Wallpaper preview fills the frame by default');
   await click('[data-studio-slot="image_dashboard"]');
   assert.equal(await evaluate(`window.__nosThumb === document.querySelector('#studio-gallery .nos-studio-tile')`),true,
     'Assigning a wallpaper must not rebuild the entire photo gallery');
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_dashboard`),photoId);
   assert.equal(await evaluate(`document.querySelector('.nos-wallpaper-image').hidden`),false);
-  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.nos-wallpaper-image')).objectFit`),'contain');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.nos-wallpaper-image')).objectFit`),'cover',
+    'Wallpapers fill the screen by default instead of floating inside letterbox bars');
+  assert.equal(await evaluate(`document.querySelector('.nos-wallpaper-image').getAttribute('src').endsWith('-wall.jpg')`),true,
+    'Pages must load the screen-sized copy, never the 24-megapixel original');
+  await click('[data-studio-fit="contain"]');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.nos-wallpaper-image')).objectFit`),'contain','Fit-to-frame stays available');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_fit_review`),'contain');
+  await click('[data-studio-fit="cover"]');
+  await evaluate(`(()=>{const r=document.getElementById('studio-dim');r.value='50';r.dispatchEvent(new Event('input',{bubbles:true}));r.dispatchEvent(new Event('change',{bubbles:true}));return new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))})()`);
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().wallpaper_dim`),50);
+  assert.equal(await evaluate(`document.getElementById('nos-app').style.getPropertyValue('--wall-dim')`),'0.5');
+  assert.equal(await evaluate(`document.getElementById('studio-dim-out').textContent`),'50%');
+  await evaluate(`(()=>{const r=document.getElementById('studio-blur');r.value='8';r.dispatchEvent(new Event('input',{bubbles:true}));r.dispatchEvent(new Event('change',{bubbles:true}));return new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))})()`);
+  assert.equal(await evaluate(`document.getElementById('nos-app').style.getPropertyValue('--wall-blur')`),'8px');
   await click('[data-studio-slot="image_dashboard"]');
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_dashboard`),null);
   await evaluate(`document.getElementById('studio-image-name').value='Xe 350Z'`);
