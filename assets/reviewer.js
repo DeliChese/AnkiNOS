@@ -6,7 +6,7 @@
   document.documentElement.classList.add('nos-review-page');
   const $=id=>document.getElementById(id);
   const initial=JSON.parse($('nos-review-bootstrap')?.textContent||'{}');
-  shell.dataset.theme=initial.theme||'dusk';
+  window.NOSTheme.watch(shell,()=>initial,true);
   const background = typeof initial.background === 'string' &&
     /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}(?:-wall)?\.(?:png|jpg|webp)$/.test(initial.background) ? initial.background : '';
   shell.dataset.customBackground = background ? 'true' : 'false';

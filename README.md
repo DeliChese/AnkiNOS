@@ -1,5 +1,16 @@
 # AnkiNOS
 
+## Theme và màu sắc
+
+Vào **Cài đặt AnkiNOS → Giao diện** để chọn **NOS Glass, Tokyo, Mononoke, Catppuccin, Rosé Pine, Nord, Solarized hoặc Dracula**. Hệ thống tham khảo [Onigiri](https://github.com/thepeacemonk/Onigiri), được viết riêng và tinh chỉnh cho AnkiNOS.
+
+- Chọn **Hoàng hôn / Kính tối / OLED / Sáng / Theo hệ thống**. Chế độ hệ thống tự đổi sáng/tối theo máy.
+- Dùng màu **Theo theme**, sáu màu có sẵn hoặc màu tùy chỉnh. Màu chữ, nút và trạng thái được cân chỉnh độ tương phản; heatmap mặc định đi theo màu nhấn.
+- Có mẫu xem trước ngay trong Cài đặt. Nhấn **Áp dụng** để lưu; đóng cửa sổ để bỏ thay đổi chưa áp dụng.
+- Theme dùng chung cho dashboard, bộ thẻ, thống kê, Studio ảnh, thanh ôn tập và sổ tay/lệnh nhanh; lưu riêng từng hồ sơ và đi kèm JSON/gói sao lưu. Nội dung mẫu thẻ giữ cách trình bày riêng của thẻ.
+
+Nguồn tham khảo, cấu trúc và kiểm thử: [THEME-NOTES.md](THEME-NOTES.md).
+
 Dashboard Anki với giao diện kính, học nhanh, Focus, thư viện ảnh, lệnh nhanh và sổ tay.
 
 Hệ thống học nhiều mode của NOS đã được gỡ. Học thẻ dùng reviewer và lịch ôn gốc của Anki; không còn gán trường hoặc thống kê học NOS. Tệp dữ liệu học cũ được giữ trên máy và vẫn có trong gói sao lưu, không được mở hay nâng cấp khi khởi động add-on.

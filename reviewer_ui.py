@@ -70,15 +70,17 @@ def _review_content(content: Any, context: Any) -> None:
         return
     package = mw.addonManager.addonFromModule(__package__)
     base = f"/_addons/{package}/assets"
+    current_settings = _settings()
+    appearance = {key: current_settings[key] for key in ("theme", "color_theme", "accent", "custom_accent") if key in current_settings}
+    content.js.append(f"{base}/theme.js")
     if isinstance(context, Reviewer):
         deck = mw.col.decks.current()
-        current_settings = _settings()
         selected = current_settings.get("image_review")
         background = next(
             (image.get("wall_url") or image["url"] for image in current_settings.get("images", []) if image["id"] == selected),
             None,
         )
-        initial = {"deck": deck["name"], "theme": current_settings.get("theme", "dusk"),
+        initial = {"deck": deck["name"], **appearance,
                    "answered": _answered, "focus": focus_store().status(), "background": background,
                    "background_fit": current_settings.get("image_fit_review", "cover"),
                    "wallpaper_dim": current_settings.get("wallpaper_dim", 28),
@@ -97,10 +99,12 @@ def _review_content(content: Any, context: Any) -> None:
         content.js.append(f"{base}/runtime-guard.js")
         content.js.append(f"{base}/reviewer.js")
     else:
+        content.body += '<textarea id="nos-theme-bootstrap" hidden>' + html.escape(json.dumps(appearance)) + '</textarea>'
         keys = {str(i): mw.pm.get_answer_key(i) or "" for i in (1,2,3,4)}
         content.body += '<textarea id="nos-rating-keys" hidden>' + html.escape(json.dumps(keys)) + '</textarea>'
         content.css.append(f"{base}/reviewer-bottom.css")
         content.js.append(f"{base}/reviewer-bottom.js")
+    content.css.append(f"{base}/theme.css")
 
 
 def _content(content: Any, context: Any) -> None:

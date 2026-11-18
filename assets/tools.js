@@ -4,6 +4,7 @@
   const $=id=>document.getElementById(id), root=$('nos-tool');
   if(!root||window.NOSTool)return;
   let initial={};try{initial=JSON.parse($('nos-tool-bootstrap')?.textContent||'{}');}catch{}
+  window.NOSTheme.watch(root,()=>initial.settings||{},true);
   const requested=initial.kind||new URLSearchParams(location.search).get('tool');
   const kind=['palette','workspace'].includes(requested)?requested:'workspace';
   const native=initial.native===true, started=performance.now();

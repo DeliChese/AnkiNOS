@@ -61,8 +61,9 @@
     else if (restore) $('overview-menu-toggle').focus();
   }
 
+  window.NOSTheme.watch(app,()=>state.settings,true);
   function theme() {
-    app.dataset.theme=state.settings.theme||'dusk';
+    window.NOSTheme.apply(app,state.settings,true);
     const selected = (state.settings.images || []).find(image => image.id === state.settings.image_overview);
     const safe = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}(?:-wall)?\.(?:png|jpg|webp)$/;
     const imageUrl = [selected?.wall_url, selected?.url].find(url => url && safe.test(url)) || '';

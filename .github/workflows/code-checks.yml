@@ -21,6 +21,10 @@ jobs:
         run: python -m compileall -q integration.py reviewer_ui.py media_store.py data.py graphs_data.py
       - name: Local image library tests
         run: python -m unittest discover -s tests -p 'test_media.py'
+      - name: Theme preferences and archive tests
+        run: |
+          python -m unittest discover -s tests -p 'test_theme.py'
+          python -m unittest discover -s tests -p 'test_backup.py'
       - name: Install Anki backend
         run: python -m pip install "anki>=25.02,<27"
       - name: Native statistics backend tests
@@ -28,6 +32,7 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check assets/dashboard.js
+          node --check assets/theme.js
           node --check assets/media-studio.js
           node --check assets/stats-page.js
           node --check assets/overview.js
@@ -36,3 +41,7 @@ jobs:
         env:
           NOS_CHROME: /usr/bin/google-chrome
         run: node tests/ui-check.mjs
+      - name: Theme contrast and responsive browser checks
+        env:
+          NOS_CHROME: /usr/bin/google-chrome
+        run: node tests/theme-check.mjs

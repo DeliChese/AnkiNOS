@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="assets/stats-page.css">
   <link rel="stylesheet" href="assets/focus-dashboard.css">
   <link rel="stylesheet" href="assets/study-dashboard.css">
-</head>
+<link rel="stylesheet" href="assets/theme.css"></head>
 <body>
   <div id="nos-app" data-theme="dusk" data-page="home">
     <div class="wallpaper" aria-hidden="true"><img class="nos-wallpaper-image" alt="" decoding="async" hidden></div>
@@ -187,7 +187,10 @@
           <div class="settings-content" id="settings-content">
             <!-- TAB 1: Giao diện -->
             <div class="settings-tab-pane" id="stab-appearance">
-              <div class="settings-group-title">Chủ đề giao diện (Theme)</div>
+              <div class="settings-group-title">Bộ màu giao diện</div>
+              <p class="theme-help">Chọn một không gian học. Mỗi bộ màu có bản sáng và tối, dùng chung trên các trang AnkiNOS.</p>
+              <div class="palette-grid" id="theme-palette-grid" aria-label="Bộ màu giao diện"></div>
+              <div class="settings-group-title">Chế độ hiển thị</div>
               <div class="theme-options-grid">
                 <button class="theme-pill-btn active" data-set-theme="dusk">
                   <span class="theme-swatch dusk"></span>
@@ -205,17 +208,27 @@
                   <span class="theme-swatch light"></span>
                   <div><strong>Sáng (Light)</strong><small>Thanh lịch dịu mắt</small></div>
                 </button>
+                <button class="theme-pill-btn" data-set-theme="system"><span class="theme-swatch light"></span><div><strong>Theo hệ thống</strong><small>Tự đổi sáng / tối</small></div></button>
               </div>
 
               <div class="settings-group-title">Màu điểm nhấn (Accent Color)</div>
               <div class="accent-color-row">
-                <button class="accent-dot-btn active" data-set-accent="blue" style="--c:#83b8ff;" title="Xanh dương"></button>
-                <button class="accent-dot-btn" data-set-accent="cyan" style="--c:#38bdf8;" title="Xanh ngọc"></button>
-                <button class="accent-dot-btn" data-set-accent="mint" style="--c:#34d399;" title="Xanh bạc hà"></button>
-                <button class="accent-dot-btn" data-set-accent="purple" style="--c:#c084fc;" title="Tím lavender"></button>
-                <button class="accent-dot-btn" data-set-accent="amber" style="--c:#fbbf24;" title="Cam hổ phách"></button>
-                <button class="accent-dot-btn" data-set-accent="pink" style="--c:#f472b6;" title="Hồng pastel"></button>
+                <button class="accent-dot-btn" data-set-accent="auto" title="Màu đề xuất của bộ theme" aria-label="Màu đề xuất của bộ theme">Theo theme</button>
+                <button class="accent-dot-btn active" data-set-accent="blue" style="--c:#83b8ff;" title="Xanh dương" aria-label="Xanh dương"></button>
+                <button class="accent-dot-btn" data-set-accent="cyan" style="--c:#38bdf8;" title="Xanh ngọc" aria-label="Xanh ngọc"></button>
+                <button class="accent-dot-btn" data-set-accent="mint" style="--c:#34d399;" title="Xanh bạc hà" aria-label="Xanh bạc hà"></button>
+                <button class="accent-dot-btn" data-set-accent="purple" style="--c:#c084fc;" title="Tím lavender" aria-label="Tím lavender"></button>
+                <button class="accent-dot-btn" data-set-accent="amber" style="--c:#fbbf24;" title="Cam hổ phách" aria-label="Cam hổ phách"></button>
+                <button class="accent-dot-btn" data-set-accent="pink" style="--c:#f472b6;" title="Hồng pastel" aria-label="Hồng pastel"></button>
               </div>
+              <label class="custom-accent-label" for="set-custom-accent">Màu tùy chỉnh <input id="set-custom-accent" type="color" value="#83b8ff"><code id="custom-accent-value">#83b8ff</code></label>
+              <section id="theme-preview" class="theme-preview" aria-label="Xem trước giao diện đang chọn">
+                <div class="theme-preview-head"><strong id="theme-preview-name">NOS Glass</strong><small>Xem trước · chưa lưu</small></div>
+                <div class="theme-preview-panel"><div><strong>Bước tiếp theo của bạn</strong><p>24 thẻ đang chờ · khoảng 8 phút</p></div><span class="theme-preview-cta">Học ngay →</span></div>
+                <div class="theme-preview-heat" aria-hidden="true"><i style="--cell:var(--heat-0)"></i><i style="--cell:var(--heat-1)"></i><i style="--cell:var(--heat-2)"></i><i style="--cell:var(--heat-3)"></i><i style="--cell:var(--heat-4)"></i></div>
+                <div class="theme-preview-status"><span>✓ Đã hoàn thành</span><span>◷ Đang học</span><span>◎ Cần chú ý</span></div>
+              </section>
+              <p class="theme-help">Màu chữ và nút được cân chỉnh độ tương phản. Nhấn Áp dụng để lưu theo hồ sơ; đóng cửa sổ để bỏ phần chưa áp dụng.</p>
 
               <div class="settings-group-title">Hiệu ứng hiển thị</div>
               <div class="settings-row">
@@ -455,7 +468,7 @@
     <div class="chart-tooltip" id="chart-tooltip" role="tooltip" hidden></div>
     <div class="heat-tooltip" id="heat-tooltip" role="tooltip" hidden></div>
   </div>
-  <script src="assets/dashboard.js"></script>
+  <script src="assets/theme.js"></script><script src="assets/dashboard.js"></script>
   <script src="assets/media-studio.js"></script>
   <script src="assets/stats-page.js"></script>
   <script src="assets/focus-dashboard.js"></script>

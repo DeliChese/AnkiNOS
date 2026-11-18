@@ -1,0 +1,145 @@
+/* Semantic theme adapters, loaded after feature styles. Never select #qa. */
+html[data-nos-theme="true"], html[data-nos-theme="true"] body { background:var(--theme-bg) !important; }
+#nos-app[data-color-theme] { color:var(--text); background:var(--theme-bg); accent-color:var(--blue); }
+#nos-app[data-color-theme] .wallpaper { background:var(--theme-bg) !important; }
+#nos-app[data-color-theme] .wallpaper::after { background:transparent; }
+#nos-app[data-color-theme][data-custom-background="true"] .wallpaper::after { background:rgba(0,0,0,var(--wall-dim,.28)); }
+#nos-app[data-color-mode="light"][data-custom-background="true"] .wallpaper::after { background:rgba(255,255,255,var(--wall-dim,.28)); }
+#nos-app[data-color-theme] .glass { background:var(--glass) !important; color:var(--text) !important; border-color:var(--edge) !important; }
+#nos-app[data-color-theme] :is(.rail,.settings-panel,.library-panel,.profile-panel,.launcher,.info-panel,.heat-tooltip,.chart-tooltip,.toast,.overview-menu,.study-launchpad,.study-insight,.command-preview-dialog) { background:var(--surface) !important; color:var(--text); border-color:var(--edge); }
+#nos-app[data-color-theme] :is(.settings-sidebar,.library-toolbar,.daily-goal,.overview-count) { background:var(--inner) !important; }
+#nos-app[data-color-theme] :is(.rail-button,.count,.deck-name,.resource-name,.overview-completed>strong,.overview-collection-total strong,.overview-breadcrumb button,.settings-nav-btn:hover,.study-actions .subtle-button,.study-insight button) { color:var(--text); }
+#nos-app[data-color-theme] :is(.settings-nav-btn.active,.rail-button.active,.filter-button.active,.segmented .selected,.period-button.active,.palette-card.active,.theme-pill-btn.active,.scale-btn.active) { background:var(--accent-soft) !important; border-color:var(--blue); color:var(--blue); box-shadow:none; }
+#nos-app[data-color-theme] :is(.topbar,.overview-topbar,.settings-heading,.settings-footer,.library-sidebar,.library-heading,.library-footer,.settings-row,.settings-group-title,.overview-day-stat,.overview-collection-total) { border-color:var(--edge); }
+#nos-app[data-color-theme] :is(.overview-description,.overview-top-caption,.overview-breadcrumb,.overview-deck-type,.count-caption,.overview-start-row p,.overview-today-context,.overview-today-message,.study-launchpad p,.study-launchpad .eyebrow,.study-launchpad details,.study-selection label,.study-insight small,.nos-focus-head p,#nos-focus-history-status,.nos-focus-metric span,.nos-focus-day) { color:var(--muted); }
+#nos-app[data-color-theme] :is(.subdecks-button,.overview-description-toggle,.overview-view-children,.overview-day-stat strong,.study-launchpad .study-queue) { color:var(--blue); }
+#nos-app[data-color-theme] :is(input:not([type="checkbox"]):not([type="range"]):not([type="color"]),select,textarea,option,.search-box) { color:var(--text); background:var(--inner); border-color:var(--edge); }
+#nos-app[data-color-theme] input::placeholder { color:var(--muted); opacity:1; }
+#nos-app[data-color-theme] :is(.primary-button,.study-actions .primary-button,.overview-start,.settings-footer #btn-apply-settings) { background:var(--primary); border-color:var(--primary); color:var(--on-primary); box-shadow:none; }
+#nos-app[data-color-theme] .start-shortcut { color:inherit; border-color:currentColor; }
+#nos-app[data-color-theme] :is(button,input,select,textarea,.heat-cell):focus-visible { outline-color:var(--focus); }
+#nos-app[data-color-theme] .accent-dot-btn.active { border-color:var(--text); box-shadow:0 0 0 2px var(--surface); }
+#nos-app[data-color-theme] :is(.status-dot,.nos-switch input:checked + .nos-slider) { background:var(--success); }
+#nos-app[data-color-theme] .goal-ring { background:conic-gradient(var(--success) var(--progress),var(--edge) 0); }
+#nos-app[data-color-theme] .goal-ring::before { background:var(--surface); }
+#nos-app[data-color-theme] .progress-track > span { background:var(--success); }
+#nos-app[data-color-theme] .count-new { --queue-color:var(--blue); }
+#nos-app[data-color-theme] .count-learn { --queue-color:var(--danger); }
+#nos-app[data-color-theme] .count-review { --queue-color:var(--success); }
+#nos-app[data-color-theme] .overview-ready { color:var(--success); background:var(--inner); border-color:var(--edge); }
+#nos-app[data-color-theme] .heat-0 { background:var(--heat-0); }
+#nos-app[data-color-theme][data-heat-palette="default"] .heat-1 { background:var(--heat-1); }
+#nos-app[data-color-theme][data-heat-palette="default"] .heat-2 { background:var(--heat-2); }
+#nos-app[data-color-theme][data-heat-palette="default"] .heat-3 { background:var(--heat-3); }
+#nos-app[data-color-theme][data-heat-palette="default"] .heat-4 { background:var(--heat-4); box-shadow:none; }
+#nos-app[data-color-theme] .month-map .heat-0 { color:var(--heat-text-0); }
+#nos-app[data-color-theme] .month-map .heat-1 { color:var(--heat-text-1); }
+#nos-app[data-color-theme] .month-map .heat-2 { color:var(--heat-text-2); }
+#nos-app[data-color-theme] .month-map .heat-3 { color:var(--heat-text-3); }
+#nos-app[data-color-theme] .month-map .heat-4 { color:var(--heat-text-4); }
+#nos-app[data-color-theme] .heat-cell.today { outline-color:var(--text); }
+#nos-app[data-color-theme] .library-popover::before { background:var(--edge); }
+#nos-app[data-color-theme] :is(.library-popover::after,.info-panel::before) { background:var(--surface); }
+#nos-app[data-color-theme] #nos-focus-history { color:var(--text); background:var(--glass); border-color:var(--edge); }
+
+/* Theme picker and isolated draft preview. */
+#nos-app .settings-panel { width:920px; height:760px; }
+#nos-app .palette-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+#nos-app .palette-card { display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:11px; border:1px solid var(--edge); border-radius:12px; background:var(--inner); white-space:normal; }
+#nos-app .palette-card strong { font-size:12px; }
+#nos-app .palette-card small { color:var(--muted); font-size:10px; }
+#nos-app .palette-colors { display:flex; height:17px; gap:3px; margin-bottom:4px; }
+#nos-app .palette-colors i { flex:1; border-radius:4px; border:1px solid #8884; }
+#nos-app .theme-help { color:var(--muted); font-size:11px; margin:8px 0 12px; }
+#nos-app .accent-color-row { flex-wrap:wrap; }
+#nos-app .accent-dot-btn[data-set-accent="auto"] { width:auto; min-width:44px; padding:5px 9px; font-size:11px; border-radius:8px; background:var(--inner); color:var(--text); }
+#nos-app .custom-accent-label { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:11px; margin:5px 0 14px; flex-wrap:wrap; }
+#nos-app #set-custom-accent { width:38px; height:30px; padding:2px; background:var(--inner); border:1px solid var(--edge); border-radius:7px; cursor:pointer; }
+#nos-app .theme-preview { background:var(--theme-bg); color:var(--text); border:1px solid var(--edge); border-radius:14px; padding:16px; margin:14px 0; }
+#nos-app .theme-preview-head { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:12px; margin-bottom:12px; }
+#nos-app .theme-preview-head small { color:var(--muted); font-size:10px; }
+#nos-app .theme-preview-panel { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center; padding:12px; background:var(--surface); border:1px solid var(--edge); border-radius:10px; }
+#nos-app .theme-preview-panel p { font-size:11px; color:var(--muted); }
+#nos-app .theme-preview-cta { background:var(--primary); color:var(--on-primary); padding:7px 12px; border-radius:8px; font-size:11px; font-weight:650; }
+#nos-app .theme-preview-heat { display:flex; gap:4px; margin-top:12px; }
+#nos-app .theme-preview-heat i { width:16px; height:16px; border-radius:3px; background:var(--cell); }
+#nos-app .theme-preview-status { display:flex; flex-wrap:wrap; gap:12px; margin-top:9px; font-size:10px; color:var(--muted); }
+#nos-app .theme-preview-status span:first-child { color:var(--success); }
+#nos-app .theme-preview-status span:last-child { color:var(--warning); }
+@media(max-width:480px) { #nos-app .theme-pill-btn { padding:8px; gap:7px; white-space:normal; } }
+@media(max-width:359px) { #nos-app .palette-grid { grid-template-columns:minmax(0,1fr); } }
+
+/* Reviewer chrome only. The card's authored text/background remain native. */
+#nos-review-shell[data-color-theme] .nos-review-wallpaper { background:var(--theme-bg); }
+#nos-review-shell[data-color-theme] .nos-review-wallpaper::after { background:transparent; }
+#nos-review-shell[data-color-theme][data-custom-background="true"] .nos-review-wallpaper::after { background:rgba(0,0,0,var(--wall-dim,.28)); }
+#nos-review-shell[data-color-theme] #nos-review-header { background:var(--surface); color:var(--text); border-color:var(--edge); }
+#nos-review-shell[data-color-theme] :is(#nos-review-header button,#nos-review-tools select,#nos-review-side,#nos-focus-summary,#nos-focus-summary button) { background:var(--surface); color:var(--text); border-color:var(--edge); }
+#nos-review-shell[data-color-theme] #nos-review-progress { color:var(--muted); }
+#nos-review-shell[data-color-theme] #nos-focus-time { color:var(--success); }
+#nos-review-shell[data-color-theme] #nos-focus-time[data-paused="true"] { color:var(--warning); }
+#nos-review-shell[data-color-theme] #nos-focus-summary { background:var(--surface); }
+html[data-nos-ratings="true"] body { color:var(--text); border-color:var(--edge); }
+html[data-nos-ratings="true"],html[data-nos-ratings="true"] body { background:var(--surface) !important; }
+html[data-nos-ratings="true"] :is(#middle button,#innertable .stat>button) { background:var(--inner); color:var(--text); border-color:var(--edge); }
+html[data-nos-ratings="true"] #middle #ansbut { background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
+html[data-nos-ratings="true"] #middle button[data-ease="1"] { --rating:var(--danger); color:var(--danger); }
+html[data-nos-ratings="true"] #middle button[data-ease="2"] { --rating:var(--warning); color:var(--warning); }
+html[data-nos-ratings="true"] #middle button[data-ease="3"] { --rating:var(--blue); color:var(--blue); }
+html[data-nos-ratings="true"] #middle button[data-ease="4"] { --rating:var(--success); color:var(--success); }
+html[data-nos-ratings="true"] #time { color:var(--muted); }
+
+/* Separate command/notebook WebViews share the profile palette. */
+#nos-tool[data-color-theme] { background:var(--theme-bg); color:var(--text); }
+#nos-tool[data-color-theme] :is(button,input,textarea,select,.panel,.note-card,.notice,.command-result,.note-editor) { background:var(--surface); color:var(--text); border-color:var(--edge); }
+#nos-tool[data-color-theme] :is(.muted,small,label,.tool-header p,.tool-footer,.tool-brand,.tool-status,.command-result small) { color:var(--muted); }
+#nos-tool[data-color-theme] button:hover { background:var(--hover); }
+#nos-tool[data-color-theme] .primary { background:var(--primary); color:var(--on-primary); }
+#nos-tool[data-color-theme] .tool-status.error { color:var(--danger); }
+#nos-tool[data-color-theme] :is(button,input,select,textarea,summary):focus-visible { outline-color:var(--focus); }
+
+/* Reports and media keep the same surfaces as the dashboard. Chart categories
+   keep their own hues; only neutral labels/grid and the default series change. */
+#nos-app[data-color-theme] .stats-native-card { background:var(--surface); border-color:var(--edge); }
+#nos-app[data-color-theme] .stats-native-card :is(.stats-card-foot,.stats-card-foot strong) { color:var(--muted); }
+#nos-app[data-color-theme] .stats-native-card .stats-chart .stats-axis-txt { fill:var(--muted); }
+#nos-app[data-color-theme] .stats-native-card .stats-chart .stats-plot-grid { stroke:var(--edge); }
+#nos-app[data-color-theme] .stats-native-card .stats-chart .stats-bar { fill:var(--blue); }
+#nos-app[data-color-theme] .stats-native-card .stats-chart .stats-line { stroke:var(--warning); }
+#nos-app[data-color-theme] .stats-eyebrow { color:var(--blue); }
+#nos-app[data-color-theme] :is(.workspace-footer,.overview-footer,.overview-quiet-note,.overview-quiet-note>span,.overview-collection-total small,.streak-badge,.heat-month:hover,.calendar-today:hover) { color:var(--muted); }
+#nos-app[data-color-theme] :is(.year-control,.segmented,.overview-start-row) { background:var(--inner); border-color:var(--edge); }
+#nos-app[data-color-theme] :is(.overview-deck-icon .icon,.overview-menu-items .icon,.overview-today-icon) { color:var(--blue); }
+#nos-app[data-color-theme] .overview-menu-items .overview-delete { color:var(--danger); }
+#nos-app[data-color-theme] .streak-badge { background:var(--inner); border-color:var(--edge); }
+#nos-app[data-color-theme] .stat-card[data-direction="up"] .stat-trend strong,#nos-app[data-color-theme] .sparkline[data-direction="up"] { color:var(--success); }
+#nos-app[data-color-theme] .stat-card[data-direction="down"] .stat-trend strong,#nos-app[data-color-theme] .sparkline[data-direction="down"] { color:var(--danger); }
+#nos-app[data-color-theme] :is(.nos-studio-dialog,.nos-studio-head,.nos-studio-albums,.nos-studio-content,.nos-studio-inspector,.nos-studio-tile,.nos-studio-preview,.nos-studio-search) { background:var(--surface); color:var(--text); border-color:var(--edge); }
+#nos-app[data-color-theme] :is(.nos-studio-heading p,.nos-studio-heading .nos-studio-kicker,.nos-studio-label,.nos-studio-side-note,.nos-studio-gallery-top p,.nos-studio-gallery-empty,.nos-studio-preview p,.nos-studio-meta,.nos-studio-field-label,.nos-studio-hint,.nos-studio-targets button span,.nos-studio-tile-caption small,.nos-studio-album-list small,.nos-studio-album-editor label) { color:var(--muted); }
+#nos-app[data-color-theme] .nos-studio-album-list button.active { color:var(--blue); background:var(--accent-soft); border-color:var(--blue); }
+#nos-app[data-color-theme] .nos-studio-gallery .nos-studio-tile.selected { border-color:var(--blue); box-shadow:inset 0 0 0 1px var(--blue); }
+#nos-app[data-color-theme] .nos-studio-targets button.active { background:var(--inner); border-color:var(--success); }
+#nos-app[data-color-theme] :is(.nos-studio-targets button.active span,.nos-studio-status) { color:var(--success); }
+#nos-app[data-color-theme] .nos-studio-danger { color:var(--danger); border-color:var(--danger); background:var(--inner); }
+#nos-app[data-color-theme] .nos-studio-head-actions .nos-studio-import { background:var(--primary); color:var(--on-primary); }
+#nos-tool[data-color-theme] :is(.note-item[aria-current="true"],.command-result[aria-selected="true"]) { background:var(--accent-soft); border-color:var(--blue); }
+#nos-tool[data-color-theme] button.danger { color:var(--danger); border-color:var(--danger); }
+@media(max-width:640px) {
+  #nos-app .settings-panel { width:96vw; max-width:96vw; height:90dvh; max-height:90dvh; }
+  #nos-app .settings-heading { padding:12px; }
+  #nos-app .settings-body { flex-direction:column; }
+  #nos-app .settings-sidebar { width:100%; min-width:0; flex-direction:row; flex-shrink:0; overflow-x:auto; overflow-y:hidden; padding:8px; border-right:0; border-bottom:1px solid var(--edge); }
+  #nos-app .settings-nav-btn { width:auto; flex-shrink:0; padding:8px; }
+  #nos-app .settings-content { padding:14px; min-height:0; }
+  #nos-app .settings-footer { flex-wrap:wrap; gap:8px; padding:10px 12px; }
+  #nos-app .settings-footer #settings-save-status { flex:1; min-width:130px; }
+}
+@media print {
+  html[data-nos-theme="true"],html[data-nos-theme="true"] body,#nos-app[data-color-theme] {
+    --theme-bg:#ffffff !important; --surface:#ffffff !important; --glass:#ffffff !important;
+    --text:#172033 !important; --muted:#475569 !important; --faint:#475569 !important;
+    --blue:#24549a !important; --edge:#cbd5e1 !important; --inner:#f1f5f9 !important;
+    --success:#246a43 !important; --danger:#ad304b !important; --warning:#81550f !important;
+    --panel-shadow:none !important;
+  }
+}

@@ -18,6 +18,8 @@ import zipfile
 from .media_store import (IMAGE_FITS, MAX_IMAGE_BYTES, SLOTS, WALLPAPER_BLUR_MAX, WALLPAPER_DIM_MAX,
                           profile_dir, valid_albums, valid_images)
 
+from .theme_settings import clean_theme_settings
+
 FORMAT = "AnkiNOS-profile"
 MAX_TOTAL = 2 * 1024**3
 MAX_FILES = 310
@@ -43,13 +45,12 @@ def _check_database(name: str, path: Path) -> dict:
 def clean_settings(raw: object) -> dict:
     if not isinstance(raw, dict):
         raise ValueError("Cấu hình trong gói sao lưu không hợp lệ.")
-    result = {}
+    result = clean_theme_settings(raw)
     for key in ("activity_collapsed", "library_collapsed", "sidebar_collapsed", "blur", "animations",
                 "lite_mode", "stat_retention", "stat_pace", "stat_time", "stat_studied"):
         if type(raw.get(key)) is bool:
             result[key] = raw[key]
-    for key, allowed in {"theme": {"dusk", "night", "oled", "light"},
-        "accent": {"blue", "cyan", "mint", "purple", "amber", "pink"}, "view": {"list", "grid"},
+    for key, allowed in {"view": {"list", "grid"},
         "heatmap_day": {"monday", "sunday"}, "heatmap_palette": {"default", "green", "orange", "purple"}}.items():
         if isinstance(raw.get(key), str) and raw[key] in allowed:
             result[key] = raw[key]
