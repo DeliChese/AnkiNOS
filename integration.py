@@ -24,6 +24,7 @@ from .data import collect_snapshot, collect_overview_snapshot, collect_history_y
 from .graphs_data import collect_native_graphs
 from .study_data import collect_support, insight_cards, clear_cache as clear_support_cache
 from .backup_store import export_archive, inspect_archive, restore_archive
+from .theme_settings import THEME_DEFAULTS, clean_theme_settings
 from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, WALLPAPER_SUFFIX, WALLPAPER_MAX_SIDE,
                           WALLPAPER_DIM_MAX, WALLPAPER_BLUR_MAX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
@@ -276,7 +277,7 @@ def _begin_navigation() -> None:
 
 def settings() -> dict[str, Any]:
     profile = config().get("profiles", {}).get(mw.pm.name, {})
-    return {"goal": 200, "theme": "dusk", "accent": "blue",
+    return {"goal": 200, **THEME_DEFAULTS,
             "activity_collapsed": False, "library_collapsed": False, "sidebar_collapsed": False,
             "favorites": [], "colors": {}, "resources": [], "view": "list",
             "blur": True, "animations": True, "ui_scale": 100,
@@ -924,6 +925,7 @@ def _replace_content(content: Any, context: Any) -> None:
     if overview:
         content.css = [p for p in content.css if p != "css/overview.css"]
         content.css.append(f"{base}/overview.css")
+    content.js.append(f"{base}/theme.js")
     content.js.append(f"{base}/runtime-guard.js")
     content.js.append(f"{base}/overview.js" if overview else f"{base}/dashboard.js")
     if not overview:
@@ -935,6 +937,7 @@ def _replace_content(content: Any, context: Any) -> None:
         content.js.append(f"{base}/media-studio.js")
         content.css.append(f"{base}/study-dashboard.css")
         content.js.append(f"{base}/study-dashboard.js")
+    content.css.append(f"{base}/theme.css")
 
 
 
@@ -1164,7 +1167,7 @@ def _save_ui(values: Any) -> None:
     """Persist only supported profile settings; ignore malformed WebView data."""
     if not isinstance(values, dict):
         return
-    patch: dict[str, Any] = {}
+    patch: dict[str, Any] = clean_theme_settings(values)
     for key in (
         "activity_collapsed", "library_collapsed", "sidebar_collapsed", "blur",
         "animations", "lite_mode", "stat_retention", "stat_pace",
@@ -1173,13 +1176,11 @@ def _save_ui(values: Any) -> None:
         if type(values.get(key)) is bool:
             patch[key] = values[key]
     for key, allowed in {
-        "theme": {"dusk", "night", "oled", "light"},
-        "accent": {"blue", "cyan", "mint", "purple", "amber", "pink"},
         "view": {"list", "grid"},
         "heatmap_day": {"monday", "sunday"},
         "heatmap_palette": {"default", "green", "orange", "purple"},
     }.items():
-        if values.get(key) in allowed:
+        if isinstance(values.get(key), str) and values[key] in allowed:
             patch[key] = values[key]
     if type(values.get("goal")) is int and 1 <= values["goal"] <= 100_000:
         patch["goal"] = values["goal"]

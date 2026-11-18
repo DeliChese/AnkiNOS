@@ -1,0 +1,15 @@
+# AnkiNOS themes
+
+The theme model was informed by [Onigiri](https://github.com/thepeacemonk/Onigiri) at commit `db8c719fa90eccbb815b0c66809e1ae23febee59`, especially its [light/dark theme definitions](https://github.com/thepeacemonk/Onigiri/blob/db8c719fa90eccbb815b0c66809e1ae23febee59/rendering/themes.py) and [semantic palette completion](https://github.com/thepeacemonk/Onigiri/blob/db8c719fa90eccbb815b0c66809e1ae23febee59/rendering/theme_palette.py). No Onigiri implementation code, stylesheets, icons, or artwork is bundled. This is an independent implementation for AnkiNOS's existing WebViews and profile storage.
+
+Eight curated palettes: NOS Glass, Tokyo, Mononoke, Catppuccin, Rosé Pine, Nord, Solarized, Dracula. Familiar community colors are inspired by [Catppuccin](https://github.com/catppuccin/catppuccin), [Rosé Pine](https://rosepinetheme.com/palette/), [Nord](https://www.nordtheme.com/docs/colors-and-palettes), [Solarized](https://ethanschoonover.com/solarized/), and [Dracula](https://draculatheme.com/contribute). Several light variants and surface colors are adjusted specifically for NOS; they are not exact replicas of those projects.
+
+`assets/theme.js` owns all palette definitions and derived tokens. It resolves existing `theme` values (`dusk`, `night`, `oled`, `light`) plus `system`, with the independent `color_theme` preference. OLED preserves a black page canvas; system follows `prefers-color-scheme` live. Existing settings default to NOS Glass and their previous accent. Selecting a palette sets `accent=auto`; users can override it with a swatch or `#RRGGBB` color.
+
+Derived tokens cover surfaces, text, borders, accent links, primary buttons, status colors and heatmap cells. Relative luminance determines readable button text; link/status/secondary colors are adjusted to at least 4.5:1 against the opaque surface. Custom colors are kept as selected for decoration and adjusted where needed for controls. These numerical checks do not certify every text/background combination or arbitrary card content. Explicit heatmap color choices and deck-folder colors remain independent.
+
+`assets/theme.css` adapts dashboard, overview, statistics, Media Studio, reviewer chrome, native rating controls, and command/notebook WebViews. It does not select or restyle `#qa`, authored card text, or native editor/browser dialogs. Everything works offline. No application-wide Qt stylesheet is installed.
+
+Settings are previewed on an isolated sample until **Áp dụng**. Closing discards unapplied changes. Profile persistence, JSON import/export and `.nosbackup` use the same appearance keys; `theme_settings.py` validates them at native save and archive boundaries.
+
+Validation: `tests/test_theme.py`, `tests/test_backup.py`, `node tests/theme-check.mjs`, `node tests/ui-check.mjs`, and `tests/anki-smoke.py` using Anki's Python environment. Browser checks cover 440 color combinations, actual system-mode changes, apply/cancel, 320–768 px pickers, and card-style isolation. The offscreen Anki test uses its own disposable profile.

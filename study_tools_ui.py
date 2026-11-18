@@ -57,11 +57,13 @@ class ToolDialog(QDialog):
         layout.addWidget(self.web)
         body = re.search(r"<body[^>]*>(.*?)</body>",(ROOT/"ankios-tools.html").read_text(encoding="utf-8"),re.S).group(1)
         body = re.sub(r"<script\b[^>]*>.*?</script>","",body,flags=re.S)
-        initial = {"kind":kind,"native":True,"deck":self.deck_name,"deck_id":str(self.did),"note_id":self.note_id}
+        from .integration import settings
+        appearance = {key: value for key, value in settings().items() if key in {"theme", "color_theme", "accent", "custom_accent"}}
+        initial = {"settings":appearance,"kind":kind,"native":True,"deck":self.deck_name,"deck_id":str(self.did),"note_id":self.note_id}
         body += '<textarea id="nos-tool-bootstrap" hidden>'+html.escape(json.dumps(initial,ensure_ascii=True))+'</textarea>'
         package = mw.addonManager.addonFromModule(__package__)
         base = f"/_addons/{package}/assets"
-        self.web.stdHtml(body,css=[base+"/tools.css"],js=[base+"/tools.js",base+"/commands.js",base+"/notebook.js"],context=self,default_css=False)
+        self.web.stdHtml(body,css=[base+"/tools.css",base+"/theme.css"],js=[base+"/theme.js",base+"/tools.js",base+"/commands.js",base+"/notebook.js"],context=self,default_css=False)
 
     def live(self):
         return not self.closed and mw.col is self.collection and mw.pm.name == self.profile

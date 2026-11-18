@@ -59,7 +59,7 @@ def main():
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "legacy_learning_backup.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
+    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
     set_lang("en_US")
@@ -327,6 +327,10 @@ def main():
     until("!!window.AnkiNOS && document.getElementById('overview-name')?.textContent === 'Real cards'")
     overview_ready_ms=round((time.perf_counter()-overview_started)*1000)
     assert js("!!document.getElementById('nos-overview-bootstrap')"), "Ship queue metadata with the HTML"
+    integration._save_ui({"color_theme":"mononoke", "accent":"custom", "custom_accent":"#91b78a"})
+    integration.send("settings", integration.public_settings())
+    until("document.getElementById('nos-app').dataset.colorTheme === 'mononoke'")
+    assert integration.settings()["custom_accent"] == "#91b78a"
     assert not js("document.getElementById('study').disabled")
     assert js("document.getElementById('overview-new').textContent") == "1"
     # The selected deck must also update without rebuilding its overview page.
@@ -360,11 +364,14 @@ def main():
     assert aqt.mw.toolbarWeb.isHidden() and not aqt.mw.bottomWeb.isHidden(), "Use the review header and keep native rating controls"
     until("typeof _showQuestion === 'function' && !!document.getElementById('qa')")
     until("!!window.NOSReview && document.getElementById('qa').textContent.includes('disposable AnkiNOS')")
+    assert js("document.getElementById('nos-review-shell').dataset.colorTheme") == "mononoke"
     review_ready_ms=round((time.perf_counter()-review_started)*1000)
     wait(150)
     assert aqt.mw.reviewer.card is not None
     bottom=aqt.mw.bottomWeb
     until("!!document.getElementById('ansbut')",bottom)
+    assert js("document.documentElement.dataset.colorTheme",bottom) == "mononoke"
+    assert js("document.documentElement.dataset.nosRatings",bottom) == "true"
     flip_started=time.perf_counter()
     js("(()=>{document.getElementById('ansbut').click();return true})()",bottom)
     until("document.getElementById('qa').textContent.includes('Test answer')")
@@ -553,6 +560,7 @@ def main():
     report.update(live_deck_and_note_edits=True,library_stays_open_after_edits=True,
                   create_dialog_stays_open_after_save=True,overview_updates_without_reload=True)
     report.update(calendar_archive_month_navigation=True)
+    report.update(shared_profile_theme=True,custom_accent_persisted=True,themed_reviewer_and_native_ratings=True)
     report.update(dashboard_to_native_focus=True,focus_30_minutes=True,focus_summary=True,
         full_backup_roundtrip=True,restore_cancel_preserves_settings=True,restore_creates_recovery=True,
         automatic_native_fallback=True)

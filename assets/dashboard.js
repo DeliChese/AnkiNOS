@@ -123,7 +123,7 @@
       if (previous.heatmap_day !== state.settings.heatmap_day) renderHeatmap();
     }
     // Never send the image gallery (or large resource lists) back over pycmd.
-    const keys = ['goal','theme','accent','blur','animations','lite_mode','ui_scale',
+    const keys = ['goal','theme','color_theme','accent','custom_accent','blur','animations','lite_mode','ui_scale',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
       'activity_collapsed','library_collapsed','sidebar_collapsed','view',
       // Image assignments belong exclusively to Studio and save immediately.
@@ -209,14 +209,9 @@
     });
   }
 
-  const ACCENT_MAP = {
-    blue: '#83b8ff',
-    cyan: '#38bdf8',
-    mint: '#34d399',
-    purple: '#c084fc',
-    amber: '#fbbf24',
-    pink: '#f472b6'
-  };
+  window.NOSTheme.watch(app,()=>state.settings,true);
+  window.NOSTheme.cards($('theme-palette-grid'),id=>saveUI({color_theme:id,accent:'auto'}));
+  window.NOSTheme.watch($('theme-preview'),()=>settingsDraft||state.settings,false,()=>window.NOSTheme.sync(settingsDraft||state.settings));
 
   function openSettings(initialTab = 'appearance') {
     closePopups();
@@ -254,6 +249,7 @@
   }
 
   function syncSettingsForm(s = settingsDraft || state.settings) {
+    window.NOSTheme.sync(s);
     app.querySelectorAll('.theme-pill-btn').forEach(btn => {
       btn.classList.toggle('active', (btn.dataset.setTheme || 'dusk') === (s.theme || 'dusk'));
     });
@@ -314,7 +310,7 @@
   function resetSettings() {
     if (confirm('Khôi phục toàn bộ cài đặt AnkiNOS về mặc định ban đầu?')) {
       const defaults = {
-        goal: 200, theme: 'dusk', accent: 'blue',
+        goal: 200, theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
         blur: true, animations: true, ui_scale: 100,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
         heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false
@@ -350,7 +346,7 @@
   function applySettings() {
     const s = state.settings;
     const signature = JSON.stringify([
-      s.theme,s.accent,s.blur,s.animations,s.lite_mode,s.ui_scale,
+      s.theme,s.color_theme,s.accent,s.custom_accent,s.blur,s.animations,s.lite_mode,s.ui_scale,
       s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
       s.heatmap_palette,s.activity_collapsed,s.sidebar_collapsed,s.view,
       s.image_dashboard,s.image_avatar,
@@ -359,7 +355,7 @@
     ]);
     if (signature === lastAppliedSettings) return;
     lastAppliedSettings = signature;
-    app.dataset.theme = s.theme || 'dusk';
+    window.NOSTheme.apply(app,s,true);
     const background = mediaUrl('image_dashboard', s);
     app.dataset.customBackground = background ? 'true' : 'false';
     // One actual <img> layer; the browser fits the full image once, with
@@ -379,8 +375,7 @@
       node.style.backgroundSize = 'contain';
       node.style.backgroundPosition = 'center';
     }
-    const accentHex = ACCENT_MAP[s.accent] || ACCENT_MAP.blue;
-    app.style.setProperty('--blue', accentHex);
+
 
     app.classList.toggle('lite-mode', !!s.lite_mode);
     app.classList.toggle('no-blur', s.blur === false);
@@ -1023,6 +1018,7 @@
   $('set-stat-studied')?.addEventListener('change', e => saveUI({stat_studied: e.target.checked}));
   $('set-lite-mode')?.addEventListener('change', e => saveUI({lite_mode: e.target.checked, blur: !e.target.checked}));
   $('set-heatmap-day')?.addEventListener('change', e => saveUI({heatmap_day: e.target.value}));
+  $('set-custom-accent')?.addEventListener('input',e=>saveUI({accent:'custom',custom_accent:e.target.value}));
   $('set-heatmap-palette')?.addEventListener('change', e => saveUI({heatmap_palette: e.target.value}));
   $('set-goal-num')?.addEventListener('change', e => {
     const val = Math.max(1, Number(e.target.value) || 200);
