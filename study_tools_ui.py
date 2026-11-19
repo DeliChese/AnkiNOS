@@ -48,7 +48,7 @@ class ToolDialog(QDialog):
         self.deck_name = mw.col.decks.name(self.did)
         self.key = collection_key() if kind != "palette" else None
         self.serial, self.closed = 0, False
-        self.setWindowTitle({"palette":"Lệnh nhanh AnkiNOS", "workspace":"Sổ tay & tài liệu"}[kind])
+        self.setWindowTitle({"palette":"Lệnh nhanh AnkiNOS", "workspace":"Sổ tay"}[kind])
         self.resize(760, 580) if kind == "palette" else self.resize(1050, 760)
         self.setMinimumSize(360,400)
         layout = QVBoxLayout(self); layout.setContentsMargins(0,0,0,0)
@@ -146,10 +146,8 @@ class ToolDialog(QDialog):
                 self.accept(); actions[identifier]()
 
     def notebook(self, action, command):
-        from . import integration as host
         store = workspace_store()
         if action in {"boot","load"}:
-            resources = list(host.settings()["resources"])
             archive = command.get("archived") is True
             trash = command.get("trash") is True
             query = str(command.get("query",""))[:300]
@@ -159,8 +157,7 @@ class ToolDialog(QDialog):
                     focus = store.get(self.key,self.selected_note)
                     if focus and focus["deck_id"]==str(self.did) and all(n["id"]!=focus["id"] for n in notes):
                         notes = [focus,*notes[:99]]
-                ids = store.bindings(self.key,str(self.did))
-                return {"notes":notes,"resources":[{**r,"attached":r["id"] in ids} for r in resources],
+                return {"notes":notes,
                     "archived":archive,"trash":trash,"selected_note":self.selected_note}
             self.query(read,lambda data:self.send("notebook",data))
         elif action == "save":
@@ -171,21 +168,6 @@ class ToolDialog(QDialog):
         elif action == "trash":
             store.trash(self.key,str(command.get("id","")),command.get("restore") is True)
             self.notebook("load",{"trash":command.get("restore") is not True})
-        elif action == "bind":
-            resource = str(command.get("id",""))
-            if not any(r["id"]==resource for r in host.settings()["resources"]):
-                raise ValueError("Tài nguyên không còn trong thư viện.")
-            store.bind(self.key,str(self.did),resource,command.get("remove") is True)
-            self.notebook("load",{})
-        elif action == "resource":
-            host._open_resource(str(command.get("id","")))
-        elif action == "add_resource":
-            before = {r["id"] for r in host.settings()["resources"]}
-            host._add_resource(command.get("link") is True)
-            for resource in host.settings()["resources"]:
-                if resource["id"] not in before:
-                    store.bind(self.key,str(self.did),resource["id"])
-            self.notebook("load",{})
         elif action == "open_source":
             entry = store.get(self.key,str(command.get("id","")))
             if not entry or not str(entry["note_id"] or "").isdigit():
@@ -250,11 +232,8 @@ def install():
     if _installed:
         return
     _installed = True
-    for label,callback,shortcut in (("AnkiNOS — Lệnh nhanh",open_commands,"Ctrl+K"),
-        ("AnkiNOS — Sổ tay & tài liệu",open_notebook,"")):
-        action = QAction(label,mw)
-        if shortcut:
-            action.setShortcut(QKeySequence(shortcut))
-        qconnect(action.triggered,lambda _checked=False,callback=callback:callback())
-        mw.form.menuTools.addAction(action)
+    action = QAction("AnkiNOS — Lệnh nhanh",mw)
+    action.setShortcut(QKeySequence("Ctrl+K"))
+    qconnect(action.triggered,lambda _checked=False:open_commands())
+    mw.addAction(action)
     gui_hooks.profile_will_close.append(reset_tools)

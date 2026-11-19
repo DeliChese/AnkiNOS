@@ -18,7 +18,7 @@ Hệ thống học nhiều mode của NOS đã được gỡ. Học thẻ dùng 
 ## Lệnh nhanh và sổ tay
 
 - **Ctrl+K** tìm bộ thẻ, tài nguyên, ghi chú hoặc lệnh Anki. **Ctrl+Shift+K** mở thư viện bộ thẻ trên dashboard.
-- **Sổ tay & tài liệu** lưu ghi chú theo bộ thẻ/note, tìm không dấu, gắn tài nguyên và có thùng rác/khôi phục. Trong reviewer, nút **Ghi chú** mở sổ tay cho note đang học.
+- **Sổ tay** lưu ghi chú theo bộ thẻ/note, tìm không dấu và có thùng rác/khôi phục. Trong reviewer, nút **Ghi chú** mở sổ tay cho note đang học.
 - Sổ tay lưu cục bộ trong `workspace.sqlite3` theo hồ sơ; tài nguyên bên ngoài chỉ lưu đường dẫn.
 
 ## Học nhanh, Focus và nhận xét học tập — 0.2.0
@@ -37,11 +37,11 @@ Vào **Cài đặt AnkiNOS → Dữ liệu → Tạo gói sao lưu** để xuấ
 
 Khi chuyển sang collection khác, dấu sao/màu và bộ học gần nhất được đối chiếu bằng **tên đầy đủ** của bộ thẻ; mục không khớp được bỏ qua thay vì gắn vào ID trùng nhưng khác nội dung. Gói chỉ áp dụng vào hồ sơ đang chọn, không ảnh hưởng hồ sơ khác và không tự tải lên AnkiWeb. **Xuất/Nhập JSON** cũ vẫn chỉ phục vụ tùy chỉnh giao diện; không thay thế gói sao lưu đầy đủ.
 
-**Tools → AnkiNOS — Kiểm tra tương thích** kiểm tra các API đang có ở bản Anki thực tế. Trong **Dữ liệu** cũng có **Dùng giao diện Anki gốc**. Nếu dựng giao diện Python hoặc khởi tạo JavaScript chính bị lỗi, add-on trả về giao diện gốc và khôi phục các thanh chức năng; có thể bật lại AnkiNOS từ Tools. **Tools → AnkiNOS — Sao lưu và khôi phục** vẫn truy cập được khi giao diện AnkiNOS tắt hoặc gặp lỗi. Khôi phục khi đang ôn sẽ kết thúc phiên Focus sau bước xác nhận. Kiểm tra API không đồng nghĩa đã xác minh mọi tổ hợp add-on hoặc mọi hệ điều hành.
+Trong **Cài đặt AnkiNOS → Dữ liệu** có các chức năng sao lưu, khôi phục và **Dùng giao diện Anki gốc**. Nếu dựng giao diện Python hoặc khởi tạo JavaScript chính bị lỗi, add-on trả về giao diện gốc và khôi phục các thanh chức năng. Có thể bật lại bằng cấu hình add-on (`enabled: true`) rồi khởi động lại Anki. Khôi phục khi đang ôn sẽ kết thúc phiên Focus sau bước xác nhận. Menu Tools không thêm mục AnkiNOS; mở Sổ tay từ thanh bên hoặc menu bộ thẻ, mở Lệnh nhanh bằng **Ctrl+K**.
 
 ## Sử dụng
 
-Đặt thư mục add-on trong `Anki2/addons21/` (bản làm việc hiện tại có tên `AnkiNOS`). Khởi động lại Anki, mở **Decks** để sử dụng. Trong **Tools → AnkiNOS — Giao diện kính**, bỏ chọn để trở về giao diện gốc. Add-on bổ sung giao diện cho dashboard, chuẩn bị học và lúc trả lời thẻ; giữ trình sửa thẻ, nội dung mẫu thẻ và thuật toán lên lịch của Anki.
+Đặt thư mục add-on trong `Anki2/addons21/` (bản làm việc hiện tại có tên `AnkiNOS`). Khởi động lại Anki, mở **Decks** để sử dụng. Trong **Cài đặt AnkiNOS → Dữ liệu**, chọn **Dùng giao diện Anki gốc** để trở về giao diện gốc. Add-on bổ sung giao diện cho dashboard, chuẩn bị học và lúc trả lời thẻ; giữ trình sửa thẻ, nội dung mẫu thẻ và thuật toán lên lịch của Anki.
 
 - Nhấn avatar ở góc trên phải để mở hồ sơ; nhấn lại, nhấn ngoài bảng hoặc Escape để đóng.
 - Nút **Bộ thẻ** (biểu tượng các lớp) trên sidebar mở bảng **Bộ thẻ & tài nguyên** dạng popup, giữ nguyên trang tổng quan phía sau. Bảng không còn nằm trên giao diện chính và không mở tab khác. Mũi tam giác nối về nút sidebar, chuyển xuống cạnh dưới khi dùng thanh điều hướng di động.

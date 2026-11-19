@@ -67,7 +67,8 @@ try{
   await click('#note-save');
   assert((await sent()).at(-1).body.endsWith(hostile));
   await receive('notebook',notebook);
-  await click('#resource-attach');assert.deepEqual((await sent()).at(-1),{action:'bind',id:'r2'});
+  assert.equal(await evaluate(`document.getElementById('tool-title').textContent`),'Sổ tay');
+  assert.equal(await evaluate(`!!document.querySelector('[id^=resource-]')`),false);
   await click('#note-trash');assert.equal((await sent()).at(-1).restore,false);
   await receive('notebook',{...notebook,trash:true});await click('.note-item');await click('#note-trash');
   assert.equal((await sent()).at(-1).restore,true);
