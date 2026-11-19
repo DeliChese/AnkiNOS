@@ -151,7 +151,8 @@ def main():
     assert js("document.getElementById('stat-retention').textContent") == "—"
     assert not js("document.getElementById('page-footnote').textContent.includes('minh họa')")
     assert js("getComputedStyle(document.querySelector('.glass')).backdropFilter") != "none"
-    assert integration._toggle_action in aqt.mw.form.menuTools.actions()
+    assert not any(action.text().startswith("AnkiNOS") for action in aqt.mw.form.menuTools.actions())
+    assert any(action.shortcut().toString() == "Ctrl+K" for action in aqt.mw.actions())
     wait(150)
     assert aqt.mw.toolbarWeb.isHidden(), "Native top bar must be hidden in AnkiNOS"
     assert aqt.mw.bottomWeb.isHidden(), "Native bottom bar must be hidden in AnkiNOS"
@@ -521,14 +522,12 @@ def main():
     integration._toggle(False)
     until("!document.getElementById('nos-app') && !!document.getElementById('studiedToday')")
     assert not aqt.mw.toolbarWeb.isHidden() and not aqt.mw.bottomWeb.isHidden()
-    recovery_menu = next(action.menu() for action in aqt.mw.form.menuTools.actions()
-                         if action.menu() and action.menu().title() == "AnkiNOS — Sao lưu và khôi phục")
-    assert len(recovery_menu.actions()) == 2
+    assert not any(action.text().startswith("AnkiNOS") for action in aqt.mw.form.menuTools.actions())
     from aqt import utils as aqt_utils
     with patch.object(aqt_utils, "showInfo") as info, patch.object(integration.QFileDialog, "getSaveFileName", return_value=(str(base / "native-mode.nosbackup"), "")):
         integration._compatibility()
         assert "Anki " in info.call_args.args[0]
-        recovery_menu.actions()[0].trigger()
+        integration._backup_export()
         end = time.monotonic() + 10
         while integration._backup_busy and time.monotonic() < end:
             wait(30)
@@ -564,7 +563,8 @@ def main():
     report.update(dashboard_to_native_focus=True,focus_30_minutes=True,focus_summary=True,
         full_backup_roundtrip=True,restore_cancel_preserves_settings=True,restore_creates_recovery=True,
         automatic_native_fallback=True)
-    report.update(backup_tools_available_in_native_mode=True,compatibility_report=True)
+    report.update(tools_menu_without_ankinos=True,command_shortcut_registered=True,
+                  backup_available_in_native_mode=True,compatibility_report=True)
     report.update(studio_first_open_js_ms=round(studio_open_ms),studio_legacy_preview_in_background=True,studio_reuses_thumbnails=True)
     (ROOT / "previews" / "anki-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print("PASS: " + json.dumps(report),flush=True)

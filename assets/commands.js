@@ -23,7 +23,7 @@
     },receive(event,data){if(event==='results')render(data);},preview(action,data){
       if(action==='boot'||action==='search'){
         const fold=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d');
-        const sample=[{kind:'action',id:'study',title:'Học bộ thẻ hiện tại',detail:'Lệnh'},{kind:'action',id:'notebook',title:'Sổ tay & tài liệu',detail:'Lệnh'},{kind:'action',id:'add',title:'Thêm thẻ Anki',detail:'Lệnh'},{kind:'deck',id:'1',title:'Ngoại ngữ::Tiếng Anh',detail:'Bộ thẻ'}];
+        const sample=[{kind:'action',id:'study',title:'Học bộ thẻ hiện tại',detail:'Lệnh'},{kind:'action',id:'notebook',title:'Sổ tay',detail:'Lệnh'},{kind:'action',id:'add',title:'Thêm thẻ Anki',detail:'Lệnh'},{kind:'deck',id:'1',title:'Ngoại ngữ::Tiếng Anh',detail:'Bộ thẻ'}];
         render({seq:data.seq||0,items:sample.filter(x=>fold(x.title).includes(fold(data.query||'')))});
       }else T.notice('Bản xem trước · mở Anki để chạy lệnh.');
     }};

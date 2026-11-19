@@ -37,7 +37,6 @@ _installed = False
 _integration_ready = False
 _active_query: tuple[int, str] | None = None
 _refresh_timer: QTimer | None = None
-_toggle_action: QAction | None = None
 _chrome_visibility: list[tuple[Any, bool]] = []
 _chrome_guard: QObject | None = None
 _overview_rendered = False
@@ -72,13 +71,11 @@ def _fallback(error: Exception) -> None:
     _session_error = str(error)
     _navigating = False
     _restore_chrome()
-    if _toggle_action:
-        _toggle_action.setChecked(False)
     def recover() -> None:
         if mw.col:
             mw.moveToState("deckBrowser")
         showWarning("AnkiNOS đã chuyển về giao diện Anki gốc để bạn tiếp tục học.\n"
-                    "Có thể bật lại từ Tools sau khi kiểm tra tương thích.\n\n" + _session_error, parent=mw)
+                    "Hãy kiểm tra cấu hình add-on và khởi động lại Anki.\n\n" + _session_error, parent=mw)
     QTimer.singleShot(0, recover)
 
 
@@ -1103,7 +1100,7 @@ def _create_deck(parent_id: int | None = None) -> None:
 def _deck_menu(did: int) -> None:
     menu = QMenu(mw)
     from .study_tools_ui import open_notebook
-    _menu_action(menu, "Sổ tay & tài liệu…", lambda: open_notebook(did))
+    _menu_action(menu, "Sổ tay…", lambda: open_notebook(did))
     menu.addSeparator()
     starred = str(did) in settings()["favorites"]
     _menu_action(menu, "Bỏ gắn sao" if starred else "Gắn sao bộ thẻ", lambda: _favorite(str(did)))
@@ -1409,16 +1406,12 @@ def _sync_finished(*_args: Any) -> None:
 def _toggle(active: bool) -> None:
     global _session_error
     if active and not _integration_ready:
-        if _toggle_action:
-            _toggle_action.setChecked(False)
         showWarning("AnkiNOS chưa khởi tạo đầy đủ. Hãy kiểm tra phiên bản Anki và khởi động lại trước khi bật lại.", parent=mw)
         return
     _session_error = ""
     conf = config()
     conf["enabled"] = active
     mw.addonManager.writeConfig(MODULE, conf)
-    if _toggle_action:
-        _toggle_action.setChecked(bool(active))
     if not active:
         _restore_chrome()
     if mw.col:
@@ -1426,24 +1419,12 @@ def _toggle(active: bool) -> None:
 
 
 def install() -> None:
-    global _installed, _refresh_timer, _toggle_action, _chrome_guard, _integration_ready
+    global _installed, _refresh_timer, _chrome_guard, _integration_ready
     if _installed:
         return
     _installed = True
     mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp))")
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
-    # Register recovery commands before optional skin patches can fail.
-    _toggle_action = QAction("AnkiNOS — Giao diện kính", mw)
-    _toggle_action.setCheckable(True)
-    qconnect(_toggle_action.triggered, _toggle)
-    mw.form.menuTools.addAction(_toggle_action)
-    compatibility_action = QAction("AnkiNOS — Kiểm tra tương thích", mw)
-    qconnect(compatibility_action.triggered, _compatibility)
-    mw.form.menuTools.addAction(compatibility_action)
-    data_menu = QMenu("AnkiNOS — Sao lưu và khôi phục", mw)
-    _menu_action(data_menu, "Tạo gói sao lưu…", _backup_export)
-    _menu_action(data_menu, "Khôi phục từ gói…", _backup_restore)
-    mw.form.menuTools.addMenu(data_menu)
     _guard_unused_heatmaps()
     _guard_unused_deck_html()
     _guard_live_updates()
@@ -1470,4 +1451,3 @@ def install() -> None:
     from .study_tools_ui import install as install_tools
     install_tools()
     _integration_ready = True
-    _toggle_action.setChecked(enabled())

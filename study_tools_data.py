@@ -8,7 +8,7 @@ COLLECTION_KEY = "ankinos_learning_collection_uuid"
 COMMANDS = [
     ("study", "Học bộ thẻ hiện tại", "học tiếp ôn tập study"),
     ("focus", "Bắt đầu Focus", "tập trung thời gian focus"),
-    ("notebook", "Sổ tay & tài liệu của bộ thẻ", "ghi chú tài nguyên sổ tay notes"),
+    ("notebook", "Sổ tay của bộ thẻ", "ghi chú sổ tay notes"),
     ("add", "Thêm thẻ Anki", "tạo thẻ note add"),
     ("browse", "Duyệt thẻ", "tìm kiếm browser browse"),
     ("stats", "Thống kê AnkiNOS", "thống kê số liệu lịch sử"),

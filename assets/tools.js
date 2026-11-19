@@ -8,7 +8,7 @@
   const requested=initial.kind||new URLSearchParams(location.search).get('tool');
   const kind=['palette','workspace'].includes(requested)?requested:'workspace';
   const native=initial.native===true, started=performance.now();
-  const titles={palette:'Lệnh nhanh',workspace:'Sổ tay & tài liệu'};
+  const titles={palette:'Lệnh nhanh',workspace:'Sổ tay'};
   $('tool-title').textContent=titles[kind];
   $('tool-context').textContent=initial.deck||'Bộ thẻ minh họa';
   $('tool-preview').hidden=native;
