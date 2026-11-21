@@ -24,8 +24,8 @@ FORMAT = "AnkiNOS-profile"
 MAX_TOTAL = 2 * 1024**3
 MAX_FILES = 310
 MAX_CONFIG = 4 * 1024**2
-FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|(?:focus|learning|workspace)\.sqlite3)\Z")
-DATABASES = {"focus.sqlite3", "learning.sqlite3", "workspace.sqlite3"}
+FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|(?:focus|learning|workspace|brainexer)\.sqlite3)\Z")
+DATABASES = {"focus.sqlite3", "learning.sqlite3", "workspace.sqlite3", "brainexer.sqlite3"}
 
 
 def _file_limit(name: str) -> int:
@@ -37,6 +37,8 @@ def _check_database(name: str, path: Path) -> dict:
         return {"sessions":_check_focus(path)}
     if name=="learning.sqlite3":
         from .legacy_learning_backup import validate_database
+    elif name=="brainexer.sqlite3":
+        from .brainexer.db.connection import validate_database
     else:
         from .workspace_store import validate_database
     return validate_database(path)
@@ -169,7 +171,7 @@ def export_archive(root: Path, profile: str, settings: dict, destination: Path, 
         sizes = {name: path.stat().st_size for name, path in sources.items()}
         if sum(sizes.values()) > MAX_TOTAL or any(size > _file_limit(name) for name, size in sizes.items()):
             raise ValueError("Dữ liệu vượt giới hạn dung lượng sao lưu.")
-        manifest = {"format": FORMAT, "version": 2, "profile": profile,
+        manifest = {"format": FORMAT, "version": 3 if "brainexer.sqlite3" in sources else 2, "profile": profile,
             "created_at": datetime.now(timezone.utc).isoformat(), "settings": config,
             "deck_names": {str(k): str(v) for k, v in (deck_names or {}).items()},
             "files": {name: {"size": sizes[name], "sha256": _hash_file(path)} for name, path in sources.items()}}
@@ -198,12 +200,14 @@ def _read_archive(path: Path, stage: Path) -> dict:
         if archive.getinfo("manifest.json").file_size > MAX_CONFIG or sum(x.file_size for x in infos) > MAX_TOTAL:
             raise ValueError("Gói sao lưu vượt giới hạn dung lượng.")
         manifest = json.loads(archive.read("manifest.json"))
-        if not isinstance(manifest, dict) or manifest.get("format") != FORMAT or type(manifest.get("version")) is not int or manifest["version"] not in {1,2}:
+        if not isinstance(manifest, dict) or manifest.get("format") != FORMAT or type(manifest.get("version")) is not int or manifest["version"] not in {1,2,3}:
             raise ValueError("Định dạng hoặc phiên bản gói sao lưu không được hỗ trợ.")
         manifest["settings"] = clean_settings(manifest.get("settings"))
         files = manifest.get("files")
         if not isinstance(files, dict) or set(names) != {"manifest.json", *("profile/" + name for name in files)}:
             raise ValueError("Nội dung gói sao lưu không khớp bản kê.")
+        if "brainexer.sqlite3" in files and manifest["version"] < 3:
+            raise ValueError("Phiên bản gói sao lưu không hỗ trợ dữ liệu BrainExer.")
         for name, meta in files.items():
             if not FILE_NAME.fullmatch(name) or not isinstance(meta, dict):
                 raise ValueError("Bản kê tệp không hợp lệ.")
@@ -220,7 +224,7 @@ def _read_archive(path: Path, stage: Path) -> dict:
             if image["id"] + image["ext"] not in files:
                 raise ValueError("Gói sao lưu thiếu ảnh đã đăng ký.")
         manifest["focus_sessions"] = _check_focus(stage / "focus.sqlite3") if "focus.sqlite3" in files else 0
-        for name in ("learning.sqlite3","workspace.sqlite3"):
+        for name in ("learning.sqlite3","workspace.sqlite3","brainexer.sqlite3"):
             manifest[name.split('.')[0]] = _check_database(name,stage/name) if name in files else {}
         if not isinstance(manifest.get("deck_names", {}), dict):
             raise ValueError("Danh sách bộ thẻ không hợp lệ.")

@@ -21,9 +21,14 @@ class ThemeTests(unittest.TestCase):
 
     def test_malformed_webview_or_import_data_is_ignored(self):
         for value in (None, [], {}, 42, False, "unknown", "url(https://example.com)"):
-            self.assertEqual(theme.clean_theme_settings({key: value for key in theme.THEME_DEFAULTS}), {})
+            self.assertEqual(theme.clean_theme_settings({key: value for key in (*theme.THEME_DEFAULTS, "layout")}), {})
         for color in ("red", "#abc", "#11223344", "#123456; color:red", "#gg1122"):
             self.assertEqual(theme.clean_theme_settings({"custom_accent": color}), {})
+
+    def test_layouts_are_validated_independently_of_the_palette(self):
+        for layout in ("aurora", "bento", "dock", "sidebar", "zen"):
+            settings = {"layout": layout, "color_theme": "mononoke"}
+            self.assertEqual(theme.clean_theme_settings(settings), settings)
 
 
 if __name__ == "__main__":

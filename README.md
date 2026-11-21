@@ -1,5 +1,21 @@
 # AnkiNOS
 
+## Luyện tập với BrainExer
+
+Mở **BrainExer** trên thanh bên và chọn bộ thẻ chứa kiến thức bạn đã nhập vào Anki. Nhóm **Kiến thức** có câu hỏi gợi nhớ, trắc nghiệm và vận dụng từ các trường văn bản trong thẻ. BrainExer chấm tại chỗ câu hỏi ngắn và trắc nghiệm, còn bài vận dụng được AI chấm dựa trên nội dung nguồn và lập luận của bạn. Nhóm **Ngoại ngữ** có bài điền từ, đồng nghĩa/trái nghĩa, biến đổi từ loại, phân biệt sắc thái và luyện viết. **Sổ lỗi** cho phép đánh dấu lỗi đã thuộc và chuyển lỗi thành thẻ trong bộ **BrainExer::Mistakes** để ôn theo lịch Anki.
+
+Trong **BrainExer → Cài đặt AI**, chọn OpenAI, DeepSeek hoặc Gemini, nhập API key và xác nhận gửi dữ liệu được lấy mẫu cho nhà cung cấp đã chọn. Khóa dùng kho bảo mật của hệ điều hành theo hồ sơ và nhà cung cấp. Bạn có thể đặt ngôn ngữ, model và giới hạn lượt dùng ngay trên trang này.
+
+BrainExer đọc tên và nội dung của các trường văn bản tùy chỉnh, kể cả thẻ Cloze và mô tả thay thế của ảnh. Mỗi lần tạo bài lấy mẫu tối đa 2 thẻ cho câu ngắn hoặc 5 thẻ cho bài vận dụng và luyện viết. Phần dữ liệu thẻ gửi cho AI có ngân sách tối đa 8.000 byte JSON. Trường dài được lấy trích đoạn và đánh dấu phần lược bỏ. Trắc nghiệm và câu ngắn dùng đáp án đã lưu để chấm tại máy, giúp mỗi lần nộp tránh một lượt gọi AI.
+
+Nếu thư mục BrainExer đã thêm vào ANOS có dữ liệu cũ, nút **Nhập dữ liệu cũ** sẽ xuất hiện trong **Cài đặt AI** trước khi hồ sơ tạo dữ liệu luyện mới. Phiên và sổ lỗi lưu theo hồ sơ và đi kèm gói `.nosbackup` v3 khi có dữ liệu BrainExer. Cài đặt AI và khóa vẫn lưu trên máy theo hồ sơ.
+
+## Bố cục dashboard
+
+Chọn **Cực quang**, **Bento**, **Dock nổi**, **Không gian làm việc** hoặc **Zen** bằng nút **Đổi bố cục** trên thanh đầu trang. **Alt + Shift + L** chuyển sang bố cục kế tiếp. Trong **Cài đặt AnkiNOS → Giao diện**, nhấn **Áp dụng** để lưu lựa chọn.
+
+Hồ sơ chưa chọn bố cục dùng **Cực quang**. Mỗi bố cục dùng được với mọi bộ màu và được lưu theo hồ sơ, cùng với cấu hình JSON và gói `.nosbackup`. Khi cửa sổ hẹp, điều hướng nằm ở thanh dưới.
+
 ## Theme và màu sắc
 
 Vào **Cài đặt AnkiNOS → Giao diện** để chọn **NOS Glass, Tokyo, Mononoke, Catppuccin, Rosé Pine, Nord, Solarized hoặc Dracula**. Hệ thống tham khảo [Onigiri](https://github.com/thepeacemonk/Onigiri), được viết riêng và tinh chỉnh cho AnkiNOS.

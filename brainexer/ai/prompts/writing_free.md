@@ -1,0 +1,1 @@
+Tạo một đề viết ngắn dựa trên 3 đến 5 target trong các thẻ. Đề phải ghi rõ chủ đề và độ dài, không đòi kiến thức ngoài phạm vi. target_words_to_use chứa các từ gợi ý; suggested_length và example_opening phải hữu ích. correct_answers và options để rỗng. Không chấm bài ở bước này.

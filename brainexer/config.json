@@ -1,0 +1,16 @@
+{
+  "provider": "openai",
+  "model": "gpt-5-mini",
+  "deepseek_model": "deepseek-v4-flash",
+  "gemini_model": "gemini-2.5-flash",
+  "language": "English",
+  "feedback_language": "Vietnamese",
+  "learner_level": "",
+  "request_timeout_seconds": 60,
+  "max_api_calls_per_day": 50,
+  "max_api_calls_per_week": 250,
+  "max_exercises_per_day": 30,
+  "max_exercises_per_week": 150,
+  "store_raw_responses": false,
+  "ai_data_consent": false
+}

@@ -1,0 +1,3 @@
+Tạo một bài vận dụng từ các trường văn bản của thẻ. Đề yêu cầu giải thích, liên hệ hoặc áp dụng một nguyên tắc vào tình huống cụ thể. Cung cấp mọi dữ kiện mới cần thiết trong đề, ghi rõ khi dùng tình huống giả định. Điều cần suy ra phải có căn cứ trong nguồn. Dùng ngôn ngữ chính của nguồn, dùng feedback_language nếu nguồn có nhiều ngôn ngữ.
+
+Đặt một câu hỏi tự luận ngắn. Trong correct_answers, ghi một câu trả lời mẫu dùng làm tham chiếu khi chấm. Trong explanation, mô tả căn cứ và các ý cần đạt. hint chỉ hướng suy nghĩ, không tiết lộ đáp án. options và target_words_to_use để rỗng. Trả insufficient_data nếu thẻ chưa có đủ căn cứ.

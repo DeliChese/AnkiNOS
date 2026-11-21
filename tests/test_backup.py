@@ -81,8 +81,8 @@ class BackupTests(unittest.TestCase):
         bad = backup.clean_settings({"wallpaper_dim": 999, "wallpaper_blur": -1, "image_fit_review": "stretch"})
         self.assertNotIn("wallpaper_dim", bad); self.assertNotIn("wallpaper_blur", bad); self.assertNotIn("image_fit_review", bad)
 
-    def test_theme_and_custom_color_round_trip(self):
-        appearance = {"theme": "system", "color_theme": "mononoke", "accent": "custom", "custom_accent": "#8abc32"}
+    def test_appearance_round_trip(self):
+        appearance = {"theme": "system", "color_theme": "mononoke", "accent": "custom", "custom_accent": "#8abc32", "layout": "zen"}
         archive = backup.export_archive(self.root, "Alice", {**self.settings, **appearance}, self.root / "theme.nosbackup")
         preview = backup.inspect_archive(self.root, archive)
         saved = []

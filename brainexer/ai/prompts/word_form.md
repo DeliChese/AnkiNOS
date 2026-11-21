@@ -1,0 +1,1 @@
+Tạo một bài điền đúng dạng từ loại của target trong một câu mới. Chỉ yêu cầu dạng từ thực sự tồn tại và tự nhiên. correct_answers chứa các dạng được chấp nhận. hint chỉ nêu từ loại cần dùng. Nếu dữ liệu không cho biết đủ nghĩa hoặc không có dạng từ phù hợp, dùng insufficient_data.

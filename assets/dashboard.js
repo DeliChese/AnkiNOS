@@ -19,7 +19,9 @@
   const iso = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   const parseDate = value => new Date(`${value}T12:00:00`);
   const addDays = (date, days) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
-  const state = {snapshot: null, settings: {}, filter: 'all', color: '', query: '', sort: 'name', period: 'year', calendar: null, expanded: new Set(), collapsed: new Set(), page: 'home'};
+  const defaultLayout = 'aurora';
+  const state = {snapshot: null, settings: {layout: app.dataset.layout || defaultLayout}, filter: 'all', color: '', query: '', sort: 'name', period: 'year', calendar: null, expanded: new Set(), collapsed: new Set(), page: 'home'};
+  const popups = [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle'],['layout-menu','layout-toggle']];
   let toastTimer;
   let settingsDraft = null;
   let settingsDirty = false;
@@ -123,7 +125,7 @@
       if (previous.heatmap_day !== state.settings.heatmap_day) renderHeatmap();
     }
     // Never send the image gallery (or large resource lists) back over pycmd.
-    const keys = ['goal','theme','color_theme','accent','custom_accent','blur','animations','lite_mode','ui_scale',
+    const keys = ['goal','layout','theme','color_theme','accent','custom_accent','blur','animations','lite_mode','ui_scale',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
       'activity_collapsed','library_collapsed','sidebar_collapsed','view',
       // Image assignments belong exclusively to Studio and save immediately.
@@ -144,7 +146,7 @@
   }
 
   function closePopups(restoreFocus = false) {
-    for (const [id, toggle] of [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle']]) {
+    for (const [id, toggle] of popups) {
       if (!$(id).hidden && restoreFocus) $(toggle).focus();
       setPopup(id, toggle, false);
     }
@@ -154,20 +156,42 @@
     const show = $(id).hidden;
     closePopups();
     setPopup(id, toggle, show);
-    if (show) $(id).querySelector('button')?.focus();
+    if (show) {
+      if (id === 'layout-menu') window.NOSLayout?.focusMenu();
+      else $(id).querySelector('button')?.focus();
+    }
+  }
+
+  function saveLayout(layout) {
+    saveUI({layout: layout.id});
+    toast(`Bố cục: ${layout.name}`);
   }
 
   function positionLibrary(prepare=false) {
     const dialog=$('library-dialog');
     if(!dialog.open&&prepare!==true)return;
-    const anchor=$('library-toggle').getBoundingClientRect();
-    const narrow=innerWidth<=720;
-    const height=Math.min(760,innerHeight-(narrow?125:56));
-    const left=narrow?16:anchor.right+24;
-    const width=narrow?innerWidth-32:Math.min(1280,innerWidth-left-24);
-    const top=narrow?16:Math.max(24,Math.min(anchor.top-50,innerHeight-height-28));
-    dialog.dataset.side=narrow?'bottom':'left';
-    Object.entries({'--popover-left':`${left}px`,'--popover-top':`${top}px`,'--popover-width':`${width}px`,'--popover-height':`${height}px`,'--anchor-y':`${Math.max(30,Math.min(height-30,anchor.top+anchor.height/2-top))}px`,'--anchor-x':`${Math.max(30,Math.min(width-30,anchor.left+anchor.width/2-left))}px`}).forEach(([key,value])=>dialog.style.setProperty(key,value));
+    const anchor = $('library-toggle').getBoundingClientRect();
+    const zoom = Number(app.style.zoom) || 1;
+    const viewportWidth = innerWidth / zoom;
+    const viewportHeight = innerHeight / zoom;
+    const narrow = innerWidth <= 720;
+    const layout = app.dataset.layout;
+    const floating = !narrow && ['bento', 'dock', 'zen'].includes(layout);
+    const topMargin = narrow ? 16 : ({bento: 84, zen: 72}[layout] || 24);
+    const bottomMargin = narrow ? 109 : floating && layout === 'dock' ? 104 : 28;
+    const height = Math.max(1, Math.min(760, viewportHeight - topMargin - bottomMargin));
+    const sideLeft = anchor.right / zoom + 24;
+    const width = Math.max(1, Math.min(1280, viewportWidth - (narrow ? 32 : floating ? 48 : sideLeft + 24)));
+    const left = narrow ? 16 : floating ? (viewportWidth - width) / 2 : sideLeft;
+    const top = floating || narrow ? topMargin : Math.max(24, Math.min(anchor.top / zoom - 50, viewportHeight - height - bottomMargin));
+    const anchorX = (anchor.left + anchor.width / 2) / zoom - left;
+    const anchorY = (anchor.top + anchor.height / 2) / zoom - top;
+    dialog.dataset.side = floating ? 'none' : narrow ? 'bottom' : 'left';
+    for (const [key, value] of Object.entries({
+      '--popover-left': left, '--popover-top': top, '--popover-width': width, '--popover-height': height,
+      '--anchor-y': Math.max(30, Math.min(height - 30, anchorY)),
+      '--anchor-x': Math.max(30, Math.min(width - 30, anchorX))
+    })) dialog.style.setProperty(key, `${value}px`);
   }
 
   function closeLibrary(restoreFocus=true) {
@@ -250,6 +274,7 @@
 
   function syncSettingsForm(s = settingsDraft || state.settings) {
     window.NOSTheme.sync(s);
+    window.NOSLayout?.sync(s);
     app.querySelectorAll('.theme-pill-btn').forEach(btn => {
       btn.classList.toggle('active', (btn.dataset.setTheme || 'dusk') === (s.theme || 'dusk'));
     });
@@ -295,6 +320,7 @@
         try {
           const imported = JSON.parse(ev.target.result);
           if (typeof imported === 'object' && imported !== null) {
+            if (window.NOSLayout?.normalize(imported.layout) !== imported.layout) delete imported.layout;
             saveUI(imported);
             toast('Đã nhập. Nhấn Áp dụng để lưu.');
           }
@@ -310,7 +336,7 @@
   function resetSettings() {
     if (confirm('Khôi phục toàn bộ cài đặt AnkiNOS về mặc định ban đầu?')) {
       const defaults = {
-        goal: 200, theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
+        goal: 200, layout: defaultLayout, theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
         blur: true, animations: true, ui_scale: 100,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
         heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false
@@ -345,8 +371,9 @@
 
   function applySettings() {
     const s = state.settings;
+    const layout = window.NOSLayout?.normalize(s.layout) || defaultLayout;
     const signature = JSON.stringify([
-      s.theme,s.color_theme,s.accent,s.custom_accent,s.blur,s.animations,s.lite_mode,s.ui_scale,
+      layout,s.theme,s.color_theme,s.accent,s.custom_accent,s.blur,s.animations,s.lite_mode,s.ui_scale,
       s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
       s.heatmap_palette,s.activity_collapsed,s.sidebar_collapsed,s.view,
       s.image_dashboard,s.image_avatar,
@@ -355,6 +382,7 @@
     ]);
     if (signature === lastAppliedSettings) return;
     lastAppliedSettings = signature;
+    if (app.dataset.layout !== layout) app.dataset.layout = layout;
     window.NOSTheme.apply(app,s,true);
     const background = mediaUrl('image_dashboard', s);
     app.dataset.customBackground = background ? 'true' : 'false';
@@ -385,6 +413,8 @@
     } else {
       app.style.zoom = '';
     }
+    positionLibrary();
+    window.NOSLayout?.changed();
 
     if ($('card-retention')) $('card-retention').hidden = s.stat_retention === false;
     if ($('card-pace')) $('card-pace').hidden = s.stat_pace === false;
@@ -786,9 +816,12 @@
     closeLibrary(false);
     state.page = page;
     app.dataset.page = page;
+    app.querySelector('.workspace').hidden = page !== 'home';
     $('stats-page').hidden = page !== 'stats';
+    $('brainexer-page').hidden = page !== 'brainexer';
     app.scrollTop=0;
     if (page === 'stats') { window.NOSStats?.open(); window.NOSFocusHistory?.open(); }
+    if (page === 'brainexer') window.NOSBrainExer?.open();
     app.querySelectorAll('.rail-main [data-action="page"]').forEach(button => {
       button.classList.toggle('active', button.dataset.value === page);
       if (button.dataset.value === page) button.setAttribute('aria-current','page');
@@ -809,6 +842,8 @@
   }
 
   function receive({event, payload}) {
+    if(event==='brainexer'){window.NOSBrainExer?.receive(payload);return;}
+    if(event==='brainexer_reset'){window.NOSBrainExer?.reset();return;}
     if(event==='study_support'){window.NOSStudy?.receive(payload);return;}
     if(event==='study_support_error'){window.NOSStudy?.error(payload);return;}
     if(event==='backup_status'){
@@ -904,6 +939,7 @@
     receive,
     getSettings: () => state.settings,
     getSnapshot: () => state.snapshot,
+    brainexerCommand: payload => command('brainexer', payload),
     studioCommand: (action, payload) => command(action, payload),
     studioUpdate(patch) {
       Object.assign(state.settings, patch);
@@ -930,6 +966,12 @@
     if (!button || button.disabled) return;
     const {action, value, id} = button.dataset;
     if (action === 'preferences') return $('settings-dialog').open ? closeSettings() : openSettings();
+    if (action === 'layout_menu') return togglePopup('layout-menu', 'layout-toggle');
+    if (action === 'set_layout') {
+      if (button.dataset.layoutCard) return saveUI({layout: button.dataset.layoutCard});
+      closePopups(true);
+      return window.NOSLayout?.choose(button.dataset.layoutId, saveLayout);
+    }
     if (action === 'close_settings') return closeSettings();
     if (action === 'open_anki_prefs') { closeSettings(); return command('preferences'); }
     if (action === 'profile') return togglePopup('profile-panel','profile-toggle');
@@ -968,11 +1010,21 @@
   });
 
   document.addEventListener('click', event => {
-    for (const [id,toggle] of [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle']]) {
+    for (const [id,toggle] of popups) {
       if (!$(id).contains(event.target) && !$(toggle).contains(event.target)) setPopup(id,toggle,false);
     }
   });
   document.addEventListener('keydown', event => {
+    if (event.key === 'Tab' && !$('layout-menu').hidden) closePopups(true);
+    if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyL' &&
+        !app.querySelector('dialog[open]') && !event.target.closest?.('input,select,textarea,[contenteditable]')) {
+      event.preventDefault();
+      if (!event.repeat) {
+        closePopups(true);
+        window.NOSLayout?.cycle(saveLayout);
+      }
+      return;
+    }
     if(event.key==='Tab'&&$('library-dialog').open){
       // Fixed header/footer boundaries avoid measuring every offscreen row.
       const dialog=$('library-dialog'),first=$('library-search'),active=document.activeElement;
@@ -1081,7 +1133,7 @@
       trends:{retention:trend(92.4,89.9,'30 ngày trước'),pace:trend(109,Math.round(yesterday.reviews/yesterday.milliseconds*3600000),'cùng giờ hôm qua'),milliseconds:trend(6120000,yesterday.milliseconds,'cùng giờ hôm qua'),reviews:trend(186,yesterday.reviews,'cùng giờ hôm qua')},
       stats:{retention:92.4,pace:109,milliseconds:6120000,reviews:186,streak:27,tested:3248},
       decks:[deck('101','Tiếng Anh — Từ vựng',4872,'blue',[deck('111','Từ vựng theo chủ đề',1520,'blue'),deck('112','Collocations & Phrasal Verbs',2180,'purple'),deck('113','Idioms',1172,'purple')]),deck('102','Tiếng Nhật — N5',1986,'pink'),deck('103','Y học cơ sở',1204,'green'),deck('104','Lịch sử Việt Nam',642,'amber')],
-      settings:{goal:200,theme:'dusk',view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
+      settings:{goal:200,layout:state.settings.layout || defaultLayout,theme:'dusk',view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
   }
   // Show the calendar structure immediately, then request real data without
   // introducing an artificial startup delay.

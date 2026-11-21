@@ -45,6 +45,71 @@ try {
   for(let i=0;i<100;i++){if(await evaluate(`!!document.getElementById('nos-app') && !!window.AnkiNOS && document.getElementById('connection').textContent.includes('Bản xem trước')`))break;await new Promise(r=>setTimeout(r,100));}
   assert(await evaluate(`document.querySelectorAll('#deck-list > .deck-group').length`) === 4);
   assert.equal(await evaluate(`document.getElementById('library-dialog').open`),false);
+  const layouts = ['aurora', 'bento', 'dock', 'sidebar', 'zen'];
+  const layout = () => evaluate(`document.getElementById('nos-app').dataset.layout`);
+  await evaluate(`window.__originalLayoutSettings = {...window.AnkiNOS.getSettings()}`);
+  const updateLayoutSettings = patch => evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),...${JSON.stringify(patch)}}})`);
+  assert.equal(await layout(), 'aurora');
+  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#layout-menu [data-layout-id]'), button=>button.dataset.layoutId)`), layouts);
+  await updateLayoutSettings({animations: false});
+  await click('#profile-toggle');
+  await click('#layout-toggle');
+  assert.equal(await evaluate(`document.getElementById('profile-panel').hidden`), true);
+  assert.equal(await evaluate(`document.activeElement.dataset.layoutId`), 'aurora');
+  await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))`);
+  assert.equal(await evaluate(`document.activeElement.dataset.layoutId`), 'bento');
+  await click('#layout-menu [data-layout-id=bento]');
+  assert.equal(await layout(), 'bento');
+  assert.equal(await evaluate(`document.activeElement.id`), 'layout-toggle');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.greeting > div'),'::before').animationName`), 'none');
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyL',altKey:true,shiftKey:true,bubbles:true}))`);
+  assert.equal(await layout(), 'dock');
+  await click('.rail-bottom [data-action=preferences]');
+  await click('[data-layout-card=zen]');
+  assert.equal(await layout(), 'dock', 'Layout selection should stay in the settings draft');
+  await click('#settings-close');
+  await click('.rail-bottom [data-action=preferences]');
+  assert.equal(await evaluate(`document.querySelector('#layout-grid [aria-pressed=true]').dataset.layoutCard`), 'dock');
+  await click('[data-layout-card=sidebar]');
+  await click('#btn-apply-settings');
+  assert.equal(await layout(), 'sidebar');
+  await click('#settings-close');
+
+  await updateLayoutSettings({layout: 'aurora', animations: true});
+  await evaluate(`(()=>{for (let i=0;i<2;i++) document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyL',altKey:true,shiftKey:true,bubbles:true}))})()`);
+  await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+  assert.equal(await layout(), 'dock', 'Rapid switches must keep the latest layout');
+  await updateLayoutSettings({animations: false});
+  for (const [width, height, scale] of [[1600,1080,100], [1024,650,100], [721,420,120], [320,400,120]]) {
+    await cdp('Emulation.setDeviceMetricsOverride', {width,height,deviceScaleFactor:1,mobile:false});
+    for (const id of layouts) {
+      await updateLayoutSettings({layout: id, ui_scale: scale});
+      const fits = selector => evaluate(`(()=>{const rect=document.querySelector('${selector}').getBoundingClientRect();return rect.width>0 && rect.left>=-1 && rect.right<=innerWidth+1 && rect.top>=-1 && rect.bottom<=innerHeight+1})()`);
+      assert(await fits('.rail'), `${id} nav must fit ${width}px at ${scale}%`);
+      assert(await fits('#launcher-toggle'), `${id} launcher button must be visible at ${width}px and ${scale}%`);
+      assert(await fits('#layout-toggle'), `${id} layout button must be visible at ${width}px and ${scale}%`);
+      await click('#layout-toggle');
+      assert(await fits('#layout-menu'), `${id} layout picker must fit ${width}px at ${scale}%`);
+      await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+      assert.equal(await evaluate(`document.getElementById('layout-menu').hidden`), true);
+      await click('#library-toggle');
+      assert(await fits('#library-dialog'), `${id} library must fit ${width}px at ${scale}%`);
+      await click('#library-close');
+      await click('#stats-toggle');
+      assert(await evaluate(`document.getElementById('stats-page').scrollWidth <= document.getElementById('stats-page').clientWidth + 1`), `${id} statistics must fit ${width}px at ${scale}%`);
+      assert(await fits('#brainexer-toggle'), `${id} BrainExer navigation must fit ${width}px at ${scale}%`);
+      await click('#brainexer-toggle');
+      assert(await evaluate(`(() => {
+        const page = document.getElementById('brainexer-page');
+        return !page.hidden && document.getElementById('stats-page').hidden && document.querySelector('.workspace').hidden
+          && page.scrollWidth <= page.clientWidth + 1
+          && document.getElementById('brainexer-toggle').getAttribute('aria-current') === 'page';
+      })()`), `${id} BrainExer must fit ${width}px at ${scale}%`);
+      await click('.rail-main [data-action=page][data-value=home]');
+    }
+  }
+  await cdp('Emulation.setDeviceMetricsOverride', {width:1600,height:1080,deviceScaleFactor:1,mobile:false});
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:window.__originalLayoutSettings})`);
   // Updating hidden library preferences must not recreate all deck rows.
   await evaluate(`(()=>{window.__nosOldDeck=document.querySelector('#deck-list > .deck-group');
     window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),view:'grid'}});

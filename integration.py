@@ -24,7 +24,7 @@ from .data import collect_snapshot, collect_overview_snapshot, collect_history_y
 from .graphs_data import collect_native_graphs
 from .study_data import collect_support, insight_cards, clear_cache as clear_support_cache
 from .backup_store import export_archive, inspect_archive, restore_archive
-from .theme_settings import THEME_DEFAULTS, clean_theme_settings
+from .theme_settings import DEFAULT_LAYOUT, THEME_DEFAULTS, clean_theme_settings
 from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, WALLPAPER_SUFFIX, WALLPAPER_MAX_SIDE,
                           WALLPAPER_DIM_MAX, WALLPAPER_BLUR_MAX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
@@ -287,7 +287,8 @@ def settings() -> dict[str, Any]:
             "wallpaper_dim": 28, "wallpaper_blur": 0,
             "image_position_dashboard": "center", "image_position_overview": "center",
             "image_position_review": "center", "image_position_avatar": "center",
-            **profile}
+            **profile,
+            "layout": clean_theme_settings(profile).get("layout", DEFAULT_LAYOUT)}
 
 
 def public_settings() -> dict[str, Any]:
@@ -738,7 +739,12 @@ def _backup_export() -> None:
 
 
 def _backup_restore() -> None:
+    from .brainexer_bridge import busy as brainexer_busy
+
     if _backup_busy:
+        return
+    if brainexer_busy(mw.pm.name):
+        showWarning("Hãy chờ BrainExer xử lý xong trước khi khôi phục dữ liệu.", parent=mw)
         return
     path, _ = QFileDialog.getOpenFileName(mw, "Chọn gói AnkiNOS để xem trước", "", "Gói AnkiNOS (*.nosbackup)")
     if not path:
@@ -753,8 +759,9 @@ def _backup_restore() -> None:
             + f"<br>Ảnh: {len(values['images'])} · Album: {len(values['image_albums'])} · Phiên Focus: {manifest['focus_sessions']}"
             + f"<br>Tham chiếu tài nguyên: {len(values['resources'])}"
             + f"<br>Ghi chú: {manifest.get('workspace',{}).get('notes',0)}"
+            + f"<br>BrainExer: {manifest.get('brainexer',{}).get('sessions',0)} phiên · {manifest.get('brainexer',{}).get('mistakes',0)} lỗi"
             + "<br><br>Hồ sơ nhận: <b>" + html.escape(profile) + "</b>"
-            + "<br>Cấu hình, ảnh, Focus và sổ tay sẽ được thay thế. Dữ liệu lưu trữ cũ được giữ trong gói. Bản dự phòng hiện tại được lưu vào user_files/backups trước khi thay thế."
+            + "<br>Cấu hình giao diện, ảnh, Focus, sổ tay và dữ liệu luyện BrainExer sẽ được thay thế. Bản dự phòng hiện tại được lưu vào user_files/backups trước khi thay thế."
             + "<br>Thẻ Anki không nằm trong gói này. Tài nguyên ngoài add-on chỉ lưu đường dẫn, có thể cần gắn lại khi đổi máy."
             + "<br><br>Khôi phục vào hồ sơ này?")
         send("backup_status", {"busy": False, "message": "Đã kiểm tra toàn vẹn gói. Đang chờ xác nhận khôi phục."})
@@ -791,6 +798,7 @@ def _backup_restore() -> None:
             _data_revision += 1
             clear_support_cache()
             send("settings", public_settings())
+            send("brainexer_reset", None)
             refresh()
             send("backup_status", {"busy": False, "message": "Đã khôi phục đầy đủ. Bản trước khôi phục: " + str(backup)})
             if not enabled():
@@ -914,6 +922,9 @@ def _replace_content(content: Any, context: Any) -> None:
         initial["auto_start"] = bool(_quick_plan and _quick_plan[:2] == (mw.pm.name, str(initial["id"])))
         initial.update(profile=mw.pm.name, settings=public_settings(), fullscreen=mw.isFullScreen())
         content.body += '<textarea id="nos-overview-bootstrap" hidden>' + html.escape(json.dumps(initial, ensure_ascii=True)) + '</textarea>'
+    else:
+        layout = settings()["layout"]
+        content.body = content.body.replace(f'data-layout="{DEFAULT_LAYOUT}"', f'data-layout="{layout}"', 1)
     package = mw.addonManager.addonFromModule(MODULE)
     base = f"/_addons/{package}/assets"
     content.css = [p for p in content.css if p != "css/deckbrowser.css"]
@@ -924,17 +935,23 @@ def _replace_content(content: Any, context: Any) -> None:
         content.css.append(f"{base}/overview.css")
     content.js.append(f"{base}/theme.js")
     content.js.append(f"{base}/runtime-guard.js")
+    if not overview:
+        content.js.append(f"{base}/layouts.js")
     content.js.append(f"{base}/overview.js" if overview else f"{base}/dashboard.js")
     if not overview:
         content.css.append(f"{base}/stats-page.css")
+        content.css.append(f"{base}/brainexer.css")
         content.css.append(f"{base}/focus-dashboard.css")
         content.js.append(f"{base}/stats-page.js")
+        content.js.append(f"{base}/brainexer.js")
         content.js.append(f"{base}/focus-dashboard.js")
         content.css.append(f"{base}/media-studio.css")
         content.js.append(f"{base}/media-studio.js")
         content.css.append(f"{base}/study-dashboard.css")
         content.js.append(f"{base}/study-dashboard.js")
     content.css.append(f"{base}/theme.css")
+    if not overview:
+        content.css.append(f"{base}/layouts.css")
 
 
 
@@ -1209,7 +1226,7 @@ def _save_ui(values: Any) -> None:
 
 
 def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool, Any]:
-    global _library_focus, _data_revision, _review_changes_only, _quick_plan
+    global _library_focus, _data_revision, _review_changes_only, _quick_plan, _navigating
     if handled[0] or not isinstance(context, (DeckBrowser, Overview)) or not message.startswith("nos:"):
         return handled
     if not mw.col or mw.state not in {"deckBrowser", "overview"} or not enabled():
@@ -1223,7 +1240,29 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         if not isinstance(command, dict):
             return (True, None)
         action = command.get("action")
-        if action == "show_children":
+        if action == "brainexer":
+            if context is _live_context and isinstance(context, DeckBrowser) and not _navigating:
+                from .brainexer_bridge import handle
+
+                profile, generation = mw.pm.name, _generation
+
+                def brainexer_profiles() -> dict:
+                    profiles = config().get("brainexer_profiles")
+                    return profiles if isinstance(profiles, dict) else {}
+
+                def current() -> bool:
+                    return (context is _live_context and generation == _generation
+                            and mw.col is not None and mw.pm.name == profile and not _navigating)
+
+                def save_brainexer(values: dict) -> None:
+                    updated = dict(config())
+                    updated["brainexer_profiles"] = {**brainexer_profiles(), profile: values}
+                    mw.addonManager.writeConfig(MODULE, updated)
+                    _config_updated(updated)
+
+                handle(command, profile, brainexer_profiles().get(profile, {}),
+                       save_brainexer, current, lambda result: send("brainexer", result), _backup_busy)
+        elif action == "show_children":
             _library_focus = str(_deck_id(command.get("id")))
             mw.moveToState("deckBrowser")
         elif action == "library_ack":
@@ -1303,7 +1342,7 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         elif action in {"preferences", "open_anki_prefs"}:
             mw.onPrefs()
         elif action == "addons":
-            dialogs.open("AddonsDialog", mw)
+            mw.addonManager.onAddonsDialog()
         elif action == "switch_profile":
             mw.unloadProfileAndShowProfileManager()
         elif action == "create_deck":
@@ -1351,7 +1390,6 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         elif action in {"album_create", "album_rename", "album_delete"}:
             _album_action(action, str(command.get("id", "")), command.get("name"))
     except Exception as error:
-        global _navigating
         _navigating = False
         send("error", str(error))
     return (True, None)

@@ -1,0 +1,3 @@
+Tạo một câu trắc nghiệm kiến thức từ các trường văn bản của thẻ. Đề hỏi một điều có thể xác định từ nguồn. Dùng ngôn ngữ chính của nội dung nguồn, dùng feedback_language nếu nguồn có nhiều ngôn ngữ.
+
+Viết ba hoặc bốn lựa chọn khác nhau trong options, mỗi mục là văn bản lựa chọn, không cần tiền tố A/B/C/D. Phải có đúng một lựa chọn đúng và correct_answers chỉ chứa nguyên văn lựa chọn đó. Các lựa chọn khác cần hợp lý nhưng phân biệt rõ được từ nguồn. Giải thích vì sao lựa chọn đúng trong explanation. Để trống trường không sử dụng. Nếu không viết được câu có một đáp án rõ ràng, trả insufficient_data.

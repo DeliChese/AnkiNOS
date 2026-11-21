@@ -22,6 +22,7 @@ import anki
 from anki.lang import set_lang
 import aqt
 import aqt.update
+from aqt.addons import AddonsDialog
 from aqt.profiles import ProfileManager, VideoDriver
 from aqt.qt import QEventLoop, QTimer
 
@@ -54,14 +55,185 @@ def until(expression, view=None):
     raise AssertionError("Anki dashboard not ready: " + expression)
 
 
+def check_brainexer(addon):
+    import sqlite3
+    from contextlib import closing
+    from unittest.mock import patch
+
+    from NOS import brainexer_api as api
+    from NOS.brainexer.core.models import AIResult
+
+    keys = {}
+
+    class Keyring:
+        def __init__(self, account):
+            assert account == "NOS Test"
+
+        def get_api_key(self, provider):
+            return keys.get(provider)
+
+        def set_api_key(self, key, provider):
+            keys[provider] = key
+
+    class Client:
+        def create_structured(self, _system, task, source, name, _schema):
+            if name == "brainexer_exercise":
+                data = {
+                    "question_prompt": "I ___ in Hanoi.", "correct_answers": ["live"], "options": ["live", "leave"],
+                    "hint": "A verb", "explanation": "Live means reside.", "target_meaning": "reside",
+                    "nuance_note": "", "suggested_length": "", "target_words_to_use": [], "example_opening": "",
+                }
+                if source["language"] == "auto":
+                    assert source["cards"] == [{
+                        "fields": {"Khái niệm riêng": "Cường độ dòng điện", "Ghi chú do tôi đặt": "Đơn vị đo là ampe (A)."}
+                    }]
+                    data.update(question_prompt="Cường độ dòng điện dùng đơn vị gì?", correct_answers=["ampe"],
+                                explanation="Cường độ dòng điện được đo bằng ampe.", options=[])
+                    if task.startswith("Tạo một câu trắc nghiệm"):
+                        data["options"] = ["ampe", "vôn", "ôm"]
+                    if task.startswith("Tạo một bài vận dụng"):
+                        data.update(question_prompt="Hãy giải thích con số 2 A trên ampe kế.",
+                                    correct_answers=["Cường độ dòng điện bằng 2 ampe."])
+                else:
+                    assert source["cards"][0]["target"] == "reside"
+            else:
+                data = {
+                    "score": 8, "grammar_score": 8, "vocabulary_score": 8, "clarity_score": 8,
+                    "summary": "Bài viết rõ ràng.", "strengths": [], "errors": [],
+                    "style_suggestions": [], "corrected_full_text": "", "applied_target_words_correctly": [],
+                    "missed_target_words": [],
+                }
+                if name == "brainexer_application_grade":
+                    assert source["user_text"] == "Dòng điện có cường độ 2 ampe."
+                    assert source["cards"][0]["fields"]["Ghi chú do tôi đặt"] == "Đơn vị đo là ampe (A)."
+                    assert source["reference_answers"] == ["Cường độ dòng điện bằng 2 ampe."]
+                    data.pop("grammar_score")
+                    data.pop("vocabulary_score")
+                    data.update(accuracy_score=9, reasoning_score=8, summary="Dùng đúng đơn vị.",
+                                corrected_full_text="Giá trị 2 A cho biết cường độ dòng điện là 2 ampe.")
+                else:
+                    assert source["user_text"] == "I live in Hanoi."
+            return AIResult({"status": "ok", "reason": "", "data": data}, None, "request-1")
+
+    def click(selector):
+        js(f"document.querySelector({json.dumps(selector)}).click()")
+
+    def value(identifier, value):
+        js(f"document.getElementById({json.dumps(identifier)}).value = {json.dumps(value)}")
+
+    col = aqt.mw.col
+    deck = col.decks.id("BrainExer test source")
+    note = col.new_note(col.models.by_name("Basic"))
+    note["Front"], note["Back"] = "reside", "to live in a place"
+    col.add_note(note, deck)
+    knowledge_deck = col.decks.id("BrainExer kiến thức")
+    original_type = col.models.current()
+    note_type = col.models.new("BrainExer trường tùy chỉnh")
+    for field in ("Khái niệm riêng", "Ghi chú do tôi đặt", "Trường để trống"):
+        col.models.add_field(note_type, col.models.new_field(field))
+    template = col.models.new_template("Luyện thử")
+    template["qfmt"], template["afmt"] = "{{Khái niệm riêng}}", "{{Ghi chú do tôi đặt}}"
+    col.models.add_template(note_type, template)
+    col.models.add(note_type)
+    knowledge = col.new_note(note_type)
+    knowledge["Khái niệm riêng"], knowledge["Ghi chú do tôi đặt"] = "Cường độ dòng điện", "Đơn vị đo là {{c1::ampe}} (A)."
+    col.add_note(knowledge, knowledge_deck)
+    col.models.set_current(original_type)
+    legacy_path = addon / "brainexer" / "user_files" / "brainexer.db"
+    legacy_path.parent.mkdir(parents=True)
+    with closing(sqlite3.connect(legacy_path)) as legacy, legacy:
+        legacy.executescript((addon / "brainexer/db/schema.sql").read_text(encoding="utf-8"))
+        legacy.execute("INSERT INTO sessions VALUES(1,?,'Imported history',1,1,'[]','English','','now',NULL)", (deck,))
+
+    with patch.object(api, "KeyringStore", Keyring), patch.object(api, "create_ai_client", return_value=Client()):
+        click("#brainexer-toggle")
+        until("document.querySelector('#brainexer-type').options.length === 8 && !document.querySelector('#brainexer-setup').hidden")
+        assert js("document.querySelector('#brainexer-type').value") == "recall"
+        assert js("Array.from(document.querySelectorAll('#brainexer-type optgroup'), group => group.label)") == ["Kiến thức", "Ngoại ngữ"]
+        assert js("document.getElementById('brainexer-toggle').getAttribute('aria-current')") == "page"
+        assert js("document.querySelector('.workspace').hidden")
+        click('.brainexer-nav [data-brainexer-view="settings"]')
+        click("#brainexer-import")
+        until("document.querySelector('#brainexer-status').textContent.includes('Đã nhập')")
+        value("brainexer-key", "fixture-key")
+        click('#brainexer-settings-form [name="ai_data_consent"]')
+        click('#brainexer-settings-form [type="submit"]')
+        until("document.querySelector('#brainexer-status').textContent.includes('Đã lưu')")
+        assert keys == {"openai": "fixture-key"}
+        assert not js("document.getElementById('brainexer-key').value")
+        assert "fixture-key" not in json.dumps(aqt.mw.addonManager.getConfig("NOS"))
+
+        click('.brainexer-nav [data-brainexer-view="practice"]')
+        value("brainexer-deck", str(deck))
+        value("brainexer-type", "fill_blank")
+        click("#brainexer-create")
+        until("document.querySelector('#brainexer-prompt').textContent === 'I ___ in Hanoi.'")
+        click('#brainexer-options [data-answer="leave"]')
+        click("#brainexer-submit")
+        until("document.querySelector('#brainexer-feedback').textContent.includes('0/10')")
+        click('.brainexer-nav [data-brainexer-view="mistakes"]')
+        until("document.querySelector('#brainexer-mistake-list').textContent.includes('leave')")
+        click('[data-method="add_mistake"]')
+        until("document.querySelector('#brainexer-status').textContent.includes('Thẻ đã có')")
+        click('[data-method="add_mistake"]')
+        until("document.querySelector('#brainexer-status').textContent.includes('Thẻ đã có')")
+        assert len(col.find_notes("tag:brainexer::mistake")) == 1
+        click('[data-method="mastered"]')
+        until("!document.querySelector('#brainexer-mistakes-empty').hidden")
+        click("#brainexer-mastered")
+        until("document.querySelector('#brainexer-mistake-list').textContent.includes('Đã thuộc')")
+
+        click('.brainexer-nav [data-brainexer-view="practice"]')
+        value("brainexer-type", "writing_free")
+        click("#brainexer-create")
+        until("document.querySelector('#brainexer-source').textContent.includes('Luyện viết tự do')")
+        value("brainexer-answer", "I live in Hanoi.")
+        click("#brainexer-submit")
+        until("document.querySelector('#brainexer-feedback').textContent.includes('8/10')")
+
+        value("brainexer-deck", str(knowledge_deck))
+        value("brainexer-type", "recall")
+        click("#brainexer-create")
+        until("document.querySelector('#brainexer-source').textContent.includes('Gợi nhớ kiến thức')")
+        value("brainexer-answer", "ampe")
+        click("#brainexer-submit")
+        until("document.querySelector('#brainexer-feedback').textContent.includes('10/10')")
+
+        value("brainexer-type", "multiple_choice")
+        click("#brainexer-create")
+        until("document.querySelector('#brainexer-source').textContent.includes('Trắc nghiệm')")
+        assert js("document.querySelector('#brainexer-answer').hidden && document.querySelector('#brainexer-submit').disabled")
+        click('#brainexer-options [data-answer="vôn"]')
+        click("#brainexer-submit")
+        until("document.querySelector('#brainexer-feedback').textContent.includes('0/10')")
+        click('.brainexer-nav [data-brainexer-view="mistakes"]')
+        until("document.querySelector('#brainexer-mistake-list').textContent.includes('Cường độ dòng điện dùng đơn vị gì?')")
+
+        click('.brainexer-nav [data-brainexer-view="practice"]')
+        value("brainexer-type", "application")
+        click("#brainexer-create")
+        until("document.querySelector('#brainexer-source').textContent.includes('Vận dụng kiến thức')")
+        value("brainexer-answer", "Dòng điện có cường độ 2 ampe.")
+        click("#brainexer-submit")
+        until("document.querySelector('#brainexer-feedback').textContent.includes('Độ chính xác 9/10')")
+        click('.rail-main [data-value="home"]')
+        assert js("document.querySelector('#brainexer-page').hidden")
+
+    profile = api.BrainExer("NOS Test", {}, addon)
+    assert api.validate_database(profile.path) == {"sessions": 6, "mistakes": 2}
+    assert api.validate_database(legacy_path) == {"sessions": 1, "mistakes": 0}
+
+
 def main():
     base = ROOT / "tests" / ".tmp" / ("anki-" + uuid.uuid4().hex[:10])
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
+    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "brainexer_api.py", "brainexer_bridge.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
+    shutil.copytree(ROOT / "brainexer", addon / "brainexer",
+                    ignore=shutil.ignore_patterns("user_files", "meta.json", "tests", "__pycache__", ".*"))
     set_lang("en_US")
     manager = ProfileManager(base)
     manager.setupMeta()
@@ -90,6 +262,45 @@ def main():
     assert heatmap_calls==[], "Do not compute heatmap data before discarding its HTML"
     assert aqt.mw._review_heatmap.render_for_view(SimpleNamespace(name='stats')) == 'native heatmap'
     until("!!window.AnkiNOS && document.getElementById('connection').textContent.includes('Bộ sưu tập Anki')")
+    if "--brainexer" in sys.argv:
+        check_brainexer(addon)
+        from NOS.brainexer_api import BrainExer, validate_database
+
+        path = integration.export_archive(addon, "NOS Test", integration.settings(), base / "brainexer.nosbackup")
+        manifest = integration.inspect_archive(addon, path)
+        assert manifest["version"] == 3
+        assert manifest["brainexer"] == {"sessions": 6, "mistakes": 2}
+        destination = "NOS Backup Test"
+        integration.restore_archive(addon, destination, path, manifest["archive_sha256"], {}, lambda _values: None)
+        assert validate_database(BrainExer(destination, {}, addon).path) == manifest["brainexer"]
+        print("PASS: BrainExer dashboard, bridge, legacy import, practice, Anki card export and backup restore", flush=True)
+        aqt.mw.unloadProfileAndExit()
+        app.exec()
+        return
+    js("document.querySelector('[data-action=addons]').click()")
+    end = time.monotonic() + 5
+    addon_dialog = aqt.mw.findChild(AddonsDialog)
+    while addon_dialog is None and time.monotonic() < end:
+        wait(25)
+        addon_dialog = aqt.mw.findChild(AddonsDialog)
+    assert addon_dialog is not None and addon_dialog.isVisible(), "Dashboard Add-ons button must open Anki's Add-ons dialog"
+    addon_dialog.reject()
+    assert js("document.getElementById('nos-app').dataset.layout") == "aurora"
+    js("document.getElementById('layout-toggle').click()")
+    js("document.querySelector('[data-layout-id=dock]').click()")
+    until("document.getElementById('nos-app').dataset.layout === 'dock'")
+    assert aqt.mw.addonManager.getConfig("NOS")["profiles"][aqt.mw.pm.name]["layout"] == "dock"
+    js("window.__oldDeckBrowser = true")
+    aqt.mw.moveToState("deckBrowser")
+    until("!window.__oldDeckBrowser && window.NOSLayout && document.getElementById('nos-app').dataset.layout === 'dock'")
+    until("!!window.AnkiNOS.getSnapshot()")
+    js("document.querySelector('.rail-bottom [data-action=preferences]').click()")
+    js("document.querySelector('[data-layout-card=aurora]').click()")
+    assert integration.settings()["layout"] == "dock"
+    js("document.getElementById('btn-apply-settings').click()")
+    until("document.getElementById('nos-app').dataset.layout === 'aurora'")
+    assert aqt.mw.addonManager.getConfig("NOS")["profiles"][aqt.mw.pm.name]["layout"] == "aurora"
+    js("document.getElementById('settings-close').click()")
     # An old import without a thumbnail must never decode its original in the
     # gallery's opening frame. Build its preview asynchronously and retain it.
     from aqt.qt import QImage
@@ -487,21 +698,25 @@ def main():
     until("!!window.NOSStudy && !document.getElementById('study-now').disabled")
     # Exercise the production async export/preview/restore bridge on this profile.
     from unittest.mock import patch
+    check_brainexer(addon)
     backup_path = base / "profile.nosbackup"
-    integration.save_settings({"theme": "night"})
+    integration.save_settings({"theme": "night", "layout": "bento"})
     with patch.object(integration.QFileDialog, "getSaveFileName", return_value=(str(backup_path), "")):
         integration._backup_export()
         end = time.monotonic() + 10
         while integration._backup_busy and time.monotonic() < end:
             wait(30)
     assert backup_path.is_file() and not integration._backup_busy
-    integration.save_settings({"theme": "light"})
+    brainexer_backup = integration.inspect_archive(addon, backup_path)
+    assert brainexer_backup["version"] == 3 and brainexer_backup["brainexer"] == {"sessions": 6, "mistakes": 2}
+    integration.save_settings({"theme": "light", "layout": "dock"})
     with patch.object(integration.QFileDialog, "getOpenFileName", return_value=(str(backup_path), "")), patch.object(integration, "askUser", return_value=False):
         integration._backup_restore()
         end = time.monotonic() + 10
         while integration._backup_busy and time.monotonic() < end:
             wait(30)
     assert integration.settings()["theme"] == "light", "Cancelling preview must not change settings"
+    assert integration.settings()["layout"] == "dock"
     with patch.object(integration.QFileDialog, "getOpenFileName", return_value=(str(backup_path), "")), patch.object(integration, "askUser", return_value=True):
         integration._backup_restore()
         end = time.monotonic() + 10
@@ -509,6 +724,8 @@ def main():
             wait(30)
     assert not integration._backup_busy
     assert integration.settings()["theme"] == "night"
+    assert integration.settings()["layout"] == "bento"
+    until("document.getElementById('nos-app').dataset.layout === 'bento'")
     assert reviewer_ui.focus_store().history()["completed_sessions"] >= 1
     assert list((integration.ROOT / "user_files/backups").glob("before-restore-*.nosbackup"))
     # Failed rendering restores native content, and explicit re-enable recovers.
@@ -535,7 +752,7 @@ def main():
         assert "sao lưu" in info.call_args.args[0]
     integration._toggle(True)
     until("!!window.AnkiNOS && document.getElementById('connection')?.textContent.includes('Bộ sưu tập Anki')")
-    integration.save_settings({"theme":"dusk", "activity_collapsed":False})
+    integration.save_settings({"theme":"dusk", "layout":"aurora", "activity_collapsed":False})
     integration.send("settings",integration.settings())
     aqt.mw.setGeometry(0,0,1440,1000)
     aqt.mw.layout().activate()
