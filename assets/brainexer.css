@@ -43,18 +43,21 @@
   width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--edge);
   border-radius: 9px; color: var(--text); background: var(--inner); font: inherit;
 }
-#nos-app .brainexer-hub-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; gap: 10px; }
-#nos-app .brainexer-mode-group { grid-column: 1 / -1; margin-top: 9px; font-size: 14px; color: var(--muted); }
+#nos-app .brainexer-hub-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); align-items: stretch; gap: 8px; }
 #nos-app .brainexer-hub-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; }
 #nos-app .brainexer-hub-levels > span { padding: 8px 11px; border: 1px solid var(--edge); border-radius: 10px; background: var(--inner); }
-#nos-app .brainexer-mode-card { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-content: start;
-  column-gap: 11px; row-gap: 3px; width: 100%; min-width: 0; min-height: 82px; text-align: left; padding: 14px;
-  border: 1px solid var(--edge); border-radius: 14px; color: var(--text); background: var(--inner); cursor: pointer; }
+#nos-app .brainexer-mode-card { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-content: center;
+  column-gap: 8px; row-gap: 2px; width: 100%; min-width: 0; min-height: 66px; text-align: left; padding: 9px 10px;
+  border: 1px solid var(--edge); border-radius: 11px; color: var(--text); background: var(--inner); cursor: pointer; }
 #nos-app .brainexer-mode-card:hover { border-color: var(--blue); background: var(--accent-soft); }
-#nos-app .brainexer-mode-card strong { grid-column: 2; font-size: 15px; line-height: 1.3; }
-#nos-app .brainexer-mode-card .brainexer-mode-icon { grid-column: 1; grid-row: 1 / 4; align-self: start; width: 24px; height: 24px; margin-top: 2px; color: var(--blue); }
+#nos-app .brainexer-mode-card strong { grid-column: 2; font-size: 14px; line-height: 1.25; }
+#nos-app .brainexer-mode-card .brainexer-mode-icon { grid-column: 1; grid-row: 1 / 3; align-self: center; width: 21px; height: 21px; color: var(--blue); }
 #nos-app .brainexer-mode-card :is(span,em) { grid-column: 2; overflow-wrap: anywhere; }
 #nos-app .brainexer-mode-card :is(small,span,em) { font-size: 12px; color: var(--muted); font-style: normal; }
+@media (max-width: 700px) {
+  #nos-app .brainexer-hub-modes { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(190px, 220px); overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; scrollbar-width: thin; padding-bottom: 7px; }
+  #nos-app .brainexer-mode-card { scroll-snap-align: start; }
+}
 #nos-app .brainexer-speed-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px 10px; min-width: 150px; }
 #nos-app .brainexer-speed-control output { justify-self: end; color: var(--text); font-variant-numeric: tabular-nums; }
 #nos-app .brainexer-speed-control input[type="range"] { grid-column: 1 / -1; width: 100%; min-height: 26px; margin: 0; padding: 0; accent-color: var(--blue); background: transparent; cursor: pointer; }

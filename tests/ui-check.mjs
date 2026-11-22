@@ -162,10 +162,30 @@ try {
   })()`);
   assert(await horizontalCard('#brainexer-hub-practice-modes .brainexer-mode-card'),
     'Practice modes must place icons beside labels');
+  const horizontalStrip = selector => evaluate(`(()=>{
+    const strip=document.querySelector(${JSON.stringify(selector)});
+    const cards=Array.from(strip.querySelectorAll('.brainexer-mode-card'));
+    return cards.length>1 && cards.every(card => Math.abs(card.getBoundingClientRect().top-cards[0].getBoundingClientRect().top)<1)
+      && strip.scrollWidth>strip.clientWidth;
+  })()`);
+  assert(await horizontalStrip('#brainexer-hub-practice-modes'),
+    'Practice modes must share one scrollable row on narrow screens');
+  await cdp('Emulation.setDeviceMetricsOverride', {width:530,height:600,deviceScaleFactor:1,mobile:false});
+  assert(await horizontalStrip('#brainexer-hub-practice-modes'),
+    'Practice modes must stay horizontal at the reported window width');
+  assert(await evaluate(`document.getElementById('brainexer-page').scrollWidth <= document.getElementById('brainexer-page').clientWidth + 1`),
+    'Horizontal modes must not overflow the page at 530px');
+  await cdp('Emulation.setDeviceMetricsOverride', {width:320,height:600,deviceScaleFactor:1,mobile:false});
+  await evaluate(`window.dispatchEvent(new CustomEvent('brainexer-status',
+    {detail:{...window.__brainexerStatus,deck_kinds:{Demo:'language'}}}))`);
   await click('[data-brainexer-view="game"]');
   assert(await horizontalCard('#brainexer-hub-game-modes .brainexer-mode-card'),
     'Game modes must place icons beside labels');
+  assert(await horizontalStrip('#brainexer-hub-game-modes'),
+    'Game modes must share one scrollable row on narrow screens');
   await click('[data-brainexer-view="practice"]');
+  await evaluate(`window.dispatchEvent(new CustomEvent('brainexer-status',
+    {detail:window.__brainexerStatus}))`);
   await click('#brainexer-hub-practice-modes [data-mode="multiple_choice"]');
   for (let i=0;i<30;i++) {
     if (await evaluate(`document.getElementById('brainexer-hub-question').textContent.includes('Thủ đô')`)) break;

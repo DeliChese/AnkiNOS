@@ -176,18 +176,14 @@
       const ids = game ? Object.keys(modes) : kind === 'language'
         ? ['multiple_choice','phrase','fill_blank','sentence','listening','quick','review']
         : ['recall','multiple_choice','quick','explain','application','review'];
-      let previousGroup = '';
       for (const id of ids) {
         const [group, description] = modes[id];
         if (games.has(id) !== game || (kind === 'language' && !language.has(id))
             || (kind === 'knowledge' && !knowledge.has(id)) || !kind) continue;
-        if (!game && group !== previousGroup) {
-          container.append(text('h3', group, 'brainexer-mode-group'));
-          previousGroup = group;
-        }
         const button = text('button', '', 'brainexer-mode-card');
         button.type = 'button';
         button.dataset.mode = id;
+        button.title = group;
         button.disabled = busy;
         const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         icon.classList.add('icon', 'brainexer-mode-icon');
