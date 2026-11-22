@@ -140,7 +140,11 @@ class ToolDialog(QDialog):
                     "focus":lambda:start(host.settings().get("study_budget",30)),
                     "notebook":lambda:open_notebook(self.did),
                     "add":mw.onAddCard,"browse":lambda:host._browse(),"stats":host.open_statistics,
-                    "sync":mw.on_sync_button_clicked,"backup":host._backup_export}
+                    "sync":mw.on_sync_button_clicked,"backup":host._backup_export,
+                    "brainexer":lambda:host.open_brainexer("practice"),
+                    "brainexer_game":lambda:host.open_brainexer("game"),
+                    "brainexer_mistakes":lambda:host.open_brainexer("mistakes"),
+                    "brainexer_listening":lambda:host.open_brainexer("listening")}
                 if identifier not in actions:
                     raise ValueError("Lệnh không được hỗ trợ.")
                 self.accept(); actions[identifier]()

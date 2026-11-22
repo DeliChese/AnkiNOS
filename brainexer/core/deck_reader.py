@@ -38,8 +38,13 @@ def sample_sources(
     return sample_card_ids(col, card_ids_for_deck(col, deck, include_children), sample_size)
 
 
-def sample_card_ids(col: Any, ids: List[int], sample_size: int) -> List[CardSource]:
+def sample_card_ids(col: Any, ids: List[int], sample_size: int,
+                    preferred_ids: List[int] | None = None) -> List[CardSource]:
     random.shuffle(ids)
+    if preferred_ids:
+        available = set(ids)
+        front = [card_id for card_id in preferred_ids if card_id in available]
+        ids = list(dict.fromkeys(front + ids))
     sources = []
     seen_notes = set()
     seen_contents = set()

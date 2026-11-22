@@ -124,7 +124,7 @@ class KeyringStore:
 
     def _account(self, provider: str) -> str:
         provider = provider.strip().casefold()
-        if provider not in ("openai", "deepseek", "gemini"):
+        if provider not in ("openai", "deepseek", "gemini", "azure"):
             raise KeyringError("Provider không hợp lệ: {}".format(provider))
         return "{}-api-key/{}".format(provider, self.profile)
 

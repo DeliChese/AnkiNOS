@@ -116,13 +116,37 @@
       </header>
       <nav class="brainexer-nav" aria-label="Các mục BrainExer">
         <button type="button" class="subtle-button" data-brainexer-view="practice" aria-controls="brainexer-practice" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>Luyện tập</button>
+        <button type="button" class="subtle-button" data-brainexer-view="game" aria-controls="brainexer-game" aria-pressed="false">Game</button>
         <button type="button" class="subtle-button" data-brainexer-view="mistakes" aria-controls="brainexer-mistakes" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg>Sổ lỗi</button>
+        <button type="button" class="subtle-button" data-brainexer-view="listening" aria-controls="brainexer-listening" aria-pressed="false">Thư viện câu nghe</button>
         <button type="button" class="subtle-button" data-brainexer-view="settings" aria-controls="brainexer-settings" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>Cài đặt AI</button>
       </nav>
       <p class="brainexer-status" id="brainexer-status" role="status" hidden></p>
       <button type="button" class="subtle-button" id="brainexer-retry" hidden>Thử tải lại</button>
       <div id="brainexer-practice" class="brainexer-practice">
-        <form class="brainexer-card glass" id="brainexer-generate">
+        <section class="brainexer-hub glass" id="brainexer-hub-practice" aria-label="Các dạng bài luyện tập">
+          <div class="brainexer-hub-controls">
+            <label>Bộ thẻ<select id="brainexer-hub-deck"></select></label>
+            <label>Loại bộ thẻ<select id="brainexer-hub-kind"><option value="">Chọn loại</option><option value="language">Ngoại ngữ</option><option value="knowledge">Kiến thức</option></select></label>
+            <label class="brainexer-check"><input id="brainexer-hub-children" type="checkbox" checked>Bao gồm bộ con</label>
+          </div>
+          <details id="brainexer-hub-field-mapping"><summary>Chọn vai trò trường cho mẫu thẻ tùy biến</summary>
+            <p class="brainexer-meta">Nếu BrainExer hiểu sai trường, chọn trường đề bài hoặc từ, rồi chọn trường đáp án hoặc nghĩa. Bộ con kế thừa lựa chọn của bộ cha.</p>
+            <div class="brainexer-hub-controls">
+              <label>Đề bài hoặc từ<select id="brainexer-hub-question-field"><option value="">Tự nhận diện</option></select></label>
+              <label>Đáp án hoặc nghĩa<select id="brainexer-hub-answer-field"><option value="">Tự nhận diện</option></select></label>
+            </div>
+          </details>
+          <div class="brainexer-hub-controls" id="brainexer-hub-voice-controls" hidden>
+            <label>Giọng đọc<select id="brainexer-hub-voice"></select></label>
+            <label class="brainexer-speed-control">Tốc độ nghe <output id="brainexer-hub-speed-value" for="brainexer-hub-speed">1,00×</output><input id="brainexer-hub-speed" type="range" min="0.1" max="2.5" step="0.01" value="1" aria-label="Tốc độ nghe từ 0,1 đến 2,5 lần"></label>
+          </div>
+          <p id="brainexer-hub-explain" class="brainexer-meta">BrainExer luyện riêng. Lịch ôn thẻ Anki không đổi.</p>
+          <div id="brainexer-hub-progress-levels" class="brainexer-hub-levels" hidden></div>
+          <p id="brainexer-hub-confidence-summary" class="brainexer-meta" hidden></p>
+          <div id="brainexer-hub-practice-modes" class="brainexer-hub-modes"></div>
+        </section>
+        <form class="brainexer-card glass" id="brainexer-generate" hidden>
           <h2>Nguồn bài tập</h2>
           <fieldset disabled>
             <label>Bộ thẻ<select id="brainexer-deck" required></select></label>
@@ -135,7 +159,7 @@
             <button type="button" class="subtle-button" data-brainexer-view="settings">Mở cài đặt AI</button>
           </div>
         </form>
-        <section class="brainexer-card glass brainexer-exercise" aria-labelledby="brainexer-question-title">
+        <section class="brainexer-card glass brainexer-exercise" aria-labelledby="brainexer-question-title" hidden>
           <h2 id="brainexer-question-title">Bài tập</h2>
           <div id="brainexer-empty" class="brainexer-empty">
             <span class="brainexer-empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-brainexer"/></svg></span>
@@ -156,10 +180,52 @@
           <section id="brainexer-feedback" class="brainexer-feedback" aria-label="Kết quả bài tập" aria-live="polite" hidden></section>
         </section>
       </div>
+      <section id="brainexer-game" class="brainexer-hub glass" hidden>
+        <h2>Game</h2>
+        <p class="brainexer-meta">Điểm và kỷ lục được lưu riêng cho từng bộ thẻ.</p>
+        <div id="brainexer-hub-game-modes" class="brainexer-hub-modes"></div>
+      </section>
+      <section id="brainexer-hub-run" class="brainexer-hub glass" hidden aria-label="Phiên BrainExer">
+        <div class="brainexer-card-head"><h2 id="brainexer-hub-run-title"></h2><button type="button" id="brainexer-hub-exit" class="subtle-button">Kết thúc phiên</button></div>
+        <p id="brainexer-hub-progress" class="brainexer-meta"></p>
+        <p id="brainexer-hub-question" class="brainexer-hub-question" tabindex="-1"></p>
+        <div id="brainexer-hub-options" class="brainexer-options"></div>
+        <label id="brainexer-hub-answer-label">Câu trả lời<textarea id="brainexer-hub-answer" maxlength="6000" rows="3"></textarea></label>
+        <div id="brainexer-hub-confidence" class="brainexer-actions" hidden aria-label="Mức tự tin">
+          <button type="button" class="subtle-button" data-confidence="sure">Chắc</button>
+          <button type="button" class="subtle-button" data-confidence="unsure">Tạm</button>
+          <button type="button" class="subtle-button" data-confidence="guess">Đoán</button>
+        </div>
+        <div id="brainexer-hub-audio" hidden><audio id="brainexer-hub-player" controls preload="none"></audio><button type="button" id="brainexer-hub-replay" class="subtle-button">Nghe lại</button><span id="brainexer-hub-listens" class="brainexer-meta"></span><label class="brainexer-speed-control">Tốc độ phát <output id="brainexer-hub-playback-speed-value" for="brainexer-hub-playback-speed">1,00×</output><input id="brainexer-hub-playback-speed" type="range" min="0.1" max="2.5" step="0.01" value="1" aria-label="Điều chỉnh tốc độ phát từ 0,1 đến 2,5 lần"></label></div>
+        <div id="brainexer-hub-hints" class="brainexer-actions" hidden><button type="button" id="brainexer-hub-hint" class="subtle-button">Gợi ý</button></div>
+        <div class="brainexer-actions"><button type="button" id="brainexer-hub-submit" class="primary-button">Nộp bài</button><button type="button" id="brainexer-hub-next" class="primary-button" hidden>Câu tiếp</button></div>
+        <button type="button" id="brainexer-hub-retry" class="subtle-button" hidden>Thử lại</button>
+        <div id="brainexer-hub-feedback" class="brainexer-feedback" aria-live="polite" hidden></div>
+        <div id="brainexer-hub-summary" hidden></div>
+      </section>
+      <section id="brainexer-listening" class="brainexer-hub glass" hidden>
+        <h2>Thư viện câu nghe</h2>
+        <p class="brainexer-meta">Những câu đã tạo có thể nghe lại và chép ngay cả khi không có mạng.</p>
+        <div class="brainexer-hub-controls">
+          <label>Bộ thẻ<select id="brainexer-hub-library-deck"><option value="">Tất cả</option></select></label>
+          <label>Trình độ<select id="brainexer-hub-library-level"><option value="">Tất cả</option></select></label>
+          <label>Độ chính xác<select id="brainexer-hub-library-accuracy"><option value="">Tất cả</option><option value="wrong">Cần luyện lại</option><option value="perfect">Đã chép đúng</option></select></label>
+        </div>
+        <div class="brainexer-actions"><button type="button" id="brainexer-hub-library-refresh" class="subtle-button">Làm mới</button><button type="button" id="brainexer-hub-library-wrong" class="subtle-button">Luyện lại câu sai</button><button type="button" id="brainexer-hub-library-cleanup" class="subtle-button">Dọn audio chưa ghim</button></div>
+        <div id="brainexer-hub-library"></div>
+      </section>
       <section class="brainexer-card glass" id="brainexer-mistakes" aria-labelledby="brainexer-mistakes-title" hidden>
         <div class="brainexer-card-head">
           <h2 id="brainexer-mistakes-title">Sổ lỗi</h2>
           <label class="brainexer-check"><input type="checkbox" id="brainexer-mastered">Hiện cả lỗi đã thuộc</label>
+        </div>
+        <div class="brainexer-hub-controls">
+          <label>Bộ thẻ<select id="brainexer-mistake-deck"><option value="">Tất cả</option></select></label>
+          <label>Loại lỗi<select id="brainexer-mistake-kind"><option value="">Tất cả</option><option value="meaning">Nghĩa</option><option value="spelling">Chính tả</option><option value="listening">Nghe</option><option value="usage">Dùng từ</option><option value="concept">Khái niệm</option><option value="confidence">Tưởng biết</option></select></label>
+          <label>Trạng thái<select id="brainexer-mistake-state"><option value="">Tất cả đang ôn</option><option value="new">Mới</option><option value="reviewing">Đang ôn</option><option value="mastered">Đã thuộc</option></select></label>
+          <label>Sai ít nhất<input id="brainexer-mistake-min-wrong" type="number" min="1" max="1000" value="1"></label>
+          <label>Đến hạn trước<input id="brainexer-mistake-before" type="date"></label>
+          <label class="brainexer-check"><input type="checkbox" id="brainexer-mistake-due">Chỉ mục đến hạn</label>
         </div>
         <p id="brainexer-mistakes-empty" hidden>Chưa có lỗi cần ôn trong mục này.</p>
         <ul id="brainexer-mistake-list" class="brainexer-mistake-list"></ul>
@@ -176,9 +242,13 @@
               <label>Ngôn ngữ phản hồi<input name="feedback_language" maxlength="160" required></label>
               <label>Trình độ (tùy chọn)<input name="learner_level" maxlength="160"></label>
               <label>API key<input id="brainexer-key" type="password" autocomplete="off" maxlength="2048" aria-describedby="brainexer-key-status"></label>
+              <label>Khu vực Azure Speech<input name="azure_region" maxlength="40" placeholder="southeastasia"></label>
+              <label>Khóa Azure Speech<input id="brainexer-azure-key" type="password" autocomplete="off" maxlength="2048"></label>
             </div>
             <p class="brainexer-meta" id="brainexer-key-status"></p>
+            <p class="brainexer-meta" id="brainexer-azure-key-status"></p>
             <label class="brainexer-check"><input type="checkbox" name="ai_data_consent"><span id="brainexer-consent-label"></span></label>
+            <label class="brainexer-check"><input type="checkbox" name="azure_data_consent">Tôi đồng ý gửi văn bản câu nghe tới Azure Speech để tạo audio.</label>
             <details>
               <summary>Giới hạn sử dụng và lưu dữ liệu</summary>
               <div class="brainexer-fields">
@@ -187,7 +257,18 @@
                 <label>Bài tập mỗi ngày<input name="max_exercises_per_day" type="number" min="0" max="10000" required></label>
                 <label>Bài tập mỗi tuần<input name="max_exercises_per_week" type="number" min="0" max="100000" required></label>
                 <label>Thời gian chờ API (giây)<input name="request_timeout_seconds" type="number" min="10" max="300" required></label>
+                <label>Ký tự Azure Speech mỗi tháng<input name="max_tts_chars_per_month" type="number" min="0" max="1000000" required></label>
+                <label>Số lỗi ôn mỗi ngày<input name="review_daily_limit" type="number" min="1" max="100" required></label>
+                <label>Khoảng cách ôn (ngày, tăng dần)<input name="review_intervals" maxlength="40" placeholder="1,3,7,14,30" required></label>
+                <label>Ôn nhanh (giây; 0 để tắt đồng hồ)<input name="quick_seconds" type="number" min="0" max="600" required></label>
+                <label>Game (giây; 0 để tắt đồng hồ)<input name="game_seconds" type="number" min="0" max="600" required></label>
+                <label>Câu nghe tạo trước (0–3)<input name="listening_prefetch" type="number" min="0" max="3" required></label>
+                <label>Số lượt nghe mỗi câu (0: không giới hạn)<input name="max_listens_per_sentence" type="number" min="0" max="20" required></label>
               </div>
+              <label class="brainexer-check"><input type="checkbox" name="game_mistakes">Ghi lỗi từ game vào Sổ lỗi</label>
+              <label class="brainexer-check"><input type="checkbox" name="allow_anki_mistake_export">Cho phép tạo thẻ Anki từ Sổ lỗi (chỉ khi tôi chọn từng lỗi)</label>
+              <label class="brainexer-check"><input type="checkbox" name="ignore_accents">Bỏ qua dấu khi chấm câu ngắn ngoại ngữ</label>
+              <label class="brainexer-check"><input type="checkbox" name="half_spelling">Sai chính tả nhẹ trong câu nghe được nửa điểm</label>
               <label class="brainexer-check"><input type="checkbox" name="store_raw_responses">Lưu phản hồi thô của AI trong dữ liệu BrainExer</label>
             </details>
             <div class="brainexer-actions">
@@ -588,6 +669,7 @@
   <script src="assets/media-studio.js"></script>
   <script src="assets/stats-page.js"></script>
   <script src="assets/brainexer.js"></script>
+  <script src="assets/brainexer-hub.js"></script>
   <script src="assets/focus-dashboard.js"></script>
   <script src="assets/study-dashboard.js"></script>
 </body>

@@ -14,6 +14,10 @@ COMMANDS = [
     ("stats", "Thống kê AnkiNOS", "thống kê số liệu lịch sử"),
     ("sync", "Đồng bộ Anki", "đồng bộ ankiweb sync"),
     ("backup", "Tạo gói sao lưu AnkiNOS", "sao lưu dữ liệu backup"),
+    ("brainexer", "BrainExer: Luyện tập", "brain exer luyện tập kiến thức"),
+    ("brainexer_game", "BrainExer: Game", "brain exer trò chơi"),
+    ("brainexer_mistakes", "BrainExer: Sổ lỗi", "brain exer ôn lỗi"),
+    ("brainexer_listening", "BrainExer: Thư viện câu nghe", "brain exer nghe chép"),
 ]
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 
@@ -66,7 +67,7 @@ class RateLimiter:
             raise RateLimitExceeded("Đã đạt giới hạn {} {} trong tuần.".format(week_limit, label))
 
     def finish(self, request_key: str, api_succeeded: bool, exercise_created: bool = False) -> None:
-        with self.database.connect() as connection:
+        with closing(self.database.connect()) as connection, connection:
             connection.execute(
                 "UPDATE usage_events SET status=? WHERE request_key=? AND event_type='api_call'",
                 ("succeeded" if api_succeeded else "failed", request_key),
@@ -78,7 +79,7 @@ class RateLimiter:
 
     def usage(self) -> Dict[str, int]:
         local_date, week_start = self.periods()
-        with self.database.connect() as connection:
+        with closing(self.database.connect()) as connection, connection:
             row = connection.execute(
                 "SELECT "
                 "SUM(CASE WHEN event_type='api_call' AND local_date=? AND status!='cancelled' THEN 1 ELSE 0 END), "

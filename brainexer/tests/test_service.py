@@ -72,3 +72,36 @@ def test_insufficient_data_counts_api_but_releases_exercise_quota() -> None:
     usage = RateLimiter(database).usage()
     assert usage["api_day"] == 1
     assert usage["exercise_day"] == 0
+
+
+def test_invalid_ai_schema_retries_once_and_counts_both_calls() -> None:
+    database, instance = service("schema_retry", {})
+    calls = []
+    class SequenceClient:
+        def create_structured(self, *args, **kwargs):
+            calls.append(1)
+            payload = ({"status": "ok", "reason": "", "data": {}} if len(calls) == 1 else
+                       {"status": "ok", "reason": "", "data": exercise_data()})
+            return AIResult(payload, None, "req-" + str(len(calls)))
+    instance.client = SequenceClient()
+    session_id = database.create_session(3, "English", 1, False, ["fill_blank"], "English", "A2")
+    result = instance.generate_exercise(session_id, "fill_blank", [source()])
+    assert result.exercise_id > 0 and len(calls) == 2
+    usage = RateLimiter(database).usage()
+    assert usage["api_day"] == 2 and usage["exercise_day"] == 1
+
+
+def test_semantically_invalid_choices_retry_once() -> None:
+    database, instance = service("choice_retry", {})
+    calls = []
+    class SequenceClient:
+        def create_structured(self, *args, **kwargs):
+            calls.append(1)
+            data = exercise_data()
+            data["options"] = (["live", "live", "other"] if len(calls) == 1 else
+                               ["live", "stay", "leave", "go"])
+            return AIResult({"status": "ok", "reason": "", "data": data}, None, "req")
+    instance.client = SequenceClient()
+    session_id = database.create_session(3, "English", 1, False, ["multiple_choice"], "English", "A2")
+    assert instance.generate_exercise(session_id, "multiple_choice", [source()]).exercise_id > 0
+    assert len(calls) == 2

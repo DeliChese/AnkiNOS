@@ -55,173 +55,74 @@ def until(expression, view=None):
     raise AssertionError("Anki dashboard not ready: " + expression)
 
 
-def check_brainexer(addon):
-    import sqlite3
+def check_brainexer_hub(addon):
+    """Exercise the integrated Hub in a disposable Anki GUI profile."""
     from contextlib import closing
-    from unittest.mock import patch
-
-    from NOS import brainexer_api as api
-    from NOS.brainexer.core.models import AIResult
-
-    keys = {}
-
-    class Keyring:
-        def __init__(self, account):
-            assert account == "NOS Test"
-
-        def get_api_key(self, provider):
-            return keys.get(provider)
-
-        def set_api_key(self, key, provider):
-            keys[provider] = key
-
-    class Client:
-        def create_structured(self, _system, task, source, name, _schema):
-            if name == "brainexer_exercise":
-                data = {
-                    "question_prompt": "I ___ in Hanoi.", "correct_answers": ["live"], "options": ["live", "leave"],
-                    "hint": "A verb", "explanation": "Live means reside.", "target_meaning": "reside",
-                    "nuance_note": "", "suggested_length": "", "target_words_to_use": [], "example_opening": "",
-                }
-                if source["language"] == "auto":
-                    assert source["cards"] == [{
-                        "fields": {"Khái niệm riêng": "Cường độ dòng điện", "Ghi chú do tôi đặt": "Đơn vị đo là ampe (A)."}
-                    }]
-                    data.update(question_prompt="Cường độ dòng điện dùng đơn vị gì?", correct_answers=["ampe"],
-                                explanation="Cường độ dòng điện được đo bằng ampe.", options=[])
-                    if task.startswith("Tạo một câu trắc nghiệm"):
-                        data["options"] = ["ampe", "vôn", "ôm"]
-                    if task.startswith("Tạo một bài vận dụng"):
-                        data.update(question_prompt="Hãy giải thích con số 2 A trên ampe kế.",
-                                    correct_answers=["Cường độ dòng điện bằng 2 ampe."])
-                else:
-                    assert source["cards"][0]["target"] == "reside"
-            else:
-                data = {
-                    "score": 8, "grammar_score": 8, "vocabulary_score": 8, "clarity_score": 8,
-                    "summary": "Bài viết rõ ràng.", "strengths": [], "errors": [],
-                    "style_suggestions": [], "corrected_full_text": "", "applied_target_words_correctly": [],
-                    "missed_target_words": [],
-                }
-                if name == "brainexer_application_grade":
-                    assert source["user_text"] == "Dòng điện có cường độ 2 ampe."
-                    assert source["cards"][0]["fields"]["Ghi chú do tôi đặt"] == "Đơn vị đo là ampe (A)."
-                    assert source["reference_answers"] == ["Cường độ dòng điện bằng 2 ampe."]
-                    data.pop("grammar_score")
-                    data.pop("vocabulary_score")
-                    data.update(accuracy_score=9, reasoning_score=8, summary="Dùng đúng đơn vị.",
-                                corrected_full_text="Giá trị 2 A cho biết cường độ dòng điện là 2 ampe.")
-                else:
-                    assert source["user_text"] == "I live in Hanoi."
-            return AIResult({"status": "ok", "reason": "", "data": data}, None, "request-1")
-
-    def click(selector):
-        js(f"document.querySelector({json.dumps(selector)}).click()")
-
-    def value(identifier, value):
-        js(f"document.getElementById({json.dumps(identifier)}).value = {json.dumps(value)}")
+    from NOS.brainexer_api import BrainExer
+    from NOS.brainexer.hub_store import HubStore
 
     col = aqt.mw.col
-    deck = col.decks.id("BrainExer test source")
-    note = col.new_note(col.models.by_name("Basic"))
-    note["Front"], note["Back"] = "reside", "to live in a place"
-    col.add_note(note, deck)
-    knowledge_deck = col.decks.id("BrainExer kiến thức")
-    original_type = col.models.current()
-    note_type = col.models.new("BrainExer trường tùy chỉnh")
-    for field in ("Khái niệm riêng", "Ghi chú do tôi đặt", "Trường để trống"):
-        col.models.add_field(note_type, col.models.new_field(field))
-    template = col.models.new_template("Luyện thử")
-    template["qfmt"], template["afmt"] = "{{Khái niệm riêng}}", "{{Ghi chú do tôi đặt}}"
-    col.models.add_template(note_type, template)
-    col.models.add(note_type)
-    knowledge = col.new_note(note_type)
-    knowledge["Khái niệm riêng"], knowledge["Ghi chú do tôi đặt"] = "Cường độ dòng điện", "Đơn vị đo là {{c1::ampe}} (A)."
-    col.add_note(knowledge, knowledge_deck)
-    col.models.set_current(original_type)
-    legacy_path = addon / "brainexer" / "user_files" / "brainexer.db"
-    legacy_path.parent.mkdir(parents=True)
-    with closing(sqlite3.connect(legacy_path)) as legacy, legacy:
-        legacy.executescript((addon / "brainexer/db/schema.sql").read_text(encoding="utf-8"))
-        legacy.execute("INSERT INTO sessions VALUES(1,?,'Imported history',1,1,'[]','English','','now',NULL)", (deck,))
-
-    with patch.object(api, "KeyringStore", Keyring), patch.object(api, "create_ai_client", return_value=Client()):
-        click("#brainexer-toggle")
-        until("document.querySelector('#brainexer-type').options.length === 8 && !document.querySelector('#brainexer-setup').hidden")
-        assert js("document.querySelector('#brainexer-type').value") == "recall"
-        assert js("Array.from(document.querySelectorAll('#brainexer-type optgroup'), group => group.label)") == ["Kiến thức", "Ngoại ngữ"]
-        assert js("document.getElementById('brainexer-toggle').getAttribute('aria-current')") == "page"
-        assert js("document.querySelector('.workspace').hidden")
-        click('.brainexer-nav [data-brainexer-view="settings"]')
-        click("#brainexer-import")
-        until("document.querySelector('#brainexer-status').textContent.includes('Đã nhập')")
-        value("brainexer-key", "fixture-key")
-        click('#brainexer-settings-form [name="ai_data_consent"]')
-        click('#brainexer-settings-form [type="submit"]')
-        until("document.querySelector('#brainexer-status').textContent.includes('Đã lưu')")
-        assert keys == {"openai": "fixture-key"}
-        assert not js("document.getElementById('brainexer-key').value")
-        assert "fixture-key" not in json.dumps(aqt.mw.addonManager.getConfig("NOS"))
-
-        click('.brainexer-nav [data-brainexer-view="practice"]')
-        value("brainexer-deck", str(deck))
-        value("brainexer-type", "fill_blank")
-        click("#brainexer-create")
-        until("document.querySelector('#brainexer-prompt').textContent === 'I ___ in Hanoi.'")
-        click('#brainexer-options [data-answer="leave"]')
-        click("#brainexer-submit")
-        until("document.querySelector('#brainexer-feedback').textContent.includes('0/10')")
-        click('.brainexer-nav [data-brainexer-view="mistakes"]')
-        until("document.querySelector('#brainexer-mistake-list').textContent.includes('leave')")
-        click('[data-method="add_mistake"]')
-        until("document.querySelector('#brainexer-status').textContent.includes('Thẻ đã có')")
-        click('[data-method="add_mistake"]')
-        until("document.querySelector('#brainexer-status').textContent.includes('Thẻ đã có')")
-        assert len(col.find_notes("tag:brainexer::mistake")) == 1
-        click('[data-method="mastered"]')
-        until("!document.querySelector('#brainexer-mistakes-empty').hidden")
-        click("#brainexer-mastered")
-        until("document.querySelector('#brainexer-mistake-list').textContent.includes('Đã thuộc')")
-
-        click('.brainexer-nav [data-brainexer-view="practice"]')
-        value("brainexer-type", "writing_free")
-        click("#brainexer-create")
-        until("document.querySelector('#brainexer-source').textContent.includes('Luyện viết tự do')")
-        value("brainexer-answer", "I live in Hanoi.")
-        click("#brainexer-submit")
-        until("document.querySelector('#brainexer-feedback').textContent.includes('8/10')")
-
-        value("brainexer-deck", str(knowledge_deck))
-        value("brainexer-type", "recall")
-        click("#brainexer-create")
-        until("document.querySelector('#brainexer-source').textContent.includes('Gợi nhớ kiến thức')")
-        value("brainexer-answer", "ampe")
-        click("#brainexer-submit")
-        until("document.querySelector('#brainexer-feedback').textContent.includes('10/10')")
-
-        value("brainexer-type", "multiple_choice")
-        click("#brainexer-create")
-        until("document.querySelector('#brainexer-source').textContent.includes('Trắc nghiệm')")
-        assert js("document.querySelector('#brainexer-answer').hidden && document.querySelector('#brainexer-submit').disabled")
-        click('#brainexer-options [data-answer="vôn"]')
-        click("#brainexer-submit")
-        until("document.querySelector('#brainexer-feedback').textContent.includes('0/10')")
-        click('.brainexer-nav [data-brainexer-view="mistakes"]')
-        until("document.querySelector('#brainexer-mistake-list').textContent.includes('Cường độ dòng điện dùng đơn vị gì?')")
-
-        click('.brainexer-nav [data-brainexer-view="practice"]')
-        value("brainexer-type", "application")
-        click("#brainexer-create")
-        until("document.querySelector('#brainexer-source').textContent.includes('Vận dụng kiến thức')")
-        value("brainexer-answer", "Dòng điện có cường độ 2 ampe.")
-        click("#brainexer-submit")
-        until("document.querySelector('#brainexer-feedback').textContent.includes('Độ chính xác 9/10')")
-        click('.rail-main [data-value="home"]')
-        assert js("document.querySelector('#brainexer-page').hidden")
-
-    profile = api.BrainExer("NOS Test", {}, addon)
-    assert api.validate_database(profile.path) == {"sessions": 6, "mistakes": 2}
-    assert api.validate_database(legacy_path) == {"sessions": 1, "mistakes": 0}
+    deck_id = col.decks.id("BrainExer live Hub")
+    for index in range(4):
+        note = col.new_note(col.models.by_name("Basic"))
+        note["Front"], note["Back"] = f"term{index}", f"meaning{index}"
+        col.add_note(note, deck_id)
+    def snapshot():
+        return (col.db.all("SELECT id,due,ivl,queue FROM cards ORDER BY id"),
+                col.db.scalar("SELECT COUNT(*) FROM revlog"))
+    original = snapshot()
+    profile = BrainExer("NOS Test", {}, addon)
+    store = HubStore(profile.path)
+    def click(selector):
+        js(f"document.querySelector({json.dumps(selector)}).click()")
+    click("#brainexer-toggle")
+    until("Array.from(document.querySelectorAll('#brainexer-hub-deck option')).some(option => option.textContent === 'BrainExer live Hub')")
+    js(f"(()=>{{const select=document.getElementById('brainexer-hub-deck');select.value={json.dumps(str(deck_id))};select.dispatchEvent(new Event('change',{{bubbles:true}}))}})()")
+    js("(()=>{const select=document.getElementById('brainexer-hub-kind');select.value='language';select.dispatchEvent(new Event('change',{bubbles:true}))})()")
+    until("!!document.querySelector('#brainexer-hub-practice-modes [data-mode=multiple_choice]:not(:disabled)')")
+    assert js("(()=>{const card=document.querySelector('#brainexer-hub-practice-modes .brainexer-mode-card');return card.querySelector('svg').getBoundingClientRect().right < card.querySelector('strong').getBoundingClientRect().left})()")
+    js("(()=>{const slider=document.getElementById('brainexer-hub-speed');slider.value='0.37';slider.dispatchEvent(new Event('input',{bubbles:true}))})()")
+    assert abs(js("document.getElementById('brainexer-hub-player').playbackRate") - 0.37) < 0.001
+    js("(()=>{const slider=document.getElementById('brainexer-hub-playback-speed');slider.value='2.45';slider.dispatchEvent(new Event('input',{bubbles:true}))})()")
+    assert abs(js("document.getElementById('brainexer-hub-player').playbackRate") - 2.45) < 0.001
+    click("#brainexer-hub-practice-modes [data-mode=multiple_choice]")
+    until("!document.getElementById('brainexer-hub-run').hidden && !!document.querySelector('#brainexer-hub-options [data-option]')")
+    with closing(store.database.connect()) as connection:
+        row = connection.execute("SELECT exercise_payload FROM exercises ORDER BY id DESC LIMIT 1").fetchone()
+    payload = json.loads(row["exercise_payload"])
+    wrong = next(option for option in payload["options"] if option != payload["answers"][0])
+    js(f"Array.from(document.querySelectorAll('#brainexer-hub-options [data-option]')).find(button => button.textContent === {json.dumps(wrong)}).click()")
+    click("#brainexer-hub-submit")
+    until("document.getElementById('brainexer-hub-feedback').textContent.includes('Cần ôn thêm')")
+    assert snapshot() == original
+    click("#brainexer-hub-exit")
+    until("!document.getElementById('brainexer-hub-summary').hidden")
+    assert not js("document.querySelector('#brainexer-hub-summary [data-summary-action=review]').hidden")
+    click("#brainexer-hub-summary [data-summary-action=review]")
+    until("document.getElementById('brainexer-hub-run-title').textContent === 'Ôn sổ lỗi' && !document.getElementById('brainexer-hub-submit').hidden")
+    correct = store.mistakes("BrainExer live Hub")[0]["corrected_text"]
+    js(f"document.getElementById('brainexer-hub-answer').value={json.dumps(correct)}")
+    click("#brainexer-hub-submit")
+    until("document.getElementById('brainexer-hub-feedback').textContent.includes('Đúng')")
+    assert snapshot() == original
+    click("#brainexer-hub-exit")
+    until("!document.getElementById('brainexer-hub-summary').hidden")
+    click("#brainexer-hub-exit")
+    click('.brainexer-nav [data-brainexer-view="game"]')
+    until("!!document.querySelector('#brainexer-hub-game-modes [data-mode=matching]:not(:disabled)')")
+    assert js("(()=>{const card=document.querySelector('#brainexer-hub-game-modes .brainexer-mode-card');return card.querySelector('svg').getBoundingClientRect().right < card.querySelector('strong').getBoundingClientRect().left})()")
+    click("#brainexer-hub-game-modes [data-mode=matching]")
+    until("document.querySelectorAll('#brainexer-hub-options select').length === 4")
+    with closing(store.database.connect()) as connection:
+        game = connection.execute("SELECT exercise_payload FROM exercises ORDER BY id DESC LIMIT 1").fetchone()
+    answers = [pair["right"] for pair in json.loads(game["exercise_payload"])["pairs"]]
+    js(f"Array.from(document.querySelectorAll('#brainexer-hub-options select')).forEach((select,index)=>select.value={json.dumps(answers)}[index])")
+    click("#brainexer-hub-submit")
+    until("document.getElementById('brainexer-hub-feedback').textContent.includes('Đúng')")
+    assert snapshot() == original
+    click("#brainexer-hub-exit")
+    until("!document.getElementById('brainexer-hub-summary').hidden")
+    return profile
 
 
 def main():
@@ -263,17 +164,18 @@ def main():
     assert aqt.mw._review_heatmap.render_for_view(SimpleNamespace(name='stats')) == 'native heatmap'
     until("!!window.AnkiNOS && document.getElementById('connection').textContent.includes('Bộ sưu tập Anki')")
     if "--brainexer" in sys.argv:
-        check_brainexer(addon)
+        profile = check_brainexer_hub(addon)
         from NOS.brainexer_api import BrainExer, validate_database
 
-        path = integration.export_archive(addon, "NOS Test", integration.settings(), base / "brainexer.nosbackup")
+        path = integration.export_archive(addon, "NOS Test", integration.settings(), base / "brainexer.nosbackup",
+                                          brainexer_settings={})
         manifest = integration.inspect_archive(addon, path)
-        assert manifest["version"] == 3
-        assert manifest["brainexer"] == {"sessions": 6, "mistakes": 2}
+        assert manifest["version"] == 4
+        assert manifest["brainexer"] == validate_database(profile.path)
         destination = "NOS Backup Test"
         integration.restore_archive(addon, destination, path, manifest["archive_sha256"], {}, lambda _values: None)
         assert validate_database(BrainExer(destination, {}, addon).path) == manifest["brainexer"]
-        print("PASS: BrainExer dashboard, bridge, legacy import, practice, Anki card export and backup restore", flush=True)
+        print("PASS: BrainExer Hub in offscreen Anki, practice, immediate retry, game, scheduler invariant and backup", flush=True)
         aqt.mw.unloadProfileAndExit()
         app.exec()
         return

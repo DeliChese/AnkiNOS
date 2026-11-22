@@ -1,0 +1,1 @@
+Chọn từ hoặc cụm từ mục tiêu từ thẻ đầu tiên. Tạo đề yêu cầu người học đặt một câu có dùng từ đó đúng nghĩa. question_prompt nêu rõ từ và ý nghĩa cần dùng, nhưng không viết sẵn câu trả lời. target_words_to_use chứa từ mục tiêu. correct_answers chứa một câu mẫu. explanation nêu nghĩa hoặc cách dùng có căn cứ từ trường thẻ. Các trường không dùng để rỗng.

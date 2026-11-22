@@ -9,7 +9,7 @@
   if (!page || window.NOSBrainExer) return;
 
   const native = document.getElementById('nos-app').dataset.native === 'true' || typeof window.pycmd === 'function';
-  const tabs = ['practice', 'mistakes', 'settings'];
+  const tabs = ['practice', 'game', 'mistakes', 'listening', 'settings'];
   const models = {openai: 'model', deepseek: 'deepseek_model', gemini: 'gemini_model'};
   const mistakeTypes = {grammar: 'Ngữ pháp', word_choice: 'Chọn từ', spelling: 'Chính tả', nuance: 'Sắc thái', word_form: 'Từ loại', other: 'Khác'};
   const format = new Intl.NumberFormat('vi-VN');
@@ -39,7 +39,10 @@
   }
 
   function receive(payload) {
-    if (pending?.request_id !== payload.request_id) return;
+    if (pending?.request_id !== payload.request_id) {
+      window.NOSBrainExerHub?.receive(payload);
+      return;
+    }
     const {timer, resolve, reject} = pending;
     pending = null;
     clearTimeout(timer);
@@ -107,7 +110,8 @@
     $('usage').replaceChildren(
       node('strong', status.providers[status.config.provider]),
       node('span', `Hôm nay · ${formatLimit(usage.exercise_day, 'max_exercises_per_day')} bài · ${formatLimit(usage.api_day, 'max_api_calls_per_day')} lượt AI`),
-      node('span', `Tuần này · ${formatLimit(usage.exercise_week, 'max_exercises_per_week')} bài · ${formatLimit(usage.api_week, 'max_api_calls_per_week')} lượt AI`)
+      node('span', `Tuần này · ${formatLimit(usage.exercise_week, 'max_exercises_per_week')} bài · ${formatLimit(usage.api_week, 'max_api_calls_per_week')} lượt AI`),
+      node('span', `Azure Speech tháng này · ${format.format(status.tts_used || 0)}/${format.format(status.config.max_tts_chars_per_month)} ký tự`)
     );
     $('usage').hidden = false;
   }
@@ -121,6 +125,9 @@
     $('key-status').textContent = status.keyring_error || (status.keys[provider]
       ? 'Đã có khóa trong kho bảo mật của hệ điều hành. Để trống ô API key để giữ khóa hiện tại.'
       : 'Khóa sẽ được lưu trong kho bảo mật của hệ điều hành.');
+    $('azure-key-status').textContent = status.keys.azure
+      ? 'Đã lưu khóa Azure Speech. Để trống ô khóa để giữ khóa hiện tại.'
+      : 'Chưa có khóa Azure Speech trong kho bảo mật của hồ sơ.';
     $('consent-label').textContent = `Tôi đồng ý gửi nội dung văn bản từ các thẻ được lấy mẫu và bài viết đã nộp tới ${status.providers[provider]} để tạo và chấm bài.`;
     renderControls();
   }
@@ -152,6 +159,7 @@
     $('setup').hidden = !!ready();
     $('setup-text').textContent = status.keyring_error || 'Thêm API key và xác nhận chia sẻ dữ liệu để tạo bài tập.';
     $('import-section').hidden = !status.can_import;
+    window.dispatchEvent(new CustomEvent('brainexer-status', {detail: status}));
   }
 
   function load() {
@@ -161,12 +169,15 @@
       const {decks, selected} = await request('decks');
       setOptions($('deck'), decks.map(({id, name}) => [id, name]), $('deck').value || selected);
       applyStatus(data);
+      window.dispatchEvent(new CustomEvent('brainexer-decks', {detail: {decks, selected}}));
+      $('mistake-deck').replaceChildren(option(['', 'Tất cả bộ thẻ']),
+        ...decks.map(({id, name}) => option([name, name])));
       if (tab === 'mistakes') await loadMistakes();
     }, () => { $('retry').hidden = false; });
   }
 
   function showTab(next) {
-    if (tab === next || working) return;
+    if (tab === next) return;
     $('key').value = '';
     tab = next;
     for (const item of tabs) $(item).hidden = item !== tab;
@@ -175,6 +186,7 @@
     });
     if (native) message();
     if (tab === 'mistakes' && status) refreshMistakes();
+    window.dispatchEvent(new CustomEvent('brainexer-tab', {detail: tab}));
   }
 
   function renderExercise() {
@@ -241,27 +253,36 @@
   }
 
   async function loadMistakes(append = false) {
-    const data = await request('mistakes', {include_mastered: $('mastered').checked, offset: append ? offset : 0});
+    const rows = await request('hub_mistakes', {
+      include_mastered: $('mastered').checked, due_only: $('mistake-due').checked,
+      deck_name: $('mistake-deck').value, kind: $('mistake-kind').value,
+      state: $('mistake-state').value,
+      min_wrong: Number($('mistake-min-wrong').value) || 1,
+      due_before: $('mistake-before').value,
+      offset: append ? offset : 0,
+    });
     if (!append) {
       offset = 0;
       $('mistake-list').replaceChildren();
     }
-    for (const row of data.rows) {
+    for (const row of rows.slice(0, 40)) {
       const li = node('li');
-      const isKnowledge = status.knowledge_types.includes(row.exercise_type);
-      const kind = isKnowledge ? status.exercises[row.exercise_type] : mistakeTypes[row.mistake_type] || 'Khác';
-      li.append(node('p', `${row.deck_name} · ${kind} · ${row.mastered ? 'Đã thuộc' : 'Cần ôn'}`, 'brainexer-meta'));
-      if (isKnowledge) li.append(node('p', row.prompt_shown));
+      const kind = {meaning: 'Nghĩa', spelling: 'Chính tả', listening: 'Nghe', usage: 'Dùng từ',
+        concept: 'Khái niệm', confidence: 'Tưởng biết'}[row.kind] || mistakeTypes[row.kind] || 'Khác';
+      const origin = status.hub_modes[row.exercise_type] || status.exercises[row.exercise_type] || row.exercise_type;
+      li.append(node('p', `${row.deck_name} · ${kind} · ${row.mastered ? 'Đã thuộc' :
+        row.review_count ? 'Đang ôn' : 'Mới'} · ${row.due_date ? 'Đến hạn ' + row.due_date : 'Chưa hẹn'} · Sai ${row.wrong_count} lần · ${origin}${row.source_card_id ? ' · Thẻ ' + row.source_card_id : ''}`, 'brainexer-meta'));
+      if (row.prompt) li.append(node('p', row.prompt));
       li.append(
         node('p', row.original_text, 'brainexer-original'),
         node('strong', row.corrected_text),
         node('p', row.explanation)
       );
       const actions = node('div', null, 'brainexer-actions');
-      for (const [action, label] of [
-        ['mastered', row.mastered ? 'Đánh dấu cần ôn' : 'Đánh dấu đã thuộc'],
-        ['add_mistake', row.linked_anki_note_id ? 'Kiểm tra thẻ Anki' : 'Thêm thành thẻ Anki'],
-      ]) {
+      const available = [['mastered', row.mastered ? 'Đánh dấu cần ôn' : 'Đánh dấu đã thuộc']];
+      if (status.config.allow_anki_mistake_export) available.push(
+        ['add_mistake', row.linked_anki_note_id ? 'Kiểm tra thẻ Anki' : 'Tạo thẻ Anki']);
+      for (const [action, label] of available) {
         const button = node('button', label, 'subtle-button');
         Object.assign(button.dataset, {mistakeId: row.id, method: action, mastered: !row.mastered});
         actions.append(button);
@@ -269,9 +290,9 @@
       li.append(actions);
       $('mistake-list').append(li);
     }
-    offset += data.rows.length;
+    offset += Math.min(rows.length, 40);
     $('mistakes-empty').hidden = offset > 0;
-    $('more').hidden = !data.more;
+    $('more').hidden = rows.length <= 40;
   }
 
   function refreshMistakes(append = false) {
@@ -290,6 +311,7 @@
     const action = event.target.closest('[data-mistake-id]');
     if (action) {
       const {method, mistakeId, mastered} = action.dataset;
+      if (method === 'add_mistake' && !window.confirm('Tạo thẻ Anki từ lỗi này? Thẻ mới sẽ thuộc lịch ôn Anki.')) return;
       perform('Đang cập nhật sổ lỗi…', async () => {
         await request(method, {mistake_id: Number(mistakeId), mastered: mastered === 'true'});
         await loadMistakes();
@@ -308,6 +330,12 @@
   $('answer').addEventListener('input', selectOption);
   $('retry').addEventListener('click', load);
   $('mastered').addEventListener('change', () => refreshMistakes());
+  $('mistake-deck').addEventListener('change', () => refreshMistakes());
+  $('mistake-kind').addEventListener('change', () => refreshMistakes());
+  $('mistake-due').addEventListener('change', () => refreshMistakes());
+  $('mistake-state').addEventListener('change', () => refreshMistakes());
+  $('mistake-min-wrong').addEventListener('change', () => refreshMistakes());
+  $('mistake-before').addEventListener('change', () => refreshMistakes());
   $('more').addEventListener('click', () => refreshMistakes(true));
   $('provider').addEventListener('change', renderProvider);
 
@@ -348,8 +376,10 @@
           : field.type === 'number' ? field.valueAsNumber : field.value.trim();
       }
       const api_key = $('key').value;
+      const azure_key = $('azure-key').value;
       $('key').value = '';
-      applyStatus(await request('settings', {values, api_key}));
+      $('azure-key').value = '';
+      applyStatus(await request('settings', {values, api_key, azure_key}));
       message('Đã lưu cài đặt AI.');
     });
   });
@@ -384,6 +414,7 @@
   function reset() {
     status = exercise = null;
     answered = false;
+    window.NOSBrainExerHub?.reset(false);
     $('usage').hidden = $('setup').hidden = $('import-section').hidden = true;
     $('mistake-list').replaceChildren();
     renderExercise();
@@ -392,5 +423,15 @@
   }
 
   renderControls();
-  window.NOSBrainExer = {open, receive, reset};
+  window.addEventListener('brainexer-tts-usage', event => {
+    if (!status) return;
+    status.tts_used = event.detail;
+    renderUsage(status.usage);
+  });
+  window.addEventListener('brainexer-usage', event => {
+    if (!status) return;
+    status.usage = event.detail;
+    renderUsage(status.usage);
+  });
+  window.NOSBrainExer = {open, receive, reset, showTab};
 })();

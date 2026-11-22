@@ -62,6 +62,33 @@ class BackupTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_brainexer_hub_audio_and_settings_round_trip(self):
+        from nos_backup_test.brainexer.hub_store import HubStore
+        folder = backup.profile_dir(self.root, "Alice")
+        store = HubStore(folder / "brainexer.sqlite3")
+        store.set_deck_kind("Languages::English", "language")
+        digest = "b" * 64
+        audio_dir = folder / "brainexer_audio"
+        audio_dir.mkdir()
+        (audio_dir / f"{digest}.mp3").write_bytes(b"ID3test audio")
+        store.listening_item("Languages::English", "Hello world", "Xin chào", ["Hello"],
+                             "A1", "en-US-JennyNeural", "1", digest)
+        config = {"review_daily_limit": 9, "azure_region": "southeastasia"}
+        archive = backup.export_archive(self.root, "Alice", self.settings,
+                                        self.root / "brainexer.nosbackup",
+                                        brainexer_settings=config)
+        preview = backup.inspect_archive(self.root, archive)
+        self.assertEqual(preview["version"], 4)
+        self.assertEqual(preview["brainexer_settings"]["review_daily_limit"], 9)
+        restored_config = []
+        backup.restore_archive(self.root, "Bob", archive, preview["archive_sha256"], {},
+                               lambda _: None, current_brainexer_settings={},
+                               apply_brainexer_settings=restored_config.append)
+        bob = backup.profile_dir(self.root, "Bob")
+        self.assertEqual((bob / "brainexer_audio" / f"{digest}.mp3").read_bytes(), b"ID3test audio")
+        self.assertEqual(HubStore(bob / "brainexer.sqlite3").deck_kind("Languages::English"), "language")
+        self.assertEqual(restored_config[-1]["azure_region"], "southeastasia")
+
     def rewrite(self, mutate):
         path = self.root / "changed.nosbackup"
         with zipfile.ZipFile(self.archive) as archive:

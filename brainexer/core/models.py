@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 KNOWLEDGE_TYPES = ("recall", "multiple_choice", "application")
-AI_GRADED_TYPES = ("writing_free", "application")
+AI_GRADED_TYPES = ("writing_free", "application", "sentence", "explain")
 
 
 @dataclass(frozen=True)

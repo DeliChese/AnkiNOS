@@ -8,6 +8,7 @@
   font-size: 14px;
   line-height: 1.55;
 }
+#nos-app .brainexer-page [hidden] { display: none !important; }
 #nos-app .brainexer-head, #nos-app .brainexer-card-head {
   display: flex;
   justify-content: space-between;
@@ -32,7 +33,44 @@
 #nos-app .brainexer-page .brainexer-status { margin-bottom: 14px; padding: 9px 13px; border: 1px solid var(--edge); border-radius: 11px; background: var(--surface); }
 #nos-app .brainexer-page .brainexer-error { border-inline-start: 3px solid var(--again, #ef767a); }
 #nos-app #brainexer-retry { margin-bottom: 14px; }
-#nos-app .brainexer-practice { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(0, 2.25fr); align-items: start; gap: 16px; }
+#nos-app .brainexer-practice { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 16px; }
+#nos-app .brainexer-hub { min-width: 0; padding: clamp(16px, 2.5vw, 28px); border-radius: 18px; display: grid; gap: 14px; }
+#nos-app .brainexer-hub h2 { font-size: 19px; }
+#nos-app .brainexer-hub-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+#nos-app .brainexer-hub-controls label { display: grid; gap: 5px; flex: 1 1 200px; min-width: 0; }
+#nos-app .brainexer-hub-controls .brainexer-check { display: flex; flex: 0 1 auto; align-items: center; }
+#nos-app .brainexer-hub-controls select, #nos-app .brainexer-hub textarea {
+  width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--edge);
+  border-radius: 9px; color: var(--text); background: var(--inner); font: inherit;
+}
+#nos-app .brainexer-hub-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; gap: 10px; }
+#nos-app .brainexer-mode-group { grid-column: 1 / -1; margin-top: 9px; font-size: 14px; color: var(--muted); }
+#nos-app .brainexer-hub-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; }
+#nos-app .brainexer-hub-levels > span { padding: 8px 11px; border: 1px solid var(--edge); border-radius: 10px; background: var(--inner); }
+#nos-app .brainexer-mode-card { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-content: start;
+  column-gap: 11px; row-gap: 3px; width: 100%; min-width: 0; min-height: 82px; text-align: left; padding: 14px;
+  border: 1px solid var(--edge); border-radius: 14px; color: var(--text); background: var(--inner); cursor: pointer; }
+#nos-app .brainexer-mode-card:hover { border-color: var(--blue); background: var(--accent-soft); }
+#nos-app .brainexer-mode-card strong { grid-column: 2; font-size: 15px; line-height: 1.3; }
+#nos-app .brainexer-mode-card .brainexer-mode-icon { grid-column: 1; grid-row: 1 / 4; align-self: start; width: 24px; height: 24px; margin-top: 2px; color: var(--blue); }
+#nos-app .brainexer-mode-card :is(span,em) { grid-column: 2; overflow-wrap: anywhere; }
+#nos-app .brainexer-mode-card :is(small,span,em) { font-size: 12px; color: var(--muted); font-style: normal; }
+#nos-app .brainexer-speed-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px 10px; min-width: 150px; }
+#nos-app .brainexer-speed-control output { justify-self: end; color: var(--text); font-variant-numeric: tabular-nums; }
+#nos-app .brainexer-speed-control input[type="range"] { grid-column: 1 / -1; width: 100%; min-height: 26px; margin: 0; padding: 0; accent-color: var(--blue); background: transparent; cursor: pointer; }
+#nos-app #brainexer-hub-audio { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+#nos-app #brainexer-hub-audio .brainexer-speed-control { flex: 1 1 180px; }
+#nos-app .brainexer-match-row { display: grid; gap: 5px; flex: 1 1 180px; padding: 9px; border: 1px solid var(--edge); border-radius: 10px; }
+#nos-app .brainexer-match-row select { width: 100%; min-width: 0; padding: 7px; border: 1px solid var(--edge); border-radius: 8px; color: var(--text); background: var(--inner); }
+#nos-app #brainexer-hub-run[data-mode="word_hunter"] #brainexer-hub-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; min-height: 154px; overflow: hidden; }
+#nos-app #brainexer-hub-run[data-mode="word_hunter"] #brainexer-hub-options button { min-width: 0; }
+#nos-app #brainexer-hub-run[data-mode="word_hunter"]:not([data-untimed="true"]) #brainexer-hub-options button { animation: brainexer-fall var(--fall-duration, 8s) linear both; }
+@keyframes brainexer-fall { from { transform: translateY(-65px); } to { transform: translateY(72px); } }
+@media (prefers-reduced-motion: reduce) { #nos-app #brainexer-hub-run[data-mode="word_hunter"] #brainexer-hub-options button { animation: none; } }
+#nos-app .brainexer-hub-question { font-size: clamp(17px, 2.3vw, 24px); white-space: pre-wrap; }
+#nos-app #brainexer-hub-answer { min-height: 88px; resize: vertical; }
+#nos-app .brainexer-library-item { display: grid; gap: 7px; padding: 14px; border: 1px solid var(--edge); border-radius: 12px; }
+#nos-app .brainexer-library-item audio { max-width: 100%; }
 #nos-app .brainexer-card { min-width: 0; padding: clamp(15px, 2vw, 24px); border-radius: 18px; overflow-wrap: anywhere; }
 #nos-app .brainexer-card h2 { margin-bottom: 15px; font-size: 18px; }
 #nos-app .brainexer-card-head h2 { margin-bottom: 0; }

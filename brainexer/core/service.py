@@ -43,8 +43,11 @@ class BrainExerService:
         session_id: int,
         exercise_type: str,
         sources: List[CardSource],
+        *,
+        knowledge_override: bool | None = None,
     ) -> GeneratedExercise:
-        knowledge = exercise_type in KNOWLEDGE_TYPES
+        knowledge = (exercise_type in KNOWLEDGE_TYPES or exercise_type == "explain"
+                     if knowledge_override is None else knowledge_override)
         cards = prompt_cards(sources, knowledge=knowledge)
         if not cards:
             raise InsufficientDataError("Bộ thẻ không có trường văn bản phù hợp để tạo bài.")
@@ -56,6 +59,21 @@ class BrainExerService:
             "learner_level": self.config.learner_level,
             "cards": cards,
         }
+        def checked(payload: dict) -> dict:
+            envelope = validate_envelope(payload)
+            if envelope["status"] == "insufficient_data":
+                return envelope
+            data = envelope["data"]
+            if knowledge or exercise_type not in AI_GRADED_TYPES:
+                answers = [normalize_answer(answer) for answer in data["correct_answers"]]
+                if not answers or not all(answers):
+                    raise ResponseValidationError("AI chưa đưa ra đáp án dùng để chấm bài.")
+                if exercise_type in ("multiple_choice", "phrase"):
+                    choices = {normalize_answer(option) for option in data["options"]}
+                    if (not 3 <= len(data["options"]) <= 4 or len(choices) != len(data["options"])
+                            or "" in choices or len(answers) != 1 or answers[0] not in choices):
+                        raise ResponseValidationError("Bài trắc nghiệm cần có 3–4 lựa chọn và một đáp án đúng.")
+            return envelope
         api_succeeded = False
         try:
             result = self.client.create_structured(
@@ -65,22 +83,25 @@ class BrainExerService:
                 "brainexer_exercise",
                 EXERCISE_RESPONSE_SCHEMA,
             )
-            envelope = validate_envelope(result.payload)
             api_succeeded = True
+            try:
+                envelope = checked(result.payload)
+            except ResponseValidationError:
+                self.limiter.finish(request_key, api_succeeded=True, exercise_created=False)
+                request_key = str(uuid.uuid4())
+                self.limiter.reserve(request_key, include_exercise=True)
+                api_succeeded = False
+                result = self.client.create_structured(
+                    load_system_prompt(), load_task_prompt(exercise_type), source_data,
+                    "brainexer_exercise", EXERCISE_RESPONSE_SCHEMA,
+                )
+                api_succeeded = True
+                envelope = checked(result.payload)
             if envelope["status"] == "insufficient_data":
                 raise InsufficientDataError(envelope["reason"])
 
             data = envelope["data"]
-            if knowledge or exercise_type not in AI_GRADED_TYPES:
-                answers = [normalize_answer(answer) for answer in data["correct_answers"]]
-                if not answers or not all(answers):
-                    raise ResponseValidationError("AI chưa đưa ra đáp án dùng để chấm bài.")
-                if exercise_type == "multiple_choice":
-                    choices = {normalize_answer(option) for option in data["options"]}
-                    if (not 3 <= len(data["options"]) <= 4 or len(choices) != len(data["options"])
-                            or "" in choices or len(answers) != 1 or answers[0] not in choices):
-                        raise ResponseValidationError("Bài trắc nghiệm cần có 3–4 lựa chọn và một đáp án đúng.")
-            primary = sources[0] if len(sources) == 1 and exercise_type != "writing_free" else None
+            primary = sources[0] if sources and exercise_type != "writing_free" else None
             exercise_id = self.database.insert_exercise(
                 session_id=session_id,
                 exercise_type=exercise_type,
@@ -127,7 +148,7 @@ class BrainExerService:
             "feedback_language": self.config.feedback_language,
             "learner_level": self.config.learner_level,
         }
-        application = exercise.exercise_type == "application"
+        application = exercise.exercise_type in ("application", "explain")
         schema = GRADING_RESPONSE_SCHEMA
         prompt = "writing_grading"
         if application:
@@ -138,6 +159,7 @@ class BrainExerService:
             )
             schema = APPLICATION_GRADING_RESPONSE_SCHEMA
             prompt = "application_grading"
+        api_succeeded = False
         try:
             result = self.client.create_structured(
                 load_system_prompt(),
@@ -146,9 +168,22 @@ class BrainExerService:
                 "brainexer_application_grade" if application else "brainexer_writing_grade",
                 schema,
             )
-            envelope = validate_envelope(result.payload, schema)
+            api_succeeded = True
+            try:
+                envelope = validate_envelope(result.payload, schema)
+            except ResponseValidationError:
+                self.limiter.finish(request_key, api_succeeded=True)
+                request_key = str(uuid.uuid4())
+                self.limiter.reserve(request_key, include_exercise=False)
+                api_succeeded = False
+                result = self.client.create_structured(
+                    load_system_prompt(), load_task_prompt(prompt), grading_source,
+                    "brainexer_application_grade" if application else "brainexer_writing_grade", schema,
+                )
+                api_succeeded = True
+                envelope = validate_envelope(result.payload, schema)
         except Exception:
-            self.limiter.finish(request_key, api_succeeded=False)
+            self.limiter.finish(request_key, api_succeeded=api_succeeded)
             raise
         self.limiter.finish(request_key, api_succeeded=True)
         if envelope["status"] == "insufficient_data":
@@ -165,8 +200,10 @@ class BrainExerService:
         return AttemptResult(attempt_id, float(data["score"]), None, data)
 
 
-def submit_objective(database: Database, exercise: GeneratedExercise, user_answer: str) -> AttemptResult:
-    feedback = local_feedback(exercise.exercise_type, exercise.data, user_answer)
+def submit_objective(database: Database, exercise: GeneratedExercise, user_answer: str,
+                     *, ignore_accents: bool = False) -> AttemptResult:
+    feedback = local_feedback(exercise.exercise_type, exercise.data, user_answer,
+                              ignore_accents=ignore_accents)
     correct = bool(feedback["is_correct"])
     score = 10.0 if correct else 0.0
     mistakes = [] if correct else [deterministic_mistake(exercise.exercise_type, exercise.data, user_answer)]

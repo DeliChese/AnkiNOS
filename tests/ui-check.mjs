@@ -108,6 +108,141 @@ try {
       await click('.rail-main [data-action=page][data-value=home]');
     }
   }
+  // Exercise the integrated Hub with local bridge responses, including keyboard input.
+  await cdp('Emulation.setDeviceMetricsOverride', {width:320,height:600,deviceScaleFactor:1,mobile:false});
+  await evaluate(`(()=>{
+    window.__brainexerCommands = [];
+    window.AnkiNOS.brainexerCommand = command => setTimeout(() => {
+      window.__brainexerCommands.push(command);
+      const data = command.method === 'hub_highscores' ? {}
+        : command.method === 'hub_fields' ? {fields:['Front','Back'],roles:{question_field:'',answer_field:''}}
+        : command.method === 'hub_progress' ? {remember:{count:0,correct:0},understand:{count:0,correct:0},apply:{count:0,correct:0}}
+        : command.method === 'listening_generate'
+        ? {session_id:3,item_id:10,exercise_id:30,audio_hash:'test-audio',hint_initials:'T',hint_translation:'Bài thử'}
+        : command.method === 'listening_library'
+        ? [{id:10,sentence:'Test listening',deck_name:'Demo',level:'A1',word_count:2,
+            voice:'en-US-JennyNeural',speed:'1',attempts:0,best_accuracy:0,targets:'[]',
+            translation:'Bài thử',audio_hash:'test-audio',pinned:false}]
+        : command.method === 'hub_next' && command.mode === 'application'
+        ? {session_id:2,question:{id:2,mode:'application',prompt:'Giải bài toán từ thẻ',
+            options:[],self_check:true}}
+        : command.method === 'hub_next'
+        ? {session_id:1,question:{id:1,mode:'multiple_choice',prompt:'Thủ đô của Pháp?',
+            options:['Paris','Rome','Berlin','Madrid']}}
+        : command.method === 'hub_summary' ? {correct:1,count:1,score:10,mistakes:0,duration_ms:1250}
+        : command.method === 'hub_answer' && command.exercise_id === 2 && command.self_score == null
+          ? {needs_self_check:true,answers:['4'],explanation:'2 + 2 = 4'}
+        : command.method === 'hub_answer' && command.exercise_id === 2
+          ? {correct:false,score:5,answers:['4'],explanation:'Đã tự đối chiếu.'}
+        : command.method === 'hub_answer'
+          ? {correct:true,score:10,answers:['Paris'],explanation:'Từ thẻ nguồn.'} : {};
+      window.NOSBrainExer.receive({request_id:command.request_id,data});
+    },0);
+    window.__brainexerStatus = {
+      hub_modes:{multiple_choice:'Trắc nghiệm'},deck_kinds:{Demo:'knowledge'},
+      config:{quick_seconds:60,game_seconds:45},
+      voices:{'en-US':'en-US-JennyNeural'},profile_folder:'0123456789abcdef0123'};
+    window.dispatchEvent(new CustomEvent('brainexer-status',{detail:window.__brainexerStatus}));
+    window.dispatchEvent(new CustomEvent('brainexer-decks',{detail:{
+      decks:[{id:'1',name:'Demo'}],selected:'1'}}));
+  })()`);
+  await click('#brainexer-toggle');
+  assert(await evaluate(`document.querySelectorAll('#brainexer-hub-practice-modes .brainexer-mode-card').length > 0`));
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`!document.querySelector('#brainexer-hub-practice-modes .brainexer-mode-card').disabled`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert(await evaluate(`document.getElementById('brainexer-page').scrollWidth <= document.getElementById('brainexer-page').clientWidth + 1`),
+    'Populated BrainExer Hub must fit 320px');
+  const horizontalCard = selector => evaluate(`(()=>{
+    const card=document.querySelector(${JSON.stringify(selector)});
+    const icon=card.querySelector('svg').getBoundingClientRect();
+    const title=card.querySelector('strong').getBoundingClientRect();
+    return icon.right <= title.left+1 && icon.top < title.bottom && icon.bottom > title.top;
+  })()`);
+  assert(await horizontalCard('#brainexer-hub-practice-modes .brainexer-mode-card'),
+    'Practice modes must place icons beside labels');
+  await click('[data-brainexer-view="game"]');
+  assert(await horizontalCard('#brainexer-hub-game-modes .brainexer-mode-card'),
+    'Game modes must place icons beside labels');
+  await click('[data-brainexer-view="practice"]');
+  await click('#brainexer-hub-practice-modes [data-mode="multiple_choice"]');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`document.getElementById('brainexer-hub-question').textContent.includes('Thủ đô')`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert.equal(await evaluate(`document.getElementById('brainexer-hub-run').hidden`), false);
+  await click('#brainexer-hub-confidence [data-confidence="sure"]');
+  await evaluate(`document.getElementById('brainexer-hub-run').dispatchEvent(new KeyboardEvent('keydown',
+    {key:'1',bubbles:true}))`);
+  await click('#brainexer-hub-submit');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`!document.getElementById('brainexer-hub-feedback').hidden`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert(await evaluate(`document.getElementById('brainexer-hub-feedback').textContent.includes('Đúng')`));
+  await click('#brainexer-hub-exit');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`!document.getElementById('brainexer-hub-summary').hidden`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  await click('#brainexer-hub-exit');
+  await click('#brainexer-hub-practice-modes [data-mode="application"]');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`document.getElementById('brainexer-hub-question').textContent.includes('Giải bài toán')`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  await click('#brainexer-hub-confidence [data-confidence="sure"]');
+  await evaluate(`document.getElementById('brainexer-hub-answer').value='Tôi tính được 3'`);
+  await click('#brainexer-hub-submit');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`!!document.querySelector('#brainexer-hub-feedback [data-self-score="5"]')`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert(await evaluate(`document.getElementById('brainexer-hub-feedback').textContent.includes('Tự đối chiếu')`));
+  await click('#brainexer-hub-feedback [data-self-score="5"]');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`document.getElementById('brainexer-hub-feedback').textContent.includes('Cần ôn thêm')`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert(await evaluate(`document.getElementById('brainexer-hub-feedback').textContent.includes('Cần ôn thêm')`));
+  await click('#brainexer-hub-exit');
+  await click('#brainexer-hub-exit');
+  await evaluate(`window.dispatchEvent(new CustomEvent('brainexer-status',
+    {detail:{...window.__brainexerStatus,deck_kinds:{Demo:'language'}}}))`);
+  assert.equal(await evaluate(`document.getElementById('brainexer-hub-voice-controls').hidden`),false);
+  assert(await evaluate(`(()=>{const slider=document.getElementById('brainexer-hub-speed');
+    return slider.min==='0.1' && slider.max==='2.5' && slider.step==='0.01';})()`));
+  await evaluate(`(()=>{const slider=document.getElementById('brainexer-hub-speed');
+    slider.value='0.37';slider.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  assert(await evaluate(`(()=>{const player=document.getElementById('brainexer-hub-player');
+    return player.playbackRate===0.37 && document.getElementById('brainexer-hub-playback-speed').value==='0.37'
+      && document.getElementById('brainexer-hub-speed-value').textContent==='0,37×';})()`));
+  await click('#brainexer-hub-practice-modes [data-mode="listening"]');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`document.getElementById('brainexer-hub-question').textContent.includes('Nghe và chép')`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert(await evaluate(`window.__brainexerCommands.some(command => command.method==='listening_generate' && command.speed==='1')`),
+    'Listening must synthesize one reusable recording at normal speed');
+  await evaluate(`(()=>{const slider=document.getElementById('brainexer-hub-playback-speed');
+    slider.value='2.45';slider.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  assert(await evaluate(`(()=>{const player=document.getElementById('brainexer-hub-player');
+    return player.playbackRate===2.45 && document.getElementById('brainexer-hub-speed').value==='2.45'
+      && document.getElementById('brainexer-hub-playback-speed-value').textContent==='2,45×';})()`),
+    'Dragging playback speed must update the playing audio immediately');
+  await click('[data-brainexer-view="listening"]');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`!!document.querySelector('#brainexer-hub-library .brainexer-library-speed')`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  await evaluate(`(()=>{const slider=document.querySelector('#brainexer-hub-library .brainexer-library-speed');
+    slider.value='1.23';slider.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  assert(await evaluate(`(()=>{const card=document.querySelector('#brainexer-hub-library .brainexer-library-item');
+    return card.querySelector('audio').playbackRate===1.23 && card.querySelector('output').textContent==='1,23×';})()`),
+    'Library audio speed must be continuously adjustable');
+  assert.equal(await evaluate(`window.__brainexerCommands.filter(command => command.method==='listening_respeed').length`),0);
+  await click('.rail-main [data-action=page][data-value=home]');
   await cdp('Emulation.setDeviceMetricsOverride', {width:1600,height:1080,deviceScaleFactor:1,mobile:false});
   await evaluate(`window.AnkiNOS.receive({event:'settings',payload:window.__originalLayoutSettings})`);
   // Updating hidden library preferences must not recreate all deck rows.

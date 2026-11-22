@@ -15,7 +15,7 @@ def load_task_prompt(name: str) -> str:
     allowed = {
         "fill_blank", "synonym_antonym", "word_form", "nuance",
         "writing_free", "writing_grading",
-        "recall", "multiple_choice", "application", "application_grading",
+        "recall", "multiple_choice", "application", "application_grading", "listening", "sentence", "explain", "phrase",
     }
     if name not in allowed:
         raise ValueError("Loại prompt không được hỗ trợ: {}".format(name))

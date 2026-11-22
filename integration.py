@@ -56,6 +56,7 @@ _backup_busy = False
 _session_error = ""
 _quick_plan: tuple | None = None
 _landing_page: str | None = None
+_landing_brainexer_tab: str | None = None
 ALLOWED_FILES = {".pdf", ".epub", ".txt", ".md", ".csv", ".xlsx", ".docx", ".pptx", ".mp3", ".wav", ".mp4", ".webm", ".png", ".jpg", ".jpeg", ".webp"}
 
 
@@ -583,7 +584,7 @@ def refresh() -> None:
         _dashboard_tree = None
 
     def success(snapshot: dict[str, Any] | None) -> None:
-        global _active_query, _review_changes_only, _landing_page
+        global _active_query, _review_changes_only, _landing_page, _landing_brainexer_tab
         if _active_query == token:
             _active_query = None
         if token != (_generation, mw.pm.name) or not mw.col:
@@ -600,6 +601,8 @@ def refresh() -> None:
             snapshot["library_focus"] = _library_focus
         if not overview and _landing_page:
             snapshot["open_page"], _landing_page = _landing_page, None
+            if snapshot["open_page"] == "brainexer" and _landing_brainexer_tab:
+                snapshot["brainexer_tab"], _landing_brainexer_tab = _landing_brainexer_tab, None
         send("overview_snapshot" if overview else "snapshot", snapshot)
 
     def failure(error: Exception) -> None:
@@ -721,7 +724,11 @@ def _backup_job(task: Any, done: Any) -> None:
 
 
 def _backup_export() -> None:
+    from .brainexer_bridge import busy as brainexer_busy
     if _backup_busy:
+        return
+    if brainexer_busy(mw.pm.name):
+        showWarning("Hãy chờ BrainExer xử lý xong trước khi sao lưu dữ liệu.", parent=mw)
         return
     path, _ = QFileDialog.getSaveFileName(mw, "Sao lưu đầy đủ AnkiNOS", "AnkiNOS-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".nosbackup", "Gói AnkiNOS (*.nosbackup)")
     if not path:
@@ -729,13 +736,15 @@ def _backup_export() -> None:
     from .reviewer_ui import checkpoint_focus
     checkpoint_focus()
     profile, values = mw.pm.name, settings()
+    brainexer_values = config().get("brainexer_profiles", {}).get(profile, {})
     names = {str(d.id): d.name for d in mw.col.decks.all_names_and_ids()}
     def done(destination: Path) -> None:
         send("backup_status", {"busy": False, "message": "Đã sao lưu đầy đủ tại " + str(destination)})
         if not enabled():
             from aqt.utils import showInfo
             showInfo("Đã sao lưu đầy đủ tại " + str(destination), parent=mw)
-    _backup_job(lambda: export_archive(ROOT, profile, values, Path(path).with_suffix(".nosbackup"), deck_names=names), done)
+    _backup_job(lambda: export_archive(ROOT, profile, values, Path(path).with_suffix(".nosbackup"),
+                                      deck_names=names, brainexer_settings=brainexer_values), done)
 
 
 def _backup_restore() -> None:
@@ -775,15 +784,16 @@ def _backup_restore() -> None:
         from .study_tools_ui import reset_tools
         reset_tools()
         original = settings()
+        original_brainexer = config().get("brainexer_profiles", {}).get(profile, {})
         names = {str(d.id): d.name for d in mw.col.decks.all_names_and_ids()}
-        def persist(values: dict) -> None:
+        def persist(values: dict, key: str = "profiles") -> None:
             # Disk I/O stays off the UI thread; only Anki's config API runs here.
             from threading import Event
             completed, errors = Event(), []
             def write() -> None:
                 try:
                     conf = config()
-                    conf.setdefault("profiles", {})[profile] = values
+                    conf.setdefault(key, {})[profile] = values
                     mw.addonManager.writeConfig(MODULE, conf)
                 except Exception as error:
                     errors.append(error)
@@ -804,7 +814,10 @@ def _backup_restore() -> None:
             if not enabled():
                 from aqt.utils import showInfo
                 showInfo("Đã khôi phục dữ liệu AnkiNOS. Bản trước khôi phục: " + str(backup), parent=mw)
-        _backup_job(lambda: restore_archive(ROOT, profile, Path(path), manifest["archive_sha256"], original, persist, deck_names=names), restored)
+        _backup_job(lambda: restore_archive(
+            ROOT, profile, Path(path), manifest["archive_sha256"], original, persist,
+            deck_names=names, current_brainexer_settings=original_brainexer,
+            apply_brainexer_settings=lambda values: persist(values, "brainexer_profiles")), restored)
     def validate_image(path: Path) -> None:
         reader = QImageReader(str(path))
         size = reader.size()
@@ -833,6 +846,17 @@ def open_statistics() -> None:
         mw.onStats()
         return
     _landing_page = "stats"
+    if mw.state != "deckBrowser":
+        mw.moveToState("deckBrowser")
+    else:
+        refresh()
+
+
+def open_brainexer(tab: str = "practice") -> None:
+    global _landing_page, _landing_brainexer_tab
+    if tab not in {"practice", "game", "mistakes", "listening"}:
+        raise ValueError("Mục BrainExer không hợp lệ.")
+    _landing_page, _landing_brainexer_tab = "brainexer", tab
     if mw.state != "deckBrowser":
         mw.moveToState("deckBrowser")
     else:
@@ -944,6 +968,7 @@ def _replace_content(content: Any, context: Any) -> None:
         content.css.append(f"{base}/focus-dashboard.css")
         content.js.append(f"{base}/stats-page.js")
         content.js.append(f"{base}/brainexer.js")
+        content.js.append(f"{base}/brainexer-hub.js")
         content.js.append(f"{base}/focus-dashboard.js")
         content.css.append(f"{base}/media-studio.css")
         content.js.append(f"{base}/media-studio.js")
@@ -1412,13 +1437,14 @@ def _operation_finished(changes: Any, initiator: Any) -> None:
 
 
 def _profile_closing() -> None:
-    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page
+    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page, _landing_brainexer_tab
     _live_context = None
     _generation += 1
     _stats_request_serial += 1
     _active_query = None
     _library_focus = None
     _landing_page = None
+    _landing_brainexer_tab = None
     _dashboard_tree = None
     _data_revision += 1
     _review_changes_only = False
@@ -1461,7 +1487,7 @@ def install() -> None:
     if _installed:
         return
     _installed = True
-    mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp))")
+    mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|brainexer_audio/[0-9a-f]{64}\.mp3))")
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
     _guard_unused_heatmaps()
     _guard_unused_deck_html()

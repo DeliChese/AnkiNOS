@@ -22,13 +22,16 @@ from .theme_settings import clean_theme_settings
 
 FORMAT = "AnkiNOS-profile"
 MAX_TOTAL = 2 * 1024**3
-MAX_FILES = 310
+MAX_FILES = 10000
 MAX_CONFIG = 4 * 1024**2
 FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|(?:focus|learning|workspace|brainexer)\.sqlite3)\Z")
+AUDIO_NAME = re.compile(r"brainexer_audio/[0-9a-f]{64}\.mp3\Z")
 DATABASES = {"focus.sqlite3", "learning.sqlite3", "workspace.sqlite3", "brainexer.sqlite3"}
 
 
 def _file_limit(name: str) -> int:
+    if AUDIO_NAME.fullmatch(name):
+        return 4 * 1024**2
     return (64 if name=="focus.sqlite3" else 256)*1024**2 if name in DATABASES else MAX_IMAGE_BYTES
 
 
@@ -42,6 +45,17 @@ def _check_database(name: str, path: Path) -> dict:
     else:
         from .workspace_store import validate_database
     return validate_database(path)
+
+
+def _check_audio_references(database_path: Path, names: set[str]) -> None:
+    if not database_path.is_file():
+        return
+    with closing(sqlite3.connect(database_path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        if db.execute("PRAGMA user_version").fetchone()[0] < 3:
+            return
+        for (digest,) in db.execute("SELECT DISTINCT audio_hash FROM listening_items"):
+            if "brainexer_audio/" + digest + ".mp3" not in names:
+                raise ValueError("Gói sao lưu thiếu audio của một câu trong Thư viện BrainExer.")
 
 
 def clean_settings(raw: object) -> dict:
@@ -138,7 +152,8 @@ def _check_focus(path: Path) -> int:
         return int(db.execute("SELECT count(*) FROM sessions").fetchone()[0])
 
 
-def export_archive(root: Path, profile: str, settings: dict, destination: Path, *, deck_names: dict | None = None) -> Path:
+def export_archive(root: Path, profile: str, settings: dict, destination: Path, *,
+                   deck_names: dict | None = None, brainexer_settings: dict | None = None) -> Path:
     root, destination = Path(root).resolve(), Path(destination).resolve()
     directory = _safe_dir(root, profile)
     # Backups must not recursively include themselves in the managed profile.
@@ -157,6 +172,17 @@ def export_archive(root: Path, profile: str, settings: dict, destination: Path, 
                         raise ValueError("Không sao lưu liên kết ngoài thư mục hồ sơ.")
                     if path.is_file():
                         sources[path.name] = path
+        audio_directory = directory / "brainexer_audio"
+        if audio_directory.exists():
+            if audio_directory.is_symlink() or not audio_directory.is_dir():
+                raise ValueError("Thư viện audio BrainExer không hợp lệ.")
+            for path in audio_directory.iterdir():
+                name = "brainexer_audio/" + path.name
+                if re.fullmatch(r"\.[0-9a-f]{64}\.tmp", path.name) and path.is_file() and not path.is_symlink():
+                    continue
+                if not AUDIO_NAME.fullmatch(name) or path.is_symlink() or not path.is_file():
+                    raise ValueError("Thư viện audio BrainExer chứa tệp không hợp lệ.")
+                sources[name] = path
         if len(sources) > MAX_FILES - 1:
             raise ValueError("Gói sao lưu có quá nhiều tệp.")
         for name in DATABASES.intersection(sources):
@@ -165,16 +191,21 @@ def export_archive(root: Path, profile: str, settings: dict, destination: Path, 
                 src.backup(target)
             _check_database(name,snapshot)
             sources[name] = snapshot
+        if "brainexer.sqlite3" in sources:
+            _check_audio_references(sources["brainexer.sqlite3"], set(sources))
         for entry in config["images"]:
             if entry["id"] + entry["ext"] not in sources:
                 raise ValueError("Thiếu ảnh trong thư viện: " + entry["name"])
         sizes = {name: path.stat().st_size for name, path in sources.items()}
         if sum(sizes.values()) > MAX_TOTAL or any(size > _file_limit(name) for name, size in sizes.items()):
             raise ValueError("Dữ liệu vượt giới hạn dung lượng sao lưu.")
-        manifest = {"format": FORMAT, "version": 3 if "brainexer.sqlite3" in sources else 2, "profile": profile,
+        manifest = {"format": FORMAT, "version": 4 if "brainexer.sqlite3" in sources or any(AUDIO_NAME.fullmatch(name) for name in sources) else 2, "profile": profile,
             "created_at": datetime.now(timezone.utc).isoformat(), "settings": config,
             "deck_names": {str(k): str(v) for k, v in (deck_names or {}).items()},
             "files": {name: {"size": sizes[name], "sha256": _hash_file(path)} for name, path in sources.items()}}
+        if brainexer_settings is not None:
+            from .brainexer_api import clean_config
+            manifest["brainexer_settings"] = clean_config(brainexer_settings, strict=True)
         with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False).encode("utf-8"))
             for name, path in sources.items():
@@ -195,37 +226,50 @@ def _read_archive(path: Path, stage: Path) -> dict:
         for entry in infos:
             if entry.flag_bits & 1 or stat.S_ISLNK(entry.external_attr >> 16):
                 raise ValueError("Không hỗ trợ tệp mã hóa hoặc liên kết.")
-            if entry.filename != "manifest.json" and not (entry.filename.startswith("profile/") and FILE_NAME.fullmatch(entry.filename[8:])):
+            if entry.filename != "manifest.json" and not (entry.filename.startswith("profile/") and (FILE_NAME.fullmatch(entry.filename[8:]) or AUDIO_NAME.fullmatch(entry.filename[8:]))):
                 raise ValueError("Gói sao lưu chứa đường dẫn hoặc tệp không được hỗ trợ.")
         if archive.getinfo("manifest.json").file_size > MAX_CONFIG or sum(x.file_size for x in infos) > MAX_TOTAL:
             raise ValueError("Gói sao lưu vượt giới hạn dung lượng.")
         manifest = json.loads(archive.read("manifest.json"))
-        if not isinstance(manifest, dict) or manifest.get("format") != FORMAT or type(manifest.get("version")) is not int or manifest["version"] not in {1,2,3}:
+        if not isinstance(manifest, dict) or manifest.get("format") != FORMAT or type(manifest.get("version")) is not int or manifest["version"] not in {1,2,3,4}:
             raise ValueError("Định dạng hoặc phiên bản gói sao lưu không được hỗ trợ.")
         manifest["settings"] = clean_settings(manifest.get("settings"))
+        if "brainexer_settings" in manifest:
+            from .brainexer_api import clean_config
+            manifest["brainexer_settings"] = clean_config(manifest["brainexer_settings"], strict=True)
         files = manifest.get("files")
         if not isinstance(files, dict) or set(names) != {"manifest.json", *("profile/" + name for name in files)}:
             raise ValueError("Nội dung gói sao lưu không khớp bản kê.")
         if "brainexer.sqlite3" in files and manifest["version"] < 3:
             raise ValueError("Phiên bản gói sao lưu không hỗ trợ dữ liệu BrainExer.")
+        if any(AUDIO_NAME.fullmatch(name) for name in files) and manifest["version"] < 4:
+            raise ValueError("Phiên bản gói sao lưu không hỗ trợ audio BrainExer.")
         for name, meta in files.items():
-            if not FILE_NAME.fullmatch(name) or not isinstance(meta, dict):
+            if not (FILE_NAME.fullmatch(name) or AUDIO_NAME.fullmatch(name)) or not isinstance(meta, dict):
                 raise ValueError("Bản kê tệp không hợp lệ.")
             info = archive.getinfo("profile/" + name)
             limit = _file_limit(name)
             if info.file_size > limit or info.file_size != meta.get("size"):
                 raise ValueError("Dung lượng tệp không khớp bản kê.")
             target = stage / name
+            target.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(info) as source, target.open("xb") as dest:
                 shutil.copyfileobj(source, dest, 1024**2)
             if _hash_file(target) != meta.get("sha256"):
                 raise ValueError("Tệp sao lưu không vượt qua kiểm tra toàn vẹn.")
+            if AUDIO_NAME.fullmatch(name):
+                with target.open("rb") as audio:
+                    header = audio.read(3)
+                    if not (header == b"ID3" or header[:1] == b"\xff"):
+                        raise ValueError("Audio BrainExer không hợp lệ.")
         for image in manifest["settings"]["images"]:
             if image["id"] + image["ext"] not in files:
                 raise ValueError("Gói sao lưu thiếu ảnh đã đăng ký.")
         manifest["focus_sessions"] = _check_focus(stage / "focus.sqlite3") if "focus.sqlite3" in files else 0
         for name in ("learning.sqlite3","workspace.sqlite3","brainexer.sqlite3"):
             manifest[name.split('.')[0]] = _check_database(name,stage/name) if name in files else {}
+        if "brainexer.sqlite3" in files:
+            _check_audio_references(stage / "brainexer.sqlite3", set(files))
         if not isinstance(manifest.get("deck_names", {}), dict):
             raise ValueError("Danh sách bộ thẻ không hợp lệ.")
         return manifest
@@ -239,7 +283,7 @@ def inspect_archive(root: Path, path: Path, *, validate_image=None) -> dict:
         manifest = _read_archive(path, stage)
         if validate_image:
             for name in manifest["files"]:
-                if name not in DATABASES:
+                if name not in DATABASES and not AUDIO_NAME.fullmatch(name):
                     validate_image(stage / name)
         if _hash_file(path) != expected_hash:
             raise ValueError("Gói sao lưu đã thay đổi trong khi đọc. Hãy chọn lại.")
@@ -249,7 +293,9 @@ def inspect_archive(root: Path, path: Path, *, validate_image=None) -> dict:
 
 
 def restore_archive(root: Path, profile: str, path: Path, expected_hash: str, current_settings: dict,
-                    apply_settings, *, deck_names: dict | None = None) -> Path:
+                    apply_settings, *, deck_names: dict | None = None,
+                    current_brainexer_settings: dict | None = None,
+                    apply_brainexer_settings=None) -> Path:
     """Stage/validate first, back up current state, swap, roll back on failure."""
     root, path = Path(root).resolve(), Path(path).resolve()
     live = _safe_dir(root, profile)
@@ -264,7 +310,8 @@ def restore_archive(root: Path, profile: str, path: Path, expected_hash: str, cu
         if _hash_file(path) != expected_hash:
             raise ValueError("Gói sao lưu đã thay đổi trong khi đọc. Hãy chọn lại.")
         backup = root / "user_files" / "backups" / ("before-restore-" + datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid4().hex[:8] + ".nosbackup")
-        export_archive(root, profile, current_settings, backup, deck_names=deck_names)
+        export_archive(root, profile, current_settings, backup, deck_names=deck_names,
+                       brainexer_settings=current_brainexer_settings)
         restored = manifest["settings"]
         # IDs differ across collections. Remap by full deck names, never guess.
         if deck_names is not None:
@@ -276,6 +323,8 @@ def restore_archive(root: Path, profile: str, path: Path, expected_hash: str, cu
         # Unknown profile files are preserved; archives never overwrite them.
         if live.exists():
             for extra in live.iterdir():
+                if extra.name == "brainexer_audio":
+                    continue
                 if any(extra.name==name+suffix for name in DATABASES for suffix in ("-wal","-shm","-journal")):
                     continue
                 if not FILE_NAME.fullmatch(extra.name):
@@ -288,6 +337,8 @@ def restore_archive(root: Path, profile: str, path: Path, expected_hash: str, cu
         os.replace(stage, live)
         swapped = True
         apply_settings(restored)
+        if apply_brainexer_settings is not None and "brainexer_settings" in manifest:
+            apply_brainexer_settings(manifest["brainexer_settings"])
         try:
             _remove_scratch(old, live.parent)
         except OSError:
@@ -302,6 +353,8 @@ def restore_archive(root: Path, profile: str, path: Path, expected_hash: str, cu
             os.replace(old, live)
         if swapped:
             apply_settings(current_settings)
+            if apply_brainexer_settings is not None and current_brainexer_settings is not None:
+                apply_brainexer_settings(current_brainexer_settings)
         raise
     finally:
         _remove_scratch(stage, live.parent)

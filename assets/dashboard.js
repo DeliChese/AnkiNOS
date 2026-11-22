@@ -933,7 +933,10 @@
       openLibrary({focusDeck:payload.library_focus});
       command('library_ack',{id:payload.library_focus});
     }
-    if(event==='snapshot'&&payload.open_page)changePage(payload.open_page);
+    if(event==='snapshot'&&payload.open_page) {
+      changePage(payload.open_page);
+      if(payload.brainexer_tab) window.NOSBrainExer?.showTab(payload.brainexer_tab);
+    }
   }
   window.AnkiNOS = {
     receive,

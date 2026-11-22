@@ -9,14 +9,21 @@ def normalize_answer(value: str) -> str:
     return " ".join(normalized.casefold().strip().split())
 
 
-def answer_is_correct(user_answer: str, accepted: Iterable[str]) -> bool:
-    user = normalize_answer(user_answer)
-    return bool(user) and any(user == normalize_answer(item) for item in accepted)
+def answer_is_correct(user_answer: str, accepted: Iterable[str], *, ignore_accents: bool = False) -> bool:
+    def normalized(value: str) -> str:
+        value = normalize_answer(value)
+        if ignore_accents:
+            value = "".join(character for character in unicodedata.normalize("NFD", value)
+                            if unicodedata.category(character) != "Mn").replace("đ", "d")
+        return value
+    user = normalized(user_answer)
+    return bool(user) and any(user == normalized(item) for item in accepted)
 
 
-def local_feedback(exercise_type: str, data: Dict[str, Any], user_answer: str) -> Dict[str, Any]:
+def local_feedback(exercise_type: str, data: Dict[str, Any], user_answer: str,
+                   *, ignore_accents: bool = False) -> Dict[str, Any]:
     accepted = [str(item) for item in data.get("correct_answers", [])]
-    correct = answer_is_correct(user_answer, accepted)
+    correct = answer_is_correct(user_answer, accepted, ignore_accents=ignore_accents)
     return {
         "summary": "Chính xác." if correct else "Câu trả lời chưa khớp đáp án chấp nhận được.",
         "explanation": data.get("explanation", ""),

@@ -48,11 +48,14 @@ class _TextExtractor(HTMLParser):
 
 TARGET_NAMES = (
     "target", "word", "expression", "term", "front", "question",
-    "từ", "từ vựng", "cụm từ",
+    "từ", "từ vựng", "cụm từ", "mặt trước", "câu hỏi", "đề bài",
+    "thuật ngữ", "khái niệm", "vấn đề", "prompt", "kanji", "vocab",
 )
 CONTEXT_NAMES = (
     "context", "example", "sentence", "definition", "meaning", "back",
-    "answer", "ví dụ", "ngữ cảnh", "nghĩa",
+    "answer", "ví dụ", "ngữ cảnh", "nghĩa", "mặt sau", "đáp án",
+    "lời giải", "giải thích", "định nghĩa", "nội dung", "solution",
+    "explanation", "translation", "dịch", "diễn giải",
 )
 POS_NAMES = (
     "part of speech", "part_of_speech", "pos", "word type", "từ loại",
@@ -81,6 +84,11 @@ def _first_named(fields: Dict[str, str], names: Iterable[str]) -> str:
         value = lowered.get(name)
         if value:
             return value
+    for name in names:
+        for field_name, value in lowered.items():
+            if value and len(name) >= 3 and (field_name.startswith(name + " ") or field_name.endswith(" " + name)
+                                             or field_name.startswith(name + "_") or field_name.endswith("_" + name)):
+                return value
     return ""
 
 
@@ -125,16 +133,15 @@ def prompt_cards(sources: list[CardSource], *, knowledge: bool) -> list[dict]:
         fields: dict[str, str] = {}
         card: dict = {"fields": fields}
         repeated = set()
-        if not knowledge:
-            for key, value, aliases in (
-                ("target", source.target, TARGET_NAMES),
-                ("context", source.context, CONTEXT_NAMES),
-                ("part_of_speech", source.part_of_speech, POS_NAMES),
-            ):
-                if value:
-                    card[key] = _excerpt(value, min(600, budget // 6))
-                    if card[key] == value:
-                        repeated.update((name, value) for name in aliases)
+        for key, value, aliases in (
+            ("target", source.target, TARGET_NAMES),
+            ("context", source.context, CONTEXT_NAMES),
+            ("part_of_speech", source.part_of_speech, POS_NAMES),
+        ):
+            if value:
+                card[key] = _excerpt(value, min(600, budget // 6))
+                if not knowledge and card[key] == value:
+                    repeated.update((name, value) for name in aliases)
         available = budget - _json_size(card) - 1
         content = sorted(
             ((name, value) for name, value in source.fields.items()
