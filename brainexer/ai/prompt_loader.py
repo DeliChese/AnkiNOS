@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-PROMPT_VERSION = "1.2.0"
+PROMPT_VERSION = "1.3.0"
 PROMPT_DIR = Path(__file__).resolve().parent / "prompts"
 
 

@@ -11,6 +11,7 @@ from ..db.connection import Database
 from .answering import deterministic_mistake, local_feedback, normalize_answer
 from .exceptions import InsufficientDataError, ResponseValidationError
 from .field_mapper import prompt_cards
+from .hub import DEFAULT_LISTENING_DIFFICULTY
 from .models import AI_GRADED_TYPES, KNOWLEDGE_TYPES, AttemptResult, CardSource, GeneratedExercise
 from .rate_limiter import RateLimiter
 
@@ -45,6 +46,7 @@ class BrainExerService:
         sources: List[CardSource],
         *,
         knowledge_override: bool | None = None,
+        listening_difficulty: str = DEFAULT_LISTENING_DIFFICULTY,
     ) -> GeneratedExercise:
         knowledge = (exercise_type in KNOWLEDGE_TYPES or exercise_type == "explain"
                      if knowledge_override is None else knowledge_override)
@@ -59,6 +61,9 @@ class BrainExerService:
             "learner_level": self.config.learner_level,
             "cards": cards,
         }
+        if exercise_type == "listening":
+            source_data["listening_difficulty"] = listening_difficulty
+
         def checked(payload: dict) -> dict:
             envelope = validate_envelope(payload)
             if envelope["status"] == "insufficient_data":

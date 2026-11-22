@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -105,3 +106,17 @@ def test_semantically_invalid_choices_retry_once() -> None:
     session_id = database.create_session(3, "English", 1, False, ["multiple_choice"], "English", "A2")
     assert instance.generate_exercise(session_id, "multiple_choice", [source()]).exercise_id > 0
     assert len(calls) == 2
+
+
+def test_listening_sends_difficulty_alongside_learner_level() -> None:
+    data = exercise_data()
+    data.update(question_prompt="I live near the park.", correct_answers=["I live near the park."],
+                target_words_to_use=["live"])
+    database, instance = service("listening_difficulty", {"status": "ok", "reason": "", "data": data})
+    session_id = database.create_session(3, "English", 1, False, ["listening"], "English", "A2")
+    with patch.object(instance.client, "create_structured", wraps=instance.client.create_structured) as create:
+        instance.generate_exercise(session_id, "listening", [source()], listening_difficulty="hard")
+    create.assert_called_once()
+    source_data = create.call_args.args[2]
+    assert source_data["listening_difficulty"] == "hard"
+    assert source_data["learner_level"] == "A2"

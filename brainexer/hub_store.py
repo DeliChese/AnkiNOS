@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from .core.hub import INTERVALS, listening_grade, local_grade, schedule
+from .core.hub import DEFAULT_LISTENING_DIFFICULTY, INTERVALS, listening_grade, local_grade, schedule
 from .db.connection import Database, json_text, utc_now
 
 
@@ -627,14 +627,17 @@ class HubStore:
                 (deck_name, sentence, voice, speed),
             ).fetchone()[0]
 
-    def pending_listening(self, deck_name: str, session_id: int = 0) -> dict | None:
+    def pending_listening(self, deck_name: str, session_id: int = 0,
+                          difficulty: str = DEFAULT_LISTENING_DIFFICULTY) -> dict | None:
         with closing(self.database.connect()) as connection:
             row = connection.execute(
                 "SELECT e.id,e.session_id,e.exercise_payload FROM exercises e "
                 "JOIN sessions s ON s.id=e.session_id WHERE s.deck_name=? "
                 "AND (?=0 OR e.session_id=?) "
                 "AND e.exercise_type='listening' AND e.provider!='local' AND e.status='generated' "
-                "ORDER BY e.id ASC LIMIT 1", (deck_name, session_id, session_id),
+                "AND COALESCE(json_extract(e.source_context, '$.listening_difficulty'), ?) = ? "
+                "ORDER BY e.id ASC LIMIT 1",
+                (deck_name, session_id, session_id, DEFAULT_LISTENING_DIFFICULTY, difficulty),
             ).fetchone()
             return dict(row) if row else None
 

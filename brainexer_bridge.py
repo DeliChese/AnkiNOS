@@ -9,7 +9,7 @@ from aqt import mw
 from aqt.operations import CollectionOp, QueryOp
 
 from .brainexer.core.exceptions import BrainExerError
-from .brainexer.core.hub import LOCAL_MODES, MODE_DECK_KIND
+from .brainexer.core.hub import DEFAULT_LISTENING_DIFFICULTY, LOCAL_MODES, MODE_DECK_KIND
 from .brainexer.hub_store import HubStore
 from .brainexer_api import BrainExer, EXERCISES, PROVIDERS, clean_config, error_message, positive_id
 
@@ -276,6 +276,7 @@ def handle(
             deck_id = positive_id(command.get("deck_id"))
             voice = command.get("voice")
             speed = command.get("speed")
+            difficulty = command.get("difficulty", DEFAULT_LISTENING_DIFFICULTY)
             session_id = positive_id(command["session_id"]) if command.get("session_id") else 0
             def prepared_listening(prepared: tuple) -> None:
                 def generated(result: dict) -> None:
@@ -291,7 +292,7 @@ def handle(
                                 if not open_session or waiting >= 1 + api.config["listening_prefetch"]:
                                     break
                                 api.listening_generate(prepared, voice, speed, result["session_id"],
-                                                       force_new=True)
+                                                       force_new=True, difficulty=difficulty)
                         except Exception:
                             # Foreground requests report service errors; background preparation is optional.
                             pass
@@ -302,7 +303,10 @@ def handle(
 
                     mw.taskman.run_in_background(prefetch, prefetched, uses_collection=False)
 
-                background(lambda: api.listening_generate(prepared, voice, speed, session_id), generated)
+                background(
+                    lambda: api.listening_generate(prepared, voice, speed, session_id, difficulty=difficulty),
+                    generated,
+                )
 
             query(lambda col: api.prepare(col, deck_id, command.get("include_children") is True, "listening"),
                   prepared_listening)

@@ -39,6 +39,7 @@
     hintLevel = 0, libraryItems = [], awaitingSelf = false, listenCount = 0;
   let reflexCardIds = [];
   let retrySourceSessionId = 0, summarySourceSessionId = 0;
+  let runListeningDifficulty = 'standard';
 
   function request(method, args = {}) {
     if (pending) return Promise.reject(Error('Đang xử lý yêu cầu trước.'));
@@ -131,6 +132,8 @@
   }
   function restoreAudioPreference() {
     const key = audioPreferenceKey();
+    const difficulty = $('hub-listening-difficulty');
+    difficulty.value = 'standard';
     if (!key) {
       setPlaybackSpeed(1, false);
       return;
@@ -141,6 +144,8 @@
       const saved = JSON.parse(localStorage.getItem(key) || '{}');
       if (Array.from($('hub-voice').options).some(option => option.value === saved.voice))
         $('hub-voice').value = saved.voice;
+      if (Array.from(difficulty.options).some(option => option.value === saved.difficulty))
+        difficulty.value = saved.difficulty;
       if (saved.speed !== null && saved.speed !== '' && Number.isFinite(Number(saved.speed))) speed = saved.speed;
     } catch { /* File URL storage may be disabled by WebEngine. */ }
     setPlaybackSpeed(speed, false);
@@ -149,7 +154,8 @@
     const key = audioPreferenceKey();
     if (!key) return;
     try {
-      localStorage.setItem(key, JSON.stringify({voice: $('hub-voice').value, speed: $('hub-speed').value}));
+      localStorage.setItem(key, JSON.stringify({voice: $('hub-voice').value, speed: $('hub-speed').value,
+        difficulty: $('hub-listening-difficulty').value}));
     } catch { /* Preference is optional when WebEngine disables storage. */ }
   }
   function renderModes() {
@@ -301,6 +307,11 @@
     $('hub-run').dataset.mode = mode;
     $('hub-run').dataset.untimed = String(status.config.game_seconds === 0);
     $('hub-run-title').textContent = status.hub_modes[mode];
+    if (mode === 'listening') {
+      const difficulty = $('hub-listening-difficulty').selectedOptions[0];
+      runListeningDifficulty = difficulty.value;
+      $('hub-run-title').textContent += ' · ' + difficulty.textContent;
+    }
     if (mode === 'quick' && status.config.quick_seconds > 0) startClock(status.config.quick_seconds);
     else if (games.has(mode) && status.config.game_seconds > 0) startClock(status.config.game_seconds);
     await next();
@@ -325,7 +336,8 @@
       } else if (mode === 'listening') {
         const voice = $('hub-voice')?.value || status.voices['en-US'];
         result = await request('listening_generate', {deck_id: selected.id,
-          include_children: $('hub-children').checked, voice, speed: '1', session_id: sessionId});
+          include_children: $('hub-children').checked, voice, speed: '1', session_id: sessionId,
+          difficulty: runListeningDifficulty});
         updateTtsUsed(result);
         updateUsage(result);
         itemId = result.item_id;
@@ -615,6 +627,7 @@
   $('hub-deck').addEventListener('change', () => { restoreAudioPreference(); renderModes(); loadHighscores(); });
   $('hub-children').addEventListener('change', loadHighscores);
   $('hub-voice').addEventListener('change', saveAudioPreference);
+  $('hub-listening-difficulty').addEventListener('change', saveAudioPreference);
   for (const name of ['hub-speed', 'hub-playback-speed']) {
     $(name).addEventListener('input', event => setPlaybackSpeed(event.target.value));
   }

@@ -47,12 +47,12 @@ class BrainExerInvariantTests(unittest.TestCase):
             source = CardSource(1, 1, 1, "Hello", "Xin chào", "", {"Front": "Hello", "Back": "Xin chào"})
             prepared = (DeckInfo(1, "English"), 1, [source])
             generated = []
-            def fake_ai(_prepared, _mode, _kind, _session_id=0):
-                generated.append(1)
+            def fake_ai(_prepared, _mode, _kind, _session_id=0, *, listening_difficulty):
+                generated.append(listening_difficulty)
                 store = HubStore(api.path)
                 session = store.start(1, "English", "language", "listening")
                 exercise = Database(api.path).insert_exercise(
-                    session, "listening", "Hello world", {},
+                    session, "listening", "Hello world", {"listening_difficulty": listening_difficulty},
                     {"question_prompt": "Hello world", "target_words_to_use": ["Hello"],
                      "target_meaning": "Xin chào"},
                     "openai", "fake", "test", "",
@@ -61,11 +61,13 @@ class BrainExerInvariantTests(unittest.TestCase):
             api.hub_ai_next = fake_ai
             with patch("nos_hub_invariant.brainexer_api.KeyringStore.get_api_key", return_value="key"), \
                  patch("nos_hub_invariant.brainexer_api.cached_audio",
-                       side_effect=[ValueError("Azure timeout"), "a" * 64]):
+                       side_effect=[ValueError("Azure timeout"), "a" * 64, "a" * 64]):
                 with self.assertRaisesRegex(ValueError, "Azure timeout"):
-                    api.listening_generate(prepared, "en-US-JennyNeural", "1")
-                result = api.listening_generate(prepared, "en-US-JennyNeural", "1")
-            self.assertEqual(len(generated), 1)
+                    api.listening_generate(prepared, "en-US-JennyNeural", "1", difficulty="easy")
+                hard = api.listening_generate(prepared, "en-US-JennyNeural", "1", difficulty="hard")
+                result = api.listening_generate(prepared, "en-US-JennyNeural", "1", difficulty="easy")
+            self.assertEqual(generated, ["easy", "hard"])
+            self.assertNotEqual(hard["exercise_id"], result["exercise_id"])
             self.assertEqual(result["audio_hash"], "a" * 64)
 
     def test_practice_game_and_mistake_review_leave_scheduler_untouched(self):

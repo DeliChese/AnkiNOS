@@ -16,7 +16,10 @@ from typing import Any
 from .brainexer.ai.factory import PROVIDER_LABELS, PROVIDERS, create_ai_client, model_for_provider
 from .brainexer.audio import VOICES, SPEEDS, cache_key, cached_audio, cleanup_audio
 from .brainexer.core.deck_reader import card_ids_for_deck, list_decks, sample_card_ids
-from .brainexer.core.hub import GAME_MODES, LOCAL_MODES, MODE_DECK_KIND, MODE_LABELS, calculation_question, listening_grade, local_question
+from .brainexer.core.hub import (
+    DEFAULT_LISTENING_DIFFICULTY, GAME_MODES, LISTENING_DIFFICULTIES, LOCAL_MODES,
+    MODE_DECK_KIND, MODE_LABELS, calculation_question, listening_grade, local_question,
+)
 from .brainexer.core.exceptions import APIError, BrainExerError, ConfigurationError, InsufficientDataError, KeyringError
 from .brainexer.core.mistake_bank import add_mistake_note_with_changes, mistake_fields
 from .brainexer.core.models import AI_GRADED_TYPES, KNOWLEDGE_TYPES, DeckInfo, GeneratedExercise
@@ -303,7 +306,8 @@ class BrainExer:
         return {"prepared": len(ready), "card_ids": [source.card_id for source in ready],
                 "tts_used": HubStore(self.path).tts_usage()}
 
-    def hub_ai_next(self, prepared: tuple, mode: str, kind: str, session_id: int = 0) -> dict:
+    def hub_ai_next(self, prepared: tuple, mode: str, kind: str, session_id: int = 0, *,
+                    listening_difficulty: str = DEFAULT_LISTENING_DIFFICULTY) -> dict:
         if kind not in MODE_DECK_KIND.get(mode, set()):
             raise ValueError("Dạng bài không phù hợp loại bộ thẻ.")
         deck, count, sources = prepared
@@ -320,8 +324,10 @@ class BrainExer:
         if new_session:
             session_id = store.start(deck.id, deck.name, kind, mode)
         try:
-            exercise = service.generate_exercise(session_id, mode, sources,
-                                                 knowledge_override=kind == "knowledge")
+            exercise = service.generate_exercise(
+                session_id, mode, sources, knowledge_override=kind == "knowledge",
+                listening_difficulty=listening_difficulty,
+            )
         except Exception:
             if new_session:
                 store.finish(session_id)
@@ -380,7 +386,10 @@ class BrainExer:
         return store.finish(session_id) if finish else store.summary(session_id)
 
     def listening_generate(self, prepared: tuple, voice: str, speed: str,
-                           session_id: int = 0, force_new: bool = False) -> dict:
+                           session_id: int = 0, force_new: bool = False, *,
+                           difficulty: str = DEFAULT_LISTENING_DIFFICULTY) -> dict:
+        if difficulty not in LISTENING_DIFFICULTIES:
+            raise ValueError("Độ khó câu nghe không hợp lệ.")
         if not self.config["azure_data_consent"]:
             raise ConfigurationError("Hãy xác nhận gửi câu văn bản tới Azure Speech.")
         if not self.config["ai_data_consent"]:
@@ -391,13 +400,15 @@ class BrainExer:
         if not key or not self.config["azure_region"]:
             raise ConfigurationError("Hãy nhập khóa và khu vực Azure Speech.")
         store = HubStore(self.path)
-        pending = None if force_new else store.pending_listening(prepared[0].name, session_id)
+        pending = None if force_new else store.pending_listening(prepared[0].name, session_id, difficulty)
         if not pending and store.tts_usage() >= self.config["max_tts_chars_per_month"]:
             raise ValueError("Đã đạt giới hạn ký tự Azure Speech trong tháng; hãy dùng Thư viện câu nghe.")
         if pending:
             exercise_id, session_id = pending["id"], pending["session_id"]
         else:
-            result = self.hub_ai_next(prepared, "listening", "language", session_id)
+            result = self.hub_ai_next(
+                prepared, "listening", "language", session_id, listening_difficulty=difficulty,
+            )
             exercise_id, session_id = result["question"]["id"], result["session_id"]
         database = Database(self.path)
         exercise = database.get_exercise(exercise_id)

@@ -8,4 +8,4 @@ Quy tắc bắt buộc:
 4. Trả đúng JSON Schema được API áp đặt. Không thêm lời chào hoặc markdown.
 5. Phần giải thích dùng ngôn ngữ feedback_language trong dữ liệu nguồn, mặc định là tiếng Việt.
 6. Chỉ đánh giá câu trả lời. Chỉ ra phần đúng, lỗi và cách sửa có căn cứ.
-7. Ưu tiên câu hỏi ngắn, tự nhiên và có một đáp án rõ ràng. Không đưa đáp án vào question_prompt hoặc hint.
+7. Ưu tiên câu hỏi ngắn, tự nhiên và có một đáp án rõ ràng. Không đưa đáp án vào question_prompt hoặc hint. Riêng Nghe & chép, question_prompt chứa nguyên văn câu để tổng hợp âm thanh.

@@ -238,6 +238,8 @@ try {
   assert(await evaluate(`(()=>{const player=document.getElementById('brainexer-hub-player');
     return player.playbackRate===0.37 && document.getElementById('brainexer-hub-playback-speed').value==='0.37'
       && document.getElementById('brainexer-hub-speed-value').textContent==='0,37×';})()`));
+  await evaluate(`(()=>{const difficulty=document.getElementById('brainexer-hub-listening-difficulty');
+    difficulty.value='hard'; difficulty.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   await click('#brainexer-hub-practice-modes [data-mode="listening"]');
   for (let i=0;i<30;i++) {
     if (await evaluate(`document.getElementById('brainexer-hub-question').textContent.includes('Nghe và chép')`)) break;
@@ -245,6 +247,8 @@ try {
   }
   assert(await evaluate(`window.__brainexerCommands.some(command => command.method==='listening_generate' && command.speed==='1')`),
     'Listening must synthesize one reusable recording at normal speed');
+  assert(await evaluate(`window.__brainexerCommands.some(command => command.method==='listening_generate' && command.difficulty==='hard')`),
+    'Listening generation should use the selected difficulty');
   await evaluate(`(()=>{const slider=document.getElementById('brainexer-hub-playback-speed');
     slider.value='2.45';slider.dispatchEvent(new Event('input',{bubbles:true}));})()`);
   assert(await evaluate(`(()=>{const player=document.getElementById('brainexer-hub-player');

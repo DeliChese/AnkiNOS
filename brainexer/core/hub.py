@@ -11,6 +11,8 @@ from .answering import normalize_answer
 from .models import CardSource
 
 INTERVALS = (1, 3, 7, 14, 30)
+DEFAULT_LISTENING_DIFFICULTY = "standard"
+LISTENING_DIFFICULTIES = ("easy", DEFAULT_LISTENING_DIFFICULTY, "hard")
 LOCAL_MODES = {
     "multiple_choice", "fill_blank", "phrase", "quick", "recall",
     "matching", "word_hunter", "unscramble", "listening_reflex",
