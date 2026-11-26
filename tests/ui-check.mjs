@@ -97,9 +97,38 @@ try {
       await click('#library-close');
       await click('#stats-toggle');
       assert(await evaluate(`document.getElementById('stats-page').scrollWidth <= document.getElementById('stats-page').clientWidth + 1`), `${id} statistics must fit ${width}px at ${scale}%`);
+      assert(await fits('#daily-toggle'), `${id} Lịch ôn button must fit ${width}px at ${scale}%`);
+      await click('#daily-toggle');
+      assert(await evaluate(`(() => {
+        const page = document.getElementById('daily-page');
+        return !page.hidden && document.getElementById('stats-page').hidden && document.querySelector('.workspace').hidden
+          && page.scrollWidth <= page.clientWidth + 1
+          && document.getElementById('daily-toggle').getAttribute('aria-current') === 'page';
+      })()`), `${id} Lịch ôn must fit ${width}px at ${scale}%`);
       await click('.rail-main [data-action=page][data-value=home]');
     }
   }
+  // Exercise Lịch ôn (Smart Daily Memory Scheduler): preview, apply, undo, scope picker, and future lock.
+  await click('#daily-toggle');
+  assert.equal(await evaluate(`document.getElementById('daily-overdue-panel').hidden`), false, 'Overdue panel should show in preview');
+  await click('#daily-toggle-preview');
+  assert(await evaluate(`!document.getElementById('daily-preview-box').hidden && !!document.querySelector('#daily-plan-chart svg') && document.querySelectorAll('#daily-plan-tbody tr').length > 0`),
+    'Before/After preview chart and table must render');
+  await click('#daily-apply-plan');
+  assert(await evaluate(`document.getElementById('daily-overdue-panel').hidden && !document.getElementById('daily-undo-banner').hidden`),
+    'Applying plan should move overdue cards and display undo banner');
+  await click('#daily-undo-last');
+  assert(await evaluate(`!document.getElementById('daily-overdue-panel').hidden && document.getElementById('daily-undo-banner').hidden`),
+    'Undo should restore overdue cards cleanly');
+  await click('#daily-future-grid [data-future-offset="1"]');
+  assert(await evaluate(`!document.getElementById('daily-day-inspector').hidden
+    && document.getElementById('daily-inspector-title').textContent.includes('Đã khóa')
+    && !document.getElementById('daily-day-inspector').querySelector('#daily-study-today')`),
+    'Future day inspector must be read-only and locked');
+  await click('#daily-scope-toggle');
+  assert.equal(await evaluate(`document.getElementById('daily-scope-panel').hidden`), false);
+  await click('#daily-scope-close');
+  await click('.rail-main [data-action=page][data-value=home]');
   await cdp('Emulation.setDeviceMetricsOverride', {width:1600,height:1080,deviceScaleFactor:1,mobile:false});
   await evaluate(`window.AnkiNOS.receive({event:'settings',payload:window.__originalLayoutSettings})`);
   // Updating hidden library preferences must not recreate all deck rows.

@@ -835,6 +835,17 @@ def open_statistics() -> None:
         refresh()
 
 
+def open_daily_schedule() -> None:
+    global _landing_page
+    if not enabled():
+        return
+    _landing_page = "daily"
+    if mw.state != "deckBrowser":
+        mw.moveToState("deckBrowser")
+    else:
+        refresh()
+
+
 def _stats_graphs(scope: str, days: int) -> None:
     """Fetch the native Anki graphs lazily, only while the Stats page is open."""
     global _stats_request_serial
@@ -943,6 +954,8 @@ def _replace_content(content: Any, context: Any) -> None:
         content.js.append(f"{base}/media-studio.js")
         content.css.append(f"{base}/study-dashboard.css")
         content.js.append(f"{base}/study-dashboard.js")
+        content.css.append(f"{base}/daily-schedule.css")
+        content.js.append(f"{base}/daily-schedule.js")
     content.css.append(f"{base}/theme.css")
     if not overview:
         content.css.append(f"{base}/layouts.css")
@@ -1234,7 +1247,43 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         if not isinstance(command, dict):
             return (True, None)
         action = command.get("action")
-        if action == "show_children":
+        if action == "daily":
+            if context is _live_context and isinstance(context, DeckBrowser) and not _navigating:
+                from .daily_bridge import handle as handle_daily
+
+                profile, generation = mw.pm.name, _generation
+
+                def current() -> bool:
+                    return (
+                        context is _live_context
+                        and generation == _generation
+                        and mw.col is not None
+                        and mw.pm.name == profile
+                        and not _navigating
+                    )
+
+                def mutated() -> None:
+                    global _data_revision, _review_changes_only, _dashboard_tree
+                    _dashboard_tree = None
+                    _data_revision += 1
+                    _review_changes_only = False
+                    clear_snapshot_cache()
+                    clear_support_cache()
+
+                def launch_review(did: int, minutes: int | None) -> None:
+                    if current():
+                        _quick_study(did, minutes)
+
+                handle_daily(
+                    command,
+                    root=ROOT,
+                    profile=profile,
+                    current=current,
+                    reply=send,
+                    on_mutated=mutated,
+                    on_start_review=launch_review,
+                )
+        elif action == "show_children":
             _library_focus = str(_deck_id(command.get("id")))
             mw.moveToState("deckBrowser")
         elif action == "library_ack":

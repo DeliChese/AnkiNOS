@@ -137,6 +137,7 @@ class ToolDialog(QDialog):
                     host._quick_study(self.did,minutes)
                 actions = {
                     "study":lambda:start(),
+                    "daily":host.open_daily_schedule,
                     "focus":lambda:start(host.settings().get("study_budget",30)),
                     "notebook":lambda:open_notebook(self.did),
                     "add":mw.onAddCard,"browse":lambda:host._browse(),"stats":host.open_statistics,

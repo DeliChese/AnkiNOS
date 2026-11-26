@@ -818,8 +818,10 @@
     app.dataset.page = page;
     app.querySelector('.workspace').hidden = page !== 'home';
     $('stats-page').hidden = page !== 'stats';
+    $('daily-page').hidden = page !== 'daily';
     app.scrollTop=0;
     if (page === 'stats') { window.NOSStats?.open(); window.NOSFocusHistory?.open(); }
+    if (page === 'daily') window.NOSDaily?.open();
     app.querySelectorAll('.rail-main [data-action="page"]').forEach(button => {
       button.classList.toggle('active', button.dataset.value === page);
       if (button.dataset.value === page) button.setAttribute('aria-current','page');
@@ -840,6 +842,7 @@
   }
 
   function receive({event, payload}) {
+    if(event==='daily'){window.NOSDaily?.receive(payload);return;}
     if(event==='study_support'){window.NOSStudy?.receive(payload);return;}
     if(event==='study_support_error'){window.NOSStudy?.error(payload);return;}
     if(event==='backup_status'){
@@ -908,7 +911,10 @@
     }
     if (!state.snapshot) return;
     applySettings();
-    if(event==='snapshot')window.NOSStudy?.sync(payload);
+    if(event==='snapshot'){
+      window.NOSStudy?.sync(payload);
+      if (state.page === 'daily') window.NOSDaily?.sync();
+    }
     if (event === 'settings' || event === 'snapshot') window.NOSStudio?.sync();
     if(event==='snapshot'||state.settings.goal!==previousGoal) {
       renderStats();
@@ -937,6 +943,7 @@
     receive,
     getSettings: () => state.settings,
     getSnapshot: () => state.snapshot,
+    dailyCommand: payload => command('daily', payload),
     studioCommand: (action, payload) => command(action, payload),
     studioUpdate(patch) {
       Object.assign(state.settings, patch);

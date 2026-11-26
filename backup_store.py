@@ -24,15 +24,15 @@ FORMAT = "AnkiNOS-profile"
 MAX_TOTAL = 2 * 1024**3
 MAX_FILES = 10000
 MAX_CONFIG = 4 * 1024**2
-FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|(?:focus|learning|workspace|brainexer)\.sqlite3)\Z")
+FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|(?:focus|learning|workspace|brainexer|daily_schedule)\.sqlite3)\Z")
 AUDIO_NAME = re.compile(r"brainexer_audio/[0-9a-f]{64}\.mp3\Z")
-DATABASES = {"focus.sqlite3", "learning.sqlite3", "workspace.sqlite3", "brainexer.sqlite3"}
+DATABASES = {"focus.sqlite3", "learning.sqlite3", "workspace.sqlite3", "brainexer.sqlite3", "daily_schedule.sqlite3"}
 
 
 def _file_limit(name: str) -> int:
     if AUDIO_NAME.fullmatch(name):
         return 4 * 1024**2
-    return (64 if name=="focus.sqlite3" else 256)*1024**2 if name in DATABASES else MAX_IMAGE_BYTES
+    return (64 if name in {"focus.sqlite3", "daily_schedule.sqlite3"} else 256)*1024**2 if name in DATABASES else MAX_IMAGE_BYTES
 
 
 def _check_database(name: str, path: Path) -> dict:
@@ -42,6 +42,8 @@ def _check_database(name: str, path: Path) -> dict:
         from .legacy_learning_backup import validate_database
     elif name=="brainexer.sqlite3":
         from .legacy_brainexer_backup import validate_database
+    elif name=="daily_schedule.sqlite3":
+        from .daily_store import validate_database
     else:
         from .workspace_store import validate_database
     return validate_database(path)
@@ -266,7 +268,7 @@ def _read_archive(path: Path, stage: Path) -> dict:
             if image["id"] + image["ext"] not in files:
                 raise ValueError("Gói sao lưu thiếu ảnh đã đăng ký.")
         manifest["focus_sessions"] = _check_focus(stage / "focus.sqlite3") if "focus.sqlite3" in files else 0
-        for name in ("learning.sqlite3","workspace.sqlite3","brainexer.sqlite3"):
+        for name in ("learning.sqlite3","workspace.sqlite3","brainexer.sqlite3","daily_schedule.sqlite3"):
             manifest[name.split('.')[0]] = _check_database(name,stage/name) if name in files else {}
         if "brainexer.sqlite3" in files:
             _check_audio_references(stage / "brainexer.sqlite3", set(files))

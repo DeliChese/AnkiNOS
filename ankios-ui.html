@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="assets/stats-page.css">
   <link rel="stylesheet" href="assets/focus-dashboard.css">
   <link rel="stylesheet" href="assets/study-dashboard.css">
+  <link rel="stylesheet" href="assets/daily-schedule.css">
   <link rel="stylesheet" href="assets/theme.css">
   <link rel="stylesheet" href="assets/layouts.css">
 </head>
@@ -50,12 +51,14 @@
       <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
       <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
       <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8Z"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></symbol>
     </defs></svg>
 
     <aside class="rail glass" aria-label="Điều hướng chính">
       <button class="brand" data-action="page" data-value="home" aria-label="AnkiNOS — Trang chủ"><svg class="icon"><use href="#i-spark"/></svg><span>NOS</span></button>
       <div class="rail-main">
         <button class="rail-button active" data-action="page" data-value="home" title="Tổng quan" aria-label="Tổng quan" aria-current="page"><svg class="icon"><use href="#i-home"/></svg><span>Tổng quan</span></button>
+        <button class="rail-button" id="daily-toggle" data-action="page" data-value="daily" title="Lịch ôn" aria-label="Lịch ôn" aria-controls="daily-page" aria-current="false"><svg class="icon"><use href="#i-calendar"/></svg><span>Lịch ôn</span></button>
         <button class="rail-button" id="stats-toggle" data-action="page" data-value="stats" title="Thống kê" aria-label="Thống kê" aria-current="false"><svg class="icon"><use href="#i-chart"/></svg><span>Thống kê</span></button>
         <button class="rail-button" id="library-toggle" data-action="library" aria-haspopup="dialog" aria-expanded="false" aria-controls="library-dialog" title="Bộ thẻ & tài nguyên" aria-label="Bộ thẻ và tài nguyên"><svg class="icon"><use href="#i-layers"/></svg><span>Bộ thẻ</span></button>
         <button type="button" class="rail-button" id="study-notebook" title="Sổ tay" aria-label="Sổ tay"><svg class="icon"><use href="#i-file"/></svg><span>Sổ tay</span></button>
@@ -102,6 +105,170 @@
 
       <footer class="workspace-footer"><span>AnkiNOS <span class="footer-dot">·</span> Không gian nhỏ, trí nhớ lớn.</span><span id="page-footnote">Dữ liệu từ bộ sưu tập Anki của bạn</span></footer>
     </main>
+
+    <section class="daily-page" id="daily-page" aria-labelledby="daily-title" hidden>
+      <header class="daily-head">
+        <div>
+          <span class="daily-eyebrow">ANKINOS · TRÍ NHỚ THEO NGÀY</span>
+          <h1 id="daily-title">Lịch ôn</h1>
+          <p>Thẻ học lần đầu ở bộ thẻ gốc sẽ tự động vào đúng ngày đến hạn. Ngày tương lai được khóa để giữ khoảng cách ghi nhớ.</p>
+        </div>
+        <div class="daily-head-actions">
+          <button type="button" class="subtle-button" id="daily-open-ledger">Nhật ký dời lịch</button>
+          <button type="button" class="subtle-button" id="daily-refresh">Làm mới</button>
+          <button type="button" class="subtle-button" data-action="page" data-value="home">Về trang chủ</button>
+        </div>
+      </header>
+
+      <p class="daily-status" id="daily-status" role="status" hidden></p>
+
+      <section class="daily-controls glass" aria-label="Phạm vi và trần ôn mỗi ngày">
+        <div class="daily-control-block">
+          <span class="daily-control-label">Phạm vi áp dụng</span>
+          <div class="daily-scope-row">
+            <button type="button" class="daily-scope-button" id="daily-scope-toggle" aria-expanded="false" aria-controls="daily-scope-panel">
+              <svg class="icon small" aria-hidden="true"><use href="#i-layers"/></svg>
+              <strong id="daily-scope-label">Toàn bộ bộ sưu tập</strong>
+              <svg class="icon small" aria-hidden="true"><use href="#i-down"/></svg>
+            </button>
+          </div>
+          <div class="daily-preset-chips" id="daily-presets" aria-label="Phạm vi đã lưu"></div>
+        </div>
+        <div class="daily-control-block">
+          <span class="daily-control-label">Trần ôn mỗi ngày</span>
+          <div class="daily-cap-row">
+            <button type="button" class="daily-chip" data-daily-cap="20" aria-pressed="false">20</button>
+            <button type="button" class="daily-chip" data-daily-cap="40" aria-pressed="true">40</button>
+            <button type="button" class="daily-chip" data-daily-cap="60" aria-pressed="false">60</button>
+            <button type="button" class="daily-chip" data-daily-cap="100" aria-pressed="false">100</button>
+            <input type="number" class="daily-cap-input" id="daily-cap-input" min="1" max="2000" value="40" aria-label="Trần số thẻ ôn mỗi ngày">
+          </div>
+          <span class="daily-cap-hint" id="daily-cap-hint">Tự mở rộng cửa sổ rải khi quá hạn vượt trần.</span>
+        </div>
+      </section>
+
+      <section class="daily-scope-panel glass" id="daily-scope-panel" aria-label="Chọn phạm vi bộ thẻ" hidden>
+        <div class="daily-scope-modes">
+          <div class="daily-scope-row">
+            <label class="daily-check"><input type="radio" name="daily-scope-mode" id="daily-scope-mode-all" value="all" checked>Toàn bộ bộ sưu tập</label>
+            <label class="daily-check"><input type="radio" name="daily-scope-mode" id="daily-scope-mode-decks" value="decks">Chọn bộ thẻ (deck cha / deck con)</label>
+          </div>
+          <div class="daily-scope-row">
+            <button type="button" class="primary-button" id="daily-scope-apply">Áp dụng phạm vi</button>
+            <button type="button" class="subtle-button" id="daily-scope-close">Đóng</button>
+          </div>
+        </div>
+        <div id="daily-scope-tree-wrap" hidden>
+          <div class="daily-scope-search-row">
+            <input type="search" id="daily-scope-search" placeholder="Tìm bộ thẻ cha hoặc con…" aria-label="Tìm bộ thẻ trong phạm vi">
+            <label class="daily-check"><input type="checkbox" id="daily-scope-children" checked>Tự động bao gồm bộ thẻ con</label>
+          </div>
+          <div class="daily-tree-list" id="daily-scope-tree" role="group" aria-label="Danh sách bộ thẻ"></div>
+        </div>
+        <div class="daily-preset-form">
+          <input type="text" id="daily-preset-name" maxlength="80" placeholder="Đặt tên để lưu thành phạm vi nhanh (vd: Tiếng Anh, Ôn thi)…">
+          <button type="button" class="subtle-button" id="daily-preset-save">Lưu phạm vi</button>
+        </div>
+      </section>
+
+      <div class="daily-undo-banner" id="daily-undo-banner" hidden>
+        <span>Đã cập nhật lịch due thật và lưu nhật ký. Bạn có thể hoàn tác ngay nếu muốn.</span>
+        <button type="button" class="subtle-button" id="daily-undo-last">Hoàn tác ngay</button>
+      </div>
+
+      <section class="daily-overdue glass" id="daily-overdue-panel" aria-labelledby="daily-overdue-title" hidden>
+        <div class="daily-overdue-head">
+          <div>
+            <h2 id="daily-overdue-title">Thẻ quá hạn từ các ngày đã qua</h2>
+            <p class="daily-muted" id="daily-overdue-summary"></p>
+          </div>
+          <div class="daily-overdue-actions">
+            <button type="button" class="subtle-button" id="daily-toggle-preview" aria-expanded="false" aria-controls="daily-preview-box">Xem trước Trước / Sau</button>
+            <button type="button" class="primary-button" id="daily-apply-plan">Áp dụng dời lịch</button>
+          </div>
+        </div>
+        <div class="daily-preview-box" id="daily-preview-box" hidden>
+          <div class="daily-chart-wrap" id="daily-plan-chart"></div>
+          <p class="daily-muted">Chỉ cập nhật ngày đến hạn (due) trên thẻ ôn chuẩn; giữ nguyên khoảng cách ôn (ivl), trạng thái FSRS và tạo điểm Hoàn tác của Anki.</p>
+          <div class="daily-table-wrap">
+            <table class="daily-table">
+              <thead><tr><th>Thẻ</th><th>Bộ thẻ gốc</th><th>Di chuyển ngày</th><th>Retrievability</th><th>Lý do xếp ngày</th></tr></thead>
+              <tbody id="daily-plan-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <div class="daily-main-grid">
+        <section class="daily-today-card glass" id="daily-today-card" aria-labelledby="daily-today-date">
+          <div class="daily-card-top">
+            <strong id="daily-today-date">Hôm nay</strong>
+            <span class="daily-badge unlocked">Đang mở khóa</span>
+          </div>
+          <div class="daily-today-count">
+            <strong id="daily-today-count">0</strong>
+            <span>thẻ đến hạn hôm nay</span>
+          </div>
+          <p class="daily-muted" id="daily-today-meta"></p>
+          <div class="daily-tiers" aria-label="Phân tầng Retrievability hôm nay">
+            <div class="daily-tier"><strong id="daily-tier-critical">0</strong><span>Nguy cơ (&lt;70%)</span></div>
+            <div class="daily-tier"><strong id="daily-tier-due">0</strong><span>Đến hạn (70–89%)</span></div>
+            <div class="daily-tier"><strong id="daily-tier-strong">0</strong><span>Ổn định (≥90%)</span></div>
+          </div>
+          <div class="daily-study-actions">
+            <button type="button" class="primary-button" id="daily-study-today" disabled>Ôn tập hôm nay</button>
+            <div class="daily-focus-row">
+              <button type="button" class="subtle-button" id="daily-focus-today" disabled>Focus hôm nay</button>
+              <select id="daily-focus-budget" aria-label="Thời lượng Focus hôm nay">
+                <option value="15">15 phút</option>
+                <option value="30" selected>30 phút</option>
+                <option value="60">60 phút</option>
+              </select>
+            </div>
+          </div>
+          <p class="daily-muted" id="daily-tracked-note"></p>
+          <div class="daily-subtabs" role="tablist" aria-label="Chi tiết thẻ hôm nay">
+            <button type="button" class="daily-chip" data-today-tab="decks" aria-pressed="true">Theo bộ thẻ</button>
+            <button type="button" class="daily-chip" data-today-tab="cohorts" aria-pressed="false">Ngày học đầu</button>
+            <button type="button" class="daily-chip" data-today-tab="cards" aria-pressed="false">Danh sách thẻ</button>
+          </div>
+          <ul class="daily-mini-list" id="daily-today-list"></ul>
+        </section>
+
+        <section class="daily-future-card glass" id="daily-future-section" aria-labelledby="daily-future-title">
+          <div class="daily-future-head">
+            <div>
+              <h2 id="daily-future-title">Lịch các ngày sắp tới</h2>
+              <p class="daily-muted" id="daily-future-caption"></p>
+            </div>
+            <div class="daily-preset-chips" aria-label="Khoảng ngày hiển thị">
+              <button type="button" class="daily-chip" data-daily-horizon="14" aria-pressed="true">14 ngày</button>
+              <button type="button" class="daily-chip" data-daily-horizon="30" aria-pressed="false">30 ngày</button>
+              <button type="button" class="daily-chip" data-daily-horizon="45" aria-pressed="false">45 ngày</button>
+            </div>
+          </div>
+          <div class="daily-future-grid" id="daily-future-grid" aria-label="Các ô ngày tương lai đã khóa"></div>
+          <div class="daily-inspector" id="daily-day-inspector" hidden>
+            <div class="daily-inspector-head">
+              <h3 id="daily-inspector-title"></h3>
+              <button type="button" class="subtle-button" id="daily-inspector-close">Đóng xem trước</button>
+            </div>
+            <p class="daily-muted" id="daily-inspector-note"></p>
+            <ul class="daily-mini-list" id="daily-inspector-list"></ul>
+          </div>
+        </section>
+      </div>
+
+      <dialog class="daily-ledger-dialog" id="daily-ledger-dialog" aria-labelledby="daily-ledger-title">
+        <div class="daily-ledger-shell">
+          <div class="daily-ledger-head">
+            <h2 id="daily-ledger-title">Nhật ký dời lịch &amp; Hoàn tác</h2>
+            <button type="button" class="subtle-button" id="daily-ledger-close">Đóng</button>
+          </div>
+          <div class="daily-ledger-body" id="daily-ledger-body"></div>
+        </div>
+      </dialog>
+    </section>
 
     <section class="stats-page" id="stats-page" aria-label="Phân tích và thống kê Anki" hidden>
       <header class="stats-page-head">
@@ -489,5 +656,6 @@
   <script src="assets/stats-page.js"></script>
   <script src="assets/focus-dashboard.js"></script>
   <script src="assets/study-dashboard.js"></script>
+  <script src="assets/daily-schedule.js"></script>
 </body>
 </html>

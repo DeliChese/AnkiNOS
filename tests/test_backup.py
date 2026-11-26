@@ -109,6 +109,23 @@ class BackupTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT kind FROM deck_kinds WHERE deck_name='Languages::English'").fetchone()[0], "language")
         self.assertEqual(restored_config[-1]["azure_region"], "southeastasia")
 
+    def test_daily_schedule_database_round_trips(self):
+        from nos_backup_test.daily_store import DailyStore
+        store = DailyStore(self.root, "Alice")
+        store.save_preset("Tiếng Anh", scope_mode="decks", deck_names=["Languages::English"], include_children=True, daily_cap=35)
+        store.record_batch(scope_label="Toàn bộ", daily_cap=35, window_days=14, summary="Dời 1 thẻ", moves=[{
+            "card_id": 101, "deck_name": "Languages::English", "preview": "hello",
+            "old_due": 95, "new_due": 100, "old_date": "2026-11-21", "new_date": "2026-11-26",
+            "ivl": 5, "r_before": 68.0, "r_target": 68.0, "reason": "R thấp",
+        }])
+        archive = backup.export_archive(self.root, "Alice", self.settings, self.root / "daily.nosbackup")
+        preview = backup.inspect_archive(self.root, archive)
+        self.assertEqual(preview["daily_schedule"], {"presets": 1, "batches": 1})
+        backup.restore_archive(self.root, "Bob", archive, preview["archive_sha256"], {}, lambda _: None)
+        bob_store = DailyStore(self.root, "Bob")
+        self.assertEqual(len(bob_store.list_presets()), 1)
+        self.assertEqual(len(bob_store.list_batches()), 1)
+
     def rewrite(self, mutate):
         path = self.root / "changed.nosbackup"
         with zipfile.ZipFile(self.archive) as archive:

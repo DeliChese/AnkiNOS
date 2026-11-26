@@ -1,5 +1,14 @@
 # AnkiNOS
 
+## Lịch ôn theo ngày thông minh
+
+Mở **Lịch ôn** trên thanh điều hướng (hoặc qua lệnh nhanh **Ctrl+K**) để quản lý lịch ôn tập theo từng ngày chính xác thay vì nhìn dồn toàn bộ thẻ đến hạn.
+
+- **Tốt nghiệp từ bộ thẻ gốc**: thẻ mới tạo và bước học phút đầu tiên (`queue = 0, 1`) vẫn học bình thường tại bộ thẻ gốc. Ngay sau khi thẻ có lịch hẹn theo ngày (`queue = 2, 3`) và đã có lượt trả lời đầu tiên trong `revlog`, hệ thống ghi nhận **ngày học đầu tiên** và gom thẻ vào đúng ô ngày đến hạn.
+- **Mở Hôm nay, khóa tương lai**: chỉ **Hôm nay** được mở khóa để vào phiên ôn trực tiếp bằng reviewer gốc của Anki (giữ nguyên 4 nút Quên / Khó / Tốt / Dễ, preset FSRS của bộ thẻ gốc và đồng bộ AnkiWeb; hỗ trợ cả Focus Mode). Các ngày tương lai bị khóa 🔒, chỉ xem trước chỉ đọc để bảo vệ khoảng cách lặp lại.
+- **Điều phối ngày đã qua (ghi `due` thật an toàn)**: chọn **phạm vi áp dụng** (toàn bộ bộ sưu tập, deck cha có/không gộp deck con, hoặc nhiều deck con; hỗ trợ lưu phạm vi nhanh) và **trần ôn mỗi ngày** mong muốn. Bộ giải ưu tiên đưa thẻ có **Retrievability thấp / dễ quên** về Hôm nay hoặc ngày gần nhất, rải thẻ ổn định cao sang những ngày tương lai ít thẻ nhất, và **tự động mở rộng cửa sổ rải** khi lượng quá hạn lớn để giữ đúng trần ngày.
+- **Xem trước & Hoàn tác**: mặc định hiển thị biểu đồ **Trước / Sau** và danh sách thẻ dự kiến dời trước khi bạn bấm **Áp dụng dời lịch**. Hệ thống chỉ cập nhật `card.due` trên thẻ ôn chuẩn (`queue = 2`), giữ nguyên `ivl` và trạng thái FSRS, tạo điểm Undo của Anki, và lưu nhật ký tại `daily_schedule.sqlite3` (đi kèm gói `.nosbackup`) để hoàn tác 1 chạm mà không ghi đè các thẻ bạn đã ôn mới.
+
 ## Bố cục dashboard
 
 Chọn **Cực quang**, **Bento**, **Dock nổi**, **Không gian làm việc** hoặc **Zen** bằng nút **Đổi bố cục** trên thanh đầu trang. **Alt + Shift + L** chuyển sang bố cục kế tiếp. Trong **Cài đặt AnkiNOS → Giao diện**, nhấn **Áp dụng** để lưu lựa chọn.
