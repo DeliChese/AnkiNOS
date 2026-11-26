@@ -55,86 +55,14 @@ def until(expression, view=None):
     raise AssertionError("Anki dashboard not ready: " + expression)
 
 
-def check_brainexer_hub(addon):
-    """Exercise the integrated Hub in a disposable Anki GUI profile."""
-    from contextlib import closing
-    from NOS.brainexer_api import BrainExer
-    from NOS.brainexer.hub_store import HubStore
-
-    col = aqt.mw.col
-    deck_id = col.decks.id("BrainExer live Hub")
-    for index in range(4):
-        note = col.new_note(col.models.by_name("Basic"))
-        note["Front"], note["Back"] = f"term{index}", f"meaning{index}"
-        col.add_note(note, deck_id)
-    def snapshot():
-        return (col.db.all("SELECT id,due,ivl,queue FROM cards ORDER BY id"),
-                col.db.scalar("SELECT COUNT(*) FROM revlog"))
-    original = snapshot()
-    profile = BrainExer("NOS Test", {}, addon)
-    store = HubStore(profile.path)
-    def click(selector):
-        js(f"document.querySelector({json.dumps(selector)}).click()")
-    click("#brainexer-toggle")
-    until("Array.from(document.querySelectorAll('#brainexer-hub-deck option')).some(option => option.textContent === 'BrainExer live Hub')")
-    js(f"(()=>{{const select=document.getElementById('brainexer-hub-deck');select.value={json.dumps(str(deck_id))};select.dispatchEvent(new Event('change',{{bubbles:true}}))}})()")
-    js("(()=>{const select=document.getElementById('brainexer-hub-kind');select.value='language';select.dispatchEvent(new Event('change',{bubbles:true}))})()")
-    until("!!document.querySelector('#brainexer-hub-practice-modes [data-mode=multiple_choice]:not(:disabled)')")
-    assert js("(()=>{const card=document.querySelector('#brainexer-hub-practice-modes .brainexer-mode-card');return card.querySelector('svg').getBoundingClientRect().right < card.querySelector('strong').getBoundingClientRect().left})()")
-    js("(()=>{const slider=document.getElementById('brainexer-hub-speed');slider.value='0.37';slider.dispatchEvent(new Event('input',{bubbles:true}))})()")
-    assert abs(js("document.getElementById('brainexer-hub-player').playbackRate") - 0.37) < 0.001
-    js("(()=>{const slider=document.getElementById('brainexer-hub-playback-speed');slider.value='2.45';slider.dispatchEvent(new Event('input',{bubbles:true}))})()")
-    assert abs(js("document.getElementById('brainexer-hub-player').playbackRate") - 2.45) < 0.001
-    click("#brainexer-hub-practice-modes [data-mode=multiple_choice]")
-    until("!document.getElementById('brainexer-hub-run').hidden && !!document.querySelector('#brainexer-hub-options [data-option]')")
-    with closing(store.database.connect()) as connection:
-        row = connection.execute("SELECT exercise_payload FROM exercises ORDER BY id DESC LIMIT 1").fetchone()
-    payload = json.loads(row["exercise_payload"])
-    wrong = next(option for option in payload["options"] if option != payload["answers"][0])
-    js(f"Array.from(document.querySelectorAll('#brainexer-hub-options [data-option]')).find(button => button.textContent === {json.dumps(wrong)}).click()")
-    click("#brainexer-hub-submit")
-    until("document.getElementById('brainexer-hub-feedback').textContent.includes('Cần ôn thêm')")
-    assert snapshot() == original
-    click("#brainexer-hub-exit")
-    until("!document.getElementById('brainexer-hub-summary').hidden")
-    assert not js("document.querySelector('#brainexer-hub-summary [data-summary-action=review]').hidden")
-    click("#brainexer-hub-summary [data-summary-action=review]")
-    until("document.getElementById('brainexer-hub-run-title').textContent === 'Ôn sổ lỗi' && !document.getElementById('brainexer-hub-submit').hidden")
-    correct = store.mistakes("BrainExer live Hub")[0]["corrected_text"]
-    js(f"document.getElementById('brainexer-hub-answer').value={json.dumps(correct)}")
-    click("#brainexer-hub-submit")
-    until("document.getElementById('brainexer-hub-feedback').textContent.includes('Đúng')")
-    assert snapshot() == original
-    click("#brainexer-hub-exit")
-    until("!document.getElementById('brainexer-hub-summary').hidden")
-    click("#brainexer-hub-exit")
-    click('.brainexer-nav [data-brainexer-view="game"]')
-    until("!!document.querySelector('#brainexer-hub-game-modes [data-mode=matching]:not(:disabled)')")
-    assert js("(()=>{const card=document.querySelector('#brainexer-hub-game-modes .brainexer-mode-card');return card.querySelector('svg').getBoundingClientRect().right < card.querySelector('strong').getBoundingClientRect().left})()")
-    click("#brainexer-hub-game-modes [data-mode=matching]")
-    until("document.querySelectorAll('#brainexer-hub-options select').length === 4")
-    with closing(store.database.connect()) as connection:
-        game = connection.execute("SELECT exercise_payload FROM exercises ORDER BY id DESC LIMIT 1").fetchone()
-    answers = [pair["right"] for pair in json.loads(game["exercise_payload"])["pairs"]]
-    js(f"Array.from(document.querySelectorAll('#brainexer-hub-options select')).forEach((select,index)=>select.value={json.dumps(answers)}[index])")
-    click("#brainexer-hub-submit")
-    until("document.getElementById('brainexer-hub-feedback').textContent.includes('Đúng')")
-    assert snapshot() == original
-    click("#brainexer-hub-exit")
-    until("!document.getElementById('brainexer-hub-summary').hidden")
-    return profile
-
-
 def main():
     base = ROOT / "tests" / ".tmp" / ("anki-" + uuid.uuid4().hex[:10])
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "brainexer_api.py", "brainexer_bridge.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
+    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "legacy_brainexer_backup.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
-    shutil.copytree(ROOT / "brainexer", addon / "brainexer",
-                    ignore=shutil.ignore_patterns("user_files", "meta.json", "tests", "__pycache__", ".*"))
     set_lang("en_US")
     manager = ProfileManager(base)
     manager.setupMeta()
@@ -163,22 +91,6 @@ def main():
     assert heatmap_calls==[], "Do not compute heatmap data before discarding its HTML"
     assert aqt.mw._review_heatmap.render_for_view(SimpleNamespace(name='stats')) == 'native heatmap'
     until("!!window.AnkiNOS && document.getElementById('connection').textContent.includes('Bộ sưu tập Anki')")
-    if "--brainexer" in sys.argv:
-        profile = check_brainexer_hub(addon)
-        from NOS.brainexer_api import BrainExer, validate_database
-
-        path = integration.export_archive(addon, "NOS Test", integration.settings(), base / "brainexer.nosbackup",
-                                          brainexer_settings={})
-        manifest = integration.inspect_archive(addon, path)
-        assert manifest["version"] == 4
-        assert manifest["brainexer"] == validate_database(profile.path)
-        destination = "NOS Backup Test"
-        integration.restore_archive(addon, destination, path, manifest["archive_sha256"], {}, lambda _values: None)
-        assert validate_database(BrainExer(destination, {}, addon).path) == manifest["brainexer"]
-        print("PASS: BrainExer Hub in offscreen Anki, practice, immediate retry, game, scheduler invariant and backup", flush=True)
-        aqt.mw.unloadProfileAndExit()
-        app.exec()
-        return
     js("document.querySelector('[data-action=addons]').click()")
     end = time.monotonic() + 5
     addon_dialog = aqt.mw.findChild(AddonsDialog)
@@ -600,7 +512,6 @@ def main():
     until("!!window.NOSStudy && !document.getElementById('study-now').disabled")
     # Exercise the production async export/preview/restore bridge on this profile.
     from unittest.mock import patch
-    check_brainexer(addon)
     backup_path = base / "profile.nosbackup"
     integration.save_settings({"theme": "night", "layout": "bento"})
     with patch.object(integration.QFileDialog, "getSaveFileName", return_value=(str(backup_path), "")):
@@ -609,8 +520,6 @@ def main():
         while integration._backup_busy and time.monotonic() < end:
             wait(30)
     assert backup_path.is_file() and not integration._backup_busy
-    brainexer_backup = integration.inspect_archive(addon, backup_path)
-    assert brainexer_backup["version"] == 3 and brainexer_backup["brainexer"] == {"sessions": 6, "mistakes": 2}
     integration.save_settings({"theme": "light", "layout": "dock"})
     with patch.object(integration.QFileDialog, "getOpenFileName", return_value=(str(backup_path), "")), patch.object(integration, "askUser", return_value=False):
         integration._backup_restore()

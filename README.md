@@ -1,15 +1,5 @@
 # AnkiNOS
 
-## Luyện tập với BrainExer
-
-Mở **BrainExer** trên thanh bên, chọn bộ thẻ và gắn loại **Ngoại ngữ** hoặc **Kiến thức**. Bộ con kế thừa loại bộ cha. Hub có **Luyện tập**, **Game**, **Sổ lỗi** và **Thư viện câu nghe**. Trắc nghiệm, điền từ, gợi nhớ và game dùng đáp án trên thẻ để chấm tại máy; Đặt câu, Giải thích và Vận dụng dùng AI khi cần. Với thẻ có trường **Đáp án cuối** hoặc **Lời giải**, Vận dụng ưu tiên so số theo dung sai đã ghi hoặc để người học tự đối chiếu lời giải. Nếu mẫu thẻ có tên trường lạ, mở **Chọn vai trò trường** để chỉ rõ trường đề bài và đáp án.
-
-Trong **BrainExer → Cài đặt AI**, chọn OpenAI, DeepSeek hoặc Gemini, nhập khóa và xác nhận gửi nội dung thẻ cùng câu trả lời đã nộp cho nhà cung cấp. **Nghe & chép** dùng Azure Speech khi đã nhập khóa, khu vực và đồng ý gửi văn bản câu nghe. Khóa nằm trong kho bảo mật của hệ điều hành theo hồ sơ; gói sao lưu không chứa khóa. Có thể đặt giới hạn AI, ký tự Azure mỗi tháng, số câu nghe tạo trước (0–3), số lần nghe mỗi câu, số lỗi ôn mỗi ngày, khoảng cách ôn và đồng hồ game. Câu nghe đã lưu có thể ghim hoặc dọn audio chưa ghim trong Thư viện.
-
-BrainExer đọc văn bản trường tùy chỉnh, kể cả Cloze và mô tả thay thế của ảnh. Bài AI dùng tối đa 2 thẻ cho câu ngắn hoặc 5 thẻ cho Vận dụng và Đặt câu, với ngân sách 8.000 byte JSON; trường dài được trích đoạn. Ôn nhanh xen kẽ trắc nghiệm và điền câu khi thẻ có ví dụ. Khi AI không chấm được bài đã tạo, người học có thể tự đối chiếu và lưu kết quả. Sổ lỗi gộp lỗi theo thẻ nguồn và loại lỗi, rồi hẹn ôn riêng theo giờ chuyển ngày của Anki. Lượt BrainExer không thay đổi due, interval, queue, revlog hay lịch FSRS. Chuyển một lỗi thành thẻ Anki chỉ hiện khi bật tùy chọn và cần xác nhận trên từng lỗi.
-
-Nếu thư mục BrainExer cũ có dữ liệu, nút **Nhập dữ liệu cũ** xuất hiện trước khi hồ sơ tạo dữ liệu mới. Phiên, Sổ lỗi, kỷ lục game, câu nghe, audio và cấu hình BrainExer lưu theo hồ sơ; gói `.nosbackup` v4 mang theo các dữ liệu này. Audio đã lưu phát lại được khi ngoại tuyến. Khóa API phải nhập lại khi chuyển máy.
-
 ## Bố cục dashboard
 
 Chọn **Cực quang**, **Bento**, **Dock nổi**, **Không gian làm việc** hoặc **Zen** bằng nút **Đổi bố cục** trên thanh đầu trang. **Alt + Shift + L** chuyển sang bố cục kế tiếp. Trong **Cài đặt AnkiNOS → Giao diện**, nhấn **Áp dụng** để lưu lựa chọn.

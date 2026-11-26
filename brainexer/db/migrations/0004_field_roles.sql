@@ -1,5 +1,0 @@
-BEGIN IMMEDIATE;
-ALTER TABLE deck_kinds ADD COLUMN question_field TEXT NOT NULL DEFAULT '';
-ALTER TABLE deck_kinds ADD COLUMN answer_field TEXT NOT NULL DEFAULT '';
-PRAGMA user_version = 4;
-COMMIT;

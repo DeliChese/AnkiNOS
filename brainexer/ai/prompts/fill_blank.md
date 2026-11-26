@@ -1,1 +1,0 @@
-Tạo một câu điền vào chỗ trống từ target của thẻ đầu tiên. Dùng đúng một dấu ___. Câu là ngữ cảnh mới, tự nhiên, không sao chép nguyên context. correct_answers chứa đáp án và các biến thể thực sự chấp nhận được. options để rỗng. explanation giải thích ngắn vì sao đáp án phù hợp. Các trường không dùng để rỗng.

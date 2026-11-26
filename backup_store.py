@@ -41,7 +41,7 @@ def _check_database(name: str, path: Path) -> dict:
     if name=="learning.sqlite3":
         from .legacy_learning_backup import validate_database
     elif name=="brainexer.sqlite3":
-        from .brainexer.db.connection import validate_database
+        from .legacy_brainexer_backup import validate_database
     else:
         from .workspace_store import validate_database
     return validate_database(path)
@@ -204,8 +204,8 @@ def export_archive(root: Path, profile: str, settings: dict, destination: Path, 
             "deck_names": {str(k): str(v) for k, v in (deck_names or {}).items()},
             "files": {name: {"size": sizes[name], "sha256": _hash_file(path)} for name, path in sources.items()}}
         if brainexer_settings is not None:
-            from .brainexer_api import clean_config
-            manifest["brainexer_settings"] = clean_config(brainexer_settings, strict=True)
+            from .legacy_brainexer_backup import clean_settings as clean_brainexer_settings
+            manifest["brainexer_settings"] = clean_brainexer_settings(brainexer_settings, strict=True)
         with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False).encode("utf-8"))
             for name, path in sources.items():
@@ -235,8 +235,8 @@ def _read_archive(path: Path, stage: Path) -> dict:
             raise ValueError("Định dạng hoặc phiên bản gói sao lưu không được hỗ trợ.")
         manifest["settings"] = clean_settings(manifest.get("settings"))
         if "brainexer_settings" in manifest:
-            from .brainexer_api import clean_config
-            manifest["brainexer_settings"] = clean_config(manifest["brainexer_settings"], strict=True)
+            from .legacy_brainexer_backup import clean_settings as clean_brainexer_settings
+            manifest["brainexer_settings"] = clean_brainexer_settings(manifest["brainexer_settings"], strict=True)
         files = manifest.get("files")
         if not isinstance(files, dict) or set(names) != {"manifest.json", *("profile/" + name for name in files)}:
             raise ValueError("Nội dung gói sao lưu không khớp bản kê.")

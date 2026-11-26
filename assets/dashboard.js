@@ -818,10 +818,8 @@
     app.dataset.page = page;
     app.querySelector('.workspace').hidden = page !== 'home';
     $('stats-page').hidden = page !== 'stats';
-    $('brainexer-page').hidden = page !== 'brainexer';
     app.scrollTop=0;
     if (page === 'stats') { window.NOSStats?.open(); window.NOSFocusHistory?.open(); }
-    if (page === 'brainexer') window.NOSBrainExer?.open();
     app.querySelectorAll('.rail-main [data-action="page"]').forEach(button => {
       button.classList.toggle('active', button.dataset.value === page);
       if (button.dataset.value === page) button.setAttribute('aria-current','page');
@@ -842,8 +840,6 @@
   }
 
   function receive({event, payload}) {
-    if(event==='brainexer'){window.NOSBrainExer?.receive(payload);return;}
-    if(event==='brainexer_reset'){window.NOSBrainExer?.reset();return;}
     if(event==='study_support'){window.NOSStudy?.receive(payload);return;}
     if(event==='study_support_error'){window.NOSStudy?.error(payload);return;}
     if(event==='backup_status'){
@@ -935,14 +931,12 @@
     }
     if(event==='snapshot'&&payload.open_page) {
       changePage(payload.open_page);
-      if(payload.brainexer_tab) window.NOSBrainExer?.showTab(payload.brainexer_tab);
     }
   }
   window.AnkiNOS = {
     receive,
     getSettings: () => state.settings,
     getSnapshot: () => state.snapshot,
-    brainexerCommand: payload => command('brainexer', payload),
     studioCommand: (action, payload) => command(action, payload),
     studioUpdate(patch) {
       Object.assign(state.settings, patch);

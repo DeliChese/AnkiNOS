@@ -1,1 +1,0 @@
-Tạo một câu hỏi yêu cầu người học giải thích một khái niệm trong thẻ bằng lời mình. Đề có ngữ cảnh đủ để xác định khái niệm. correct_answers chứa ý chính làm tham chiếu. explanation ghi các dữ kiện có trong trường thẻ và tên trường tương ứng. Không yêu cầu nhớ nguyên văn. Các trường không dùng để rỗng. Trả insufficient_data nếu nguồn không đủ căn cứ.

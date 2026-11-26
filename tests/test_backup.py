@@ -62,23 +62,42 @@ class BackupTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_brainexer_hub_audio_and_settings_round_trip(self):
-        from nos_backup_test.brainexer.hub_store import HubStore
+    def test_removed_brainexer_data_still_round_trips_without_hub(self):
+        import sqlite3
+        from contextlib import closing
         folder = backup.profile_dir(self.root, "Alice")
-        store = HubStore(folder / "brainexer.sqlite3")
-        store.set_deck_kind("Languages::English", "language")
+        legacy = folder / "brainexer.sqlite3"
         digest = "b" * 64
         audio_dir = folder / "brainexer_audio"
         audio_dir.mkdir()
         (audio_dir / f"{digest}.mp3").write_bytes(b"ID3test audio")
-        store.listening_item("Languages::English", "Hello world", "Xin chào", ["Hello"],
-                             "A1", "en-US-JennyNeural", "1", digest)
+        with closing(sqlite3.connect(legacy)) as db:
+            db.executescript("""
+                CREATE TABLE sessions(id INTEGER PRIMARY KEY);
+                CREATE TABLE exercises(id INTEGER PRIMARY KEY);
+                CREATE TABLE attempts(id INTEGER PRIMARY KEY);
+                CREATE TABLE mistakes(id INTEGER PRIMARY KEY);
+                CREATE TABLE usage_events(id INTEGER PRIMARY KEY);
+                CREATE TABLE limit_settings(key TEXT PRIMARY KEY, value INTEGER);
+                CREATE TABLE deck_kinds(deck_name TEXT PRIMARY KEY, kind TEXT, question_field TEXT, answer_field TEXT);
+                CREATE TABLE listening_items(id INTEGER PRIMARY KEY, audio_hash TEXT NOT NULL);
+                CREATE TABLE audio_cache(hash TEXT PRIMARY KEY);
+                CREATE TABLE highscores(deck_name TEXT, game TEXT, PRIMARY KEY(deck_name, game));
+                CREATE TABLE overrides(id INTEGER PRIMARY KEY);
+                CREATE TABLE tts_usage(month TEXT PRIMARY KEY);
+                PRAGMA user_version = 4;
+            """)
+            db.execute("INSERT INTO sessions(id) VALUES (1)")
+            db.execute("INSERT INTO deck_kinds VALUES ('Languages::English', 'language', '', '')")
+            db.execute("INSERT INTO listening_items(id, audio_hash) VALUES (1, ?)", (digest,))
+            db.commit()
         config = {"review_daily_limit": 9, "azure_region": "southeastasia"}
         archive = backup.export_archive(self.root, "Alice", self.settings,
                                         self.root / "brainexer.nosbackup",
                                         brainexer_settings=config)
         preview = backup.inspect_archive(self.root, archive)
         self.assertEqual(preview["version"], 4)
+        self.assertEqual(preview["brainexer"]["sessions"], 1)
         self.assertEqual(preview["brainexer_settings"]["review_daily_limit"], 9)
         restored_config = []
         backup.restore_archive(self.root, "Bob", archive, preview["archive_sha256"], {},
@@ -86,7 +105,8 @@ class BackupTests(unittest.TestCase):
                                apply_brainexer_settings=restored_config.append)
         bob = backup.profile_dir(self.root, "Bob")
         self.assertEqual((bob / "brainexer_audio" / f"{digest}.mp3").read_bytes(), b"ID3test audio")
-        self.assertEqual(HubStore(bob / "brainexer.sqlite3").deck_kind("Languages::English"), "language")
+        with closing(sqlite3.connect(bob / "brainexer.sqlite3")) as db:
+            self.assertEqual(db.execute("SELECT kind FROM deck_kinds WHERE deck_name='Languages::English'").fetchone()[0], "language")
         self.assertEqual(restored_config[-1]["azure_region"], "southeastasia")
 
     def rewrite(self, mutate):
