@@ -71,6 +71,7 @@
 @keyframes brainexer-fall { from { transform: translateY(-65px); } to { transform: translateY(72px); } }
 @media (prefers-reduced-motion: reduce) { #nos-app #brainexer-hub-run[data-mode="word_hunter"] #brainexer-hub-options button { animation: none; } }
 #nos-app .brainexer-hub-question { font-size: clamp(17px, 2.3vw, 24px); white-space: pre-wrap; }
+#nos-app #brainexer-hub-answer-label { display: grid; gap: 6px; }
 #nos-app #brainexer-hub-answer { min-height: 88px; resize: vertical; }
 #nos-app .brainexer-library-item { display: grid; gap: 7px; padding: 14px; border: 1px solid var(--edge); border-radius: 12px; }
 #nos-app .brainexer-library-item audio { max-width: 100%; }

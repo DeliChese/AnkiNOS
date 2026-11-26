@@ -280,6 +280,22 @@
     $('game').hidden = activeTab !== 'game';
     $('listening').hidden = activeTab !== 'listening';
   }
+  function clearQuestion() {
+    current = null;
+    $('hub-progress').textContent = '';
+    $('hub-question').textContent = '';
+    $('hub-options').replaceChildren();
+    $('hub-feedback').replaceChildren();
+    $('hub-answer').value = '';
+    for (const name of ['question', 'options', 'answer-label', 'confidence', 'audio', 'hints',
+      'submit', 'next', 'feedback', 'retry']) $('hub-' + name).hidden = true;
+    const player = $('hub-player');
+    if (player.hasAttribute('src')) {
+      player.pause();
+      player.removeAttribute('src');
+      player.load();
+    }
+  }
   async function begin(selected, sourceSessionId = 0) {
     if (!deckKind()) return;
     const token = ++runToken;
@@ -320,7 +336,8 @@
     if (libraryReplay && count) return finish();
     const token = runToken;
     let noMore = false;
-    await action('Đang chuẩn bị câu hỏi…', async () => {
+    await action(mode === 'listening' ? 'Đang chuẩn bị audio…' : 'Đang chuẩn bị câu hỏi…', async () => {
+      clearQuestion();
       const selected = deck();
       if (!selected) throw Error('Hãy chọn bộ thẻ.');
       let result;
@@ -340,7 +357,6 @@
           difficulty: runListeningDifficulty});
         updateTtsUsed(result);
         updateUsage(result);
-        itemId = result.item_id;
         result.question = {id: result.exercise_id, mode, prompt: 'Nghe và chép lại câu', options: [],
           audio_hash: result.audio_hash, hint_initials: result.hint_initials,
           hint_translation: result.hint_translation};
@@ -358,6 +374,7 @@
         return;
       }
       sessionId = result.session_id || sessionId;
+      if (mode === 'listening') itemId = result.item_id;
       current = result.question;
       answered = false;
       awaitingSelf = false;
@@ -378,9 +395,13 @@
   }
   function renderQuestion() {
     const question = current;
+    const dictation = mode === 'listening';
+    const options = dictation ? [] : question.options || [];
     $('hub-question').hidden = false;
-    $('hub-options').hidden = false;
-    $('hub-question').textContent = question.prompt;
+    $('hub-options').hidden = dictation;
+    $('hub-question').textContent = dictation ? 'Nghe và chép lại câu' : question.prompt;
+    $('hub-answer-caption').textContent = dictation ? 'Nhập câu bạn nghe được' : 'Câu trả lời';
+    $('hub-answer').readOnly = false;
     $('hub-answer').value = '';
     $('hub-feedback').hidden = true;
     $('hub-feedback').replaceChildren();
@@ -401,7 +422,7 @@
         label.append(select);
         $('hub-options').append(label);
       }
-    } else for (const value of question.options || []) {
+    } else for (const value of options) {
       const button = text('button', value, 'subtle-button');
       button.type = 'button';
       button.dataset.option = value;
@@ -413,9 +434,9 @@
       clear.dataset.clearLetters = 'true';
       $('hub-options').append(clear);
     }
-    const choices = (question.options || []).length && mode !== 'unscramble';
+    const choices = options.length && mode !== 'unscramble';
     $('hub-answer-label').hidden = (!!choices && mode !== 'word_hunter') || mode === 'matching';
-    $('hub-confidence').hidden = deckKind() !== 'knowledge' || games.has(mode) || mode === 'review';
+    $('hub-confidence').hidden = dictation || deckKind() !== 'knowledge' || games.has(mode) || mode === 'review';
     $('hub-audio').hidden = !question.audio_hash;
     $('hub-listens').textContent = mode === 'listening' && status.config.max_listens_per_sentence
       ? `Lượt nghe: ${listenCount}/${status.config.max_listens_per_sentence}` : '';
@@ -440,7 +461,7 @@
         }
       }, duration);
     }
-    $('hub-question').focus();
+    $(dictation ? 'hub-answer' : 'hub-question').focus();
   }
   async function submit() {
     if (!current || answered || awaitingSelf || busy) return;
@@ -507,6 +528,10 @@
     combo = feedback.correct ? combo + 1 : 0;
     score += Number(feedback.score || 0) + Number(feedback.combo_bonus || 0);
     renderFeedback(feedback);
+    if (mode === 'listening') {
+      $('hub-answer').readOnly = true;
+      $('hub-hints').hidden = true;
+    }
     if (games.has(mode) && combo > 1) $('hub-feedback').append(text('p', `Chuỗi đúng: ${combo}`));
     $('hub-next').hidden = false;
     $('hub-submit').hidden = true;
@@ -564,7 +589,7 @@
       return;
     }
     if (!sessionId) {
-      showTab();
+      reset();
       return;
     }
     await action('Đang tổng kết phiên…', async () => {
@@ -593,9 +618,7 @@
       ledger.dataset.summaryAction = 'mistakes';
       $('hub-summary').append(retry, ledger);
       $('hub-summary').hidden = false;
-      $('hub-question').hidden = $('hub-answer-label').hidden = $('hub-options').hidden =
-        $('hub-submit').hidden = $('hub-next').hidden = $('hub-confidence').hidden = true;
-      current = null;
+      clearQuestion();
       summarySourceSessionId = sessionId;
       sessionId = 0;
       runToken++;
@@ -607,7 +630,7 @@
     stopClock();
     runToken++;
     if (closeSession) endSessionSilently(sessionId);
-    current = null;
+    clearQuestion();
     sessionId = 0;
     mode = '';
     retrySourceSessionId = summarySourceSessionId = 0;

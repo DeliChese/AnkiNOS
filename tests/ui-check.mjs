@@ -112,13 +112,21 @@ try {
   await cdp('Emulation.setDeviceMetricsOverride', {width:320,height:600,deviceScaleFactor:1,mobile:false});
   await evaluate(`(()=>{
     window.__brainexerCommands = [];
+    let failListening = true;
     window.AnkiNOS.brainexerCommand = command => setTimeout(() => {
       window.__brainexerCommands.push(command);
+      if (command.method === 'listening_generate' && failListening) {
+        failListening = false;
+        window.NOSBrainExer.receive({request_id:command.request_id,error:'Azure Speech không trả audio.'});
+        return;
+      }
       const data = command.method === 'hub_highscores' ? {}
         : command.method === 'hub_fields' ? {fields:['Front','Back'],roles:{question_field:'',answer_field:''}}
         : command.method === 'hub_progress' ? {remember:{count:0,correct:0},understand:{count:0,correct:0},apply:{count:0,correct:0}}
         : command.method === 'listening_generate'
         ? {session_id:3,item_id:10,exercise_id:30,audio_hash:'test-audio',hint_initials:'T',hint_translation:'Bài thử'}
+        : command.method === 'listening_answer'
+        ? {sentence:'Test listening',accuracy:1,score:10}
         : command.method === 'listening_library'
         ? [{id:10,sentence:'Test listening',deck_name:'Demo',level:'A1',word_count:2,
             voice:'en-US-JennyNeural',speed:'1',attempts:0,best_accuracy:0,targets:'[]',
@@ -242,6 +250,16 @@ try {
     difficulty.value='hard'; difficulty.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   await click('#brainexer-hub-practice-modes [data-mode="listening"]');
   for (let i=0;i<30;i++) {
+    if (await evaluate(`!document.getElementById('brainexer-hub-retry').hidden`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert(await evaluate(`['question','options','answer-label','audio','submit','feedback'].every(name =>
+    document.getElementById('brainexer-hub-'+name).hidden)
+    && !document.getElementById('brainexer-hub-retry').hidden
+    && !document.getElementById('brainexer-hub-question').textContent`),
+  'An Azure error should leave a retry button and clear the previous exercise');
+  await click('#brainexer-hub-retry');
+  for (let i=0;i<30;i++) {
     if (await evaluate(`document.getElementById('brainexer-hub-question').textContent.includes('Nghe và chép')`)) break;
     await new Promise(r=>setTimeout(r,20));
   }
@@ -249,12 +267,29 @@ try {
     'Listening must synthesize one reusable recording at normal speed');
   assert(await evaluate(`window.__brainexerCommands.some(command => command.method==='listening_generate' && command.difficulty==='hard')`),
     'Listening generation should use the selected difficulty');
+  assert(await evaluate(`!document.getElementById('brainexer-hub-audio').hidden
+    && document.getElementById('brainexer-hub-options').hidden
+    && !document.getElementById('brainexer-hub-answer-label').hidden
+    && document.activeElement.id === 'brainexer-hub-answer'
+    && !document.getElementById('brainexer-hub-answer').value
+    && !document.getElementById('brainexer-hub-run').textContent.includes('Test listening')`),
+  'Dictation should show audio and a focused blank field while hiding the transcript');
   await evaluate(`(()=>{const slider=document.getElementById('brainexer-hub-playback-speed');
     slider.value='2.45';slider.dispatchEvent(new Event('input',{bubbles:true}));})()`);
   assert(await evaluate(`(()=>{const player=document.getElementById('brainexer-hub-player');
     return player.playbackRate===2.45 && document.getElementById('brainexer-hub-speed').value==='2.45'
       && document.getElementById('brainexer-hub-playback-speed-value').textContent==='2,45×';})()`),
     'Dragging playback speed must update the playing audio immediately');
+  await evaluate(`document.getElementById('brainexer-hub-answer').value='Test listening'`);
+  await click('#brainexer-hub-submit');
+  for (let i=0;i<30;i++) {
+    if (await evaluate(`!document.getElementById('brainexer-hub-feedback').hidden`)) break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert(await evaluate(`window.__brainexerCommands.some(command => command.method==='listening_answer'
+      && command.answer==='Test listening') && !document.getElementById('brainexer-hub-feedback').hidden
+    && document.getElementById('brainexer-hub-feedback').textContent.includes('Test listening')`),
+  'Dictation should submit the typed text and reveal the transcript in the result');
   await click('[data-brainexer-view="listening"]');
   for (let i=0;i<30;i++) {
     if (await evaluate(`!!document.querySelector('#brainexer-hub-library .brainexer-library-speed')`)) break;

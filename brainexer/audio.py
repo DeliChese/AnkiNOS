@@ -86,7 +86,8 @@ def synthesize(sentence: str, voice: str, speed: str, region: str, key: str,
     if speed == "slow-normal":
         spoken += f'<break time="600ms"/><prosody rate="0%">{escape(sentence)}</prosody>'
     ssml = (
-        f'<speak version="1.0" xml:lang="{language}"><voice name="{voice}">'
+        f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="{language}">'
+        f'<voice name="{voice}">'
         f'{spoken}'
         '</voice></speak>'
     )
@@ -108,8 +109,12 @@ def synthesize(sentence: str, voice: str, speed: str, region: str, key: str,
         raise ValueError(f"Azure Speech trả lỗi HTTP {error.code}. Kiểm tra khóa, khu vực và hạn mức.") from error
     except (urllib.error.URLError, TimeoutError) as error:
         raise ValueError("Không kết nối được Azure Speech.") from error
-    if len(audio) > MAX_AUDIO_BYTES or not (audio.startswith(b"ID3") or audio[:1] == b"\xff"):
-        raise ValueError("Audio Azure trả về không hợp lệ hoặc quá lớn.")
+    if not audio:
+        raise ValueError(f"Azure Speech không trả audio. Hãy kiểm tra giọng {voice} có phù hợp ngôn ngữ câu nghe.")
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise ValueError("Audio Azure vượt quá giới hạn dung lượng.")
+    if not (audio.startswith(b"ID3") or audio[:1] == b"\xff"):
+        raise ValueError("Azure Speech không trả về audio MP3 hợp lệ.")
     return audio
 
 

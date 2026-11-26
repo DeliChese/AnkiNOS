@@ -191,13 +191,13 @@
         <p id="brainexer-hub-progress" class="brainexer-meta"></p>
         <p id="brainexer-hub-question" class="brainexer-hub-question" tabindex="-1"></p>
         <div id="brainexer-hub-options" class="brainexer-options"></div>
-        <label id="brainexer-hub-answer-label">Câu trả lời<textarea id="brainexer-hub-answer" maxlength="6000" rows="3"></textarea></label>
+        <div id="brainexer-hub-audio" hidden><audio id="brainexer-hub-player" controls preload="none"></audio><button type="button" id="brainexer-hub-replay" class="subtle-button">Nghe lại</button><span id="brainexer-hub-listens" class="brainexer-meta"></span><label class="brainexer-speed-control">Tốc độ phát <output id="brainexer-hub-playback-speed-value" for="brainexer-hub-playback-speed">1,00×</output><input id="brainexer-hub-playback-speed" type="range" min="0.1" max="2.5" step="0.01" value="1" aria-label="Điều chỉnh tốc độ phát từ 0,1 đến 2,5 lần"></label></div>
+        <label id="brainexer-hub-answer-label"><span id="brainexer-hub-answer-caption">Câu trả lời</span><textarea id="brainexer-hub-answer" maxlength="6000" rows="3"></textarea></label>
         <div id="brainexer-hub-confidence" class="brainexer-actions" hidden aria-label="Mức tự tin">
           <button type="button" class="subtle-button" data-confidence="sure">Chắc</button>
           <button type="button" class="subtle-button" data-confidence="unsure">Tạm</button>
           <button type="button" class="subtle-button" data-confidence="guess">Đoán</button>
         </div>
-        <div id="brainexer-hub-audio" hidden><audio id="brainexer-hub-player" controls preload="none"></audio><button type="button" id="brainexer-hub-replay" class="subtle-button">Nghe lại</button><span id="brainexer-hub-listens" class="brainexer-meta"></span><label class="brainexer-speed-control">Tốc độ phát <output id="brainexer-hub-playback-speed-value" for="brainexer-hub-playback-speed">1,00×</output><input id="brainexer-hub-playback-speed" type="range" min="0.1" max="2.5" step="0.01" value="1" aria-label="Điều chỉnh tốc độ phát từ 0,1 đến 2,5 lần"></label></div>
         <div id="brainexer-hub-hints" class="brainexer-actions" hidden><button type="button" id="brainexer-hub-hint" class="subtle-button">Gợi ý</button></div>
         <div class="brainexer-actions"><button type="button" id="brainexer-hub-submit" class="primary-button">Nộp bài</button><button type="button" id="brainexer-hub-next" class="primary-button" hidden>Câu tiếp</button></div>
         <button type="button" id="brainexer-hub-retry" class="subtle-button" hidden>Thử lại</button>
