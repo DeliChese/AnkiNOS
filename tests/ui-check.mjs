@@ -45,7 +45,7 @@ try {
   for(let i=0;i<100;i++){if(await evaluate(`!!document.getElementById('nos-app') && !!window.AnkiNOS && document.getElementById('connection').textContent.includes('Bản xem trước')`))break;await new Promise(r=>setTimeout(r,100));}
   assert(await evaluate(`document.querySelectorAll('#deck-list > .deck-group').length`) === 4);
   assert.equal(await evaluate(`document.getElementById('library-dialog').open`),false);
-  const layouts = ['aurora', 'bento', 'dock', 'sidebar', 'zen'];
+  const layouts = ['aurora', 'bento', 'dock', 'sidebar', 'zen', 'edges'];
   const layout = () => evaluate(`document.getElementById('nos-app').dataset.layout`);
   await evaluate(`window.__originalLayoutSettings = {...window.AnkiNOS.getSettings()}`);
   const updateLayoutSettings = patch => evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),...${JSON.stringify(patch)}}})`);
@@ -131,6 +131,148 @@ try {
   await click('.rail-main [data-action=page][data-value=home]');
   await cdp('Emulation.setDeviceMetricsOverride', {width:1600,height:1080,deviceScaleFactor:1,mobile:false});
   await evaluate(`window.AnkiNOS.receive({event:'settings',payload:window.__originalLayoutSettings})`);
+  // Verify redundant Home buttons are removed from subpages and sidebar hover/right/dock animations work smoothly.
+  assert.equal(await evaluate(`document.querySelectorAll('#daily-page [data-action="page"][data-value="home"], #stats-page [data-action="page"][data-value="home"]').length`), 0,
+    'Redundant Home buttons should be removed from subpage headers');
+  await updateLayoutSettings({layout: 'aurora', sidebar_side: 'left', animations: true});
+  assert.equal(await evaluate(`Math.round(document.querySelector('.rail').getBoundingClientRect().width)`), 70, 'Collapsed floating sidebar should be 70px');
+  const railPoint = await evaluate(`(()=>{const r=document.querySelector('#stats-toggle').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+  await cdp('Input.dispatchMouseEvent', {type:'mouseMoved', ...railPoint});
+  await new Promise(r => setTimeout(r, 560));
+  assert(await evaluate(`document.querySelector('.rail').getBoundingClientRect().width >= 195 && parseFloat(getComputedStyle(document.querySelector('#stats-toggle span')).opacity) > 0.9`),
+    'Hovering floating sidebar must smoothly expand and show labels');
+  await cdp('Input.dispatchMouseEvent', {type:'mouseMoved', x: 800, y: 500});
+  await new Promise(r => setTimeout(r, 520));
+  assert(await evaluate(`document.querySelector('.rail').getBoundingClientRect().width <= 75`),
+    'Leaving floating sidebar must smoothly collapse it back');
+  // Single-click tab switch while library popover is open (must not require 2 clicks).
+  await click('#library-toggle');
+  assert.equal(await evaluate(`document.getElementById('library-dialog').open`), true);
+  await cdp('Input.dispatchMouseEvent', {type:'mousePressed', ...railPoint, button:'left', clickCount:1});
+  await cdp('Input.dispatchMouseEvent', {type:'mouseReleased', ...railPoint, button:'left', clickCount:1});
+  assert.equal(await evaluate(`document.getElementById('library-dialog').open`), false, 'Single click on rail must close library');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.page`), 'stats', 'Single click on rail while library is open must switch tab immediately');
+  await click('.rail-main [data-action="page"][data-value="home"]');
+  // Sidebar position (Left / Right) via Settings draft -> Apply and via Layout menu.
+  await click('.rail-bottom [data-action="preferences"]');
+  await click('#settings-dialog [data-sidebar-side="right"]');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.sidebarSide`), 'left', 'Sidebar side must remain in Settings draft until Apply');
+  await click('#btn-apply-settings');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.sidebarSide`), 'right');
+  await click('#settings-close');
+  assert(await evaluate(`(()=>{const r=document.querySelector('.rail').getBoundingClientRect();return r.right >= innerWidth - 20 && r.left > innerWidth - 120})()`),
+    'Right sidebar must dock on the right edge');
+  const rightRailPoint = await evaluate(`(()=>{const r=document.querySelector('#stats-toggle').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+  await cdp('Input.dispatchMouseEvent', {type:'mouseMoved', ...rightRailPoint});
+  await new Promise(r => setTimeout(r, 560));
+  assert(await evaluate(`(()=>{const r=document.querySelector('.rail').getBoundingClientRect();return r.width >= 195 && r.right <= innerWidth + 1})()`),
+    'Hovering right sidebar must expand leftward inside viewport');
+  await cdp('Input.dispatchMouseEvent', {type:'mouseMoved', x: 500, y: 500});
+  await new Promise(r => setTimeout(r, 520));
+  await click('#library-toggle');
+  assert(await evaluate(`(()=>{const d=document.getElementById('library-dialog'),r=document.querySelector('.rail').getBoundingClientRect();return d.dataset.side==='right' && d.getBoundingClientRect().right < r.left})()`),
+    'Library popover must anchor to the left of the right sidebar');
+  await click('#library-close');
+  await updateLayoutSettings({layout: 'sidebar', sidebar_side: 'right'});
+  assert(await evaluate(`(()=>{const r=document.querySelector('.rail').getBoundingClientRect();return r.right >= innerWidth - 1 && document.documentElement.scrollWidth <= innerWidth})()`),
+    'Workspace sidebar layout must support right side cleanly');
+  // Verify macOS-style spring dock magnification and smooth settle.
+  await updateLayoutSettings({layout: 'dock', animations: true});
+  const dockPoint = await evaluate(`(()=>{const r=document.querySelector('#stats-toggle').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+  await cdp('Input.dispatchMouseEvent', {type:'mouseMoved', ...dockPoint});
+  await new Promise(r => setTimeout(r, 380));
+  const dockState = await evaluate(`({main:parseFloat(document.getElementById('stats-toggle').style.getPropertyValue('--mag')||'1'),neighbor:parseFloat(document.getElementById('daily-toggle').style.getPropertyValue('--mag')||'1'),rm:matchMedia('(prefers-reduced-motion: reduce)').matches,cls:document.getElementById('nos-app').className,layout:document.getElementById('nos-app').dataset.layout})`);
+  assert(dockState.main > 1.4 && dockState.neighbor > 1.08 && dockState.neighbor < dockState.main,
+    'Hovering macOS dock must smoothly lift hovered icon and gently scale neighbors: ' + JSON.stringify(dockState));
+  await cdp('Input.dispatchMouseEvent', {type:'mouseMoved', x: 400, y: 200});
+  await new Promise(r => setTimeout(r, 420));
+  assert(await evaluate(`!document.getElementById('stats-toggle').style.getPropertyValue('--mag')`),
+    'Leaving macOS dock must smoothly settle icons back to rest');
+  await click('#layout-toggle');
+  await click('#layout-menu [data-sidebar-side="left"]');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.sidebarSide`), 'left');
+  // Quick smooth animations toggle in Profile panel.
+  await click('#profile-toggle');
+  await click('#profile-panel [data-action="toggle_animations"]');
+  assert.equal(await evaluate(`document.getElementById('nos-app').classList.contains('reduce-motion')`), true);
+  await click('#profile-panel [data-action="toggle_animations"]');
+  assert.equal(await evaluate(`document.getElementById('nos-app').classList.contains('reduce-motion')`), false);
+  await click('#profile-toggle');
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:window.__originalLayoutSettings})`);
+  // Verify Dusk vs Night color distinction across non-NOS palettes, real glass blur, and Lite Mode preservation.
+  assert.notEqual(
+    await evaluate(`window.NOSTheme.resolve({color_theme:'tokyo',theme:'dusk'}).tokens['--theme-bg']`),
+    await evaluate(`window.NOSTheme.resolve({color_theme:'tokyo',theme:'night'}).tokens['--theme-bg']`),
+    'Dusk and Night must produce distinct colors on non-NOS palettes'
+  );
+  await updateLayoutSettings({blur: true, lite_mode: false});
+  assert(await evaluate(`getComputedStyle(document.querySelector('.rail.glass')).backdropFilter.includes('blur')`),
+    'Glass blur must visibly apply backdrop-filter to floating chrome');
+  await updateLayoutSettings({blur: false, lite_mode: false});
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.rail.glass')).backdropFilter`), 'none',
+    'Disabling blur must remove backdrop-filter');
+  await updateLayoutSettings({blur: true, lite_mode: false});
+  await click('.rail-bottom [data-action="preferences"]');
+  await click('.settings-nav-btn[data-settings-tab="performance"]');
+  await click('#set-lite-mode');
+  await click('#btn-apply-settings');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().blur`), true,
+    'Enabling Lite Mode must not erase saved blur preference');
+  await click('#set-lite-mode');
+  await click('#btn-apply-settings');
+  await click('#settings-close');
+  // Verify Zen vertical top-right bar and Settings modal centering without clipping under zoom.
+  await updateLayoutSettings({layout: 'zen', animations: false});
+  assert(await evaluate(`(()=>{const a=document.querySelector('.topbar-actions'),r=a.getBoundingClientRect();return getComputedStyle(a).flexDirection==='column' && r.right>=innerWidth-28 && r.top>=0 && r.bottom<=innerHeight})()`),
+    'Zen topbar-actions must stack vertically and sit snug against the top-right edge');
+  await cdp('Emulation.setDeviceMetricsOverride', {width: 1000, height: 720, deviceScaleFactor: 1, mobile: false});
+  await updateLayoutSettings({layout: 'zen', ui_scale: 120});
+  await click('.rail-bottom [data-action="preferences"]');
+  assert(await evaluate(`(()=>{const p=document.querySelector('#settings-dialog .settings-panel').getBoundingClientRect(),b=document.getElementById('btn-apply-settings').getBoundingClientRect();return p.top>=-1 && p.bottom<=innerHeight+1 && p.left>=-1 && p.right<=innerWidth+1 && b.bottom<=innerHeight+1})()`),
+    'Settings modal and Apply footer must fit cleanly inside viewport even at 120% scale on 1000x720');
+  await click('#settings-close');
+  await cdp('Emulation.setDeviceMetricsOverride', {width: 1600, height: 1080, deviceScaleFactor: 1, mobile: false});
+  // Verify 4-Edge hidden macOS docks layout ("edges"): <=4 functions per dock, handles visible at rest, hover reveal + magnify, wallpaper peek.
+  await updateLayoutSettings({layout: 'edges', animations: true});
+  const edgeCounts = await evaluate(`({
+    top: document.querySelectorAll('#nos-edge-top > button').length,
+    bottom: document.querySelectorAll('.rail .rail-main > button').length,
+    left: document.querySelectorAll('#nos-edge-left > button').length,
+    right: document.querySelectorAll('#nos-edge-right > button').length,
+    handles: document.querySelectorAll('.nos-edge-handle:not([hidden])').length
+  })`);
+  assert.deepEqual(edgeCounts, {top: 4, bottom: 4, left: 4, right: 4, handles: 4}, 'Each of the 4 edge docks must have <= 4 buttons and 4 edge handles');
+  await cdp('Input.dispatchMouseEvent', {type: 'mouseMoved', x: 800, y: 540});
+  await new Promise(r => setTimeout(r, 240));
+  assert.equal(await evaluate(`['#nos-edge-top','.rail','#nos-edge-left','#nos-edge-right'].every(s => parseFloat(getComputedStyle(document.querySelector(s)).opacity) === 0)`), true,
+    'All 4 edge docks must stay hidden at rest so the wallpaper is unobstructed');
+  // Hover bottom edge -> reveals bottom dock and magnifies hovered icon.
+  await cdp('Input.dispatchMouseEvent', {type: 'mouseMoved', x: 800, y: 1072});
+  await new Promise(r => setTimeout(r, 380));
+  assert.equal(await evaluate(`document.querySelector('.rail').classList.contains('is-open') && parseFloat(getComputedStyle(document.querySelector('.rail')).opacity) > 0.9`), true,
+    'Hovering bottom edge must smoothly reveal bottom macOS dock');
+  const bottomBtnPt = await evaluate(`(()=>{const r=document.getElementById('stats-toggle').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+  await cdp('Input.dispatchMouseEvent', {type: 'mouseMoved', ...bottomBtnPt});
+  await new Promise(r => setTimeout(r, 340));
+  assert(await evaluate(`parseFloat(document.getElementById('stats-toggle').style.getPropertyValue('--mag')||'1') > 1.2`),
+    'Hovering icon in bottom edge dock must trigger macOS spring magnification');
+  // Hover right edge -> reveals right dock, closes bottom dock.
+  await cdp('Input.dispatchMouseEvent', {type: 'mouseMoved', x: 1592, y: 540});
+  await new Promise(r => setTimeout(r, 380));
+  assert.equal(await evaluate(`document.getElementById('nos-edge-right').classList.contains('is-open') && !document.querySelector('.rail').classList.contains('is-open')`), true,
+    'Hovering right edge must reveal right dock and hide previous dock');
+  // Hover top edge & test Wallpaper Peek toggle.
+  await cdp('Input.dispatchMouseEvent', {type: 'mouseMoved', x: 800, y: 6});
+  await new Promise(r => setTimeout(r, 360));
+  assert.equal(await evaluate(`document.getElementById('nos-edge-top').classList.contains('is-open')`), true, 'Hovering top edge must reveal top dock');
+  await click('#edge-peek-toggle');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.edgesPeek`), 'true', 'Wallpaper peek button must toggle pure wallpaper view');
+  await click('#edge-peek-toggle');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.edgesPeek`), undefined);
+  await shot('layout-edges.png');
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:window.__originalLayoutSettings})`);
+  assert.equal(await evaluate(`document.querySelectorAll('.rail .rail-main > button').length`), 5,
+    'Leaving edges layout must restore all buttons back to the primary rail');
   // Updating hidden library preferences must not recreate all deck rows.
   await evaluate(`(()=>{window.__nosOldDeck=document.querySelector('#deck-list > .deck-group');
     window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),view:'grid'}});

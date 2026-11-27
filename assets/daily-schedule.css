@@ -533,8 +533,9 @@
 
 /* Ledger dialog */
 #nos-app .daily-ledger-dialog {
-  width: min(760px, calc(100vw - 28px));
-  max-height: min(82vh, 720px);
+  margin: auto;
+  width: min(760px, calc(100vw / var(--nos-zoom, 1) - 28px));
+  max-height: min(680px, calc(100dvh / var(--nos-zoom, 1) - 28px));
   padding: 0;
   border: 1px solid var(--edge);
   border-radius: 22px;
@@ -546,7 +547,7 @@
 #nos-app .daily-ledger-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  max-height: min(82vh, 720px);
+  max-height: min(680px, calc(100dvh / var(--nos-zoom, 1) - 28px));
 }
 #nos-app .daily-ledger-head {
   display: flex;
@@ -585,6 +586,7 @@
   #nos-app[data-layout="dock"] .daily-page { width: min(1440px, calc(100% - 48px)); margin: 0 auto; padding-bottom: 120px; }
   #nos-app[data-layout="sidebar"] .daily-page { width: calc(100% - 284px); margin: 0 24px 0 260px; }
   #nos-app[data-layout="zen"] .daily-page { width: min(1240px, calc(100% - 48px)); margin: 0 auto; padding-top: 72px; }
+  #nos-app[data-layout="edges"] .daily-page { width: min(1240px, calc(100% - 88px)); margin: 0 auto; padding-top: 32px; padding-bottom: 36px; }
 }
 @media (min-width: 721px) and (max-width: 1100px) {
   #nos-app[data-layout="sidebar"] .daily-page { width: calc(100% - 244px); margin-left: 222px; margin-right: 22px; }

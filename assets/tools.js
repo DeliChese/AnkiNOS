@@ -4,9 +4,15 @@
   const $=id=>document.getElementById(id), root=$('nos-tool');
   if(!root||window.NOSTool)return;
   let initial={};try{initial=JSON.parse($('nos-tool-bootstrap')?.textContent||'{}');}catch{}
+  const toolMotionOff=initial.settings?.animations===false||!!initial.settings?.lite_mode;
+  const toolBlurOff=initial.settings?.blur===false||!!initial.settings?.lite_mode;
+  root.dataset.animations=toolMotionOff?'off':'on';
+  root.classList.toggle('no-motion',toolMotionOff);
+  root.classList.toggle('no-blur',toolBlurOff);
   window.NOSTheme.watch(root,()=>initial.settings||{},true);
   const requested=initial.kind||new URLSearchParams(location.search).get('tool');
   const kind=['palette','workspace'].includes(requested)?requested:'workspace';
+  root.dataset.toolKind=kind;
   const native=initial.native===true, started=performance.now();
   const titles={palette:'Lệnh nhanh',workspace:'Sổ tay'};
   $('tool-title').textContent=titles[kind];
@@ -37,7 +43,7 @@
   }
   window.NOSTool={send,receive,notice,busy,element,$,initial,kind,native,
     uuid:()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('')};
-  $('tool-close').addEventListener('click',()=>send('close'));
+  $('tool-close')?.addEventListener('click',()=>send('close'));
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&kind==='palette'){event.preventDefault();send('close');}});
   setTimeout(()=>{module()?.init();send('boot');},0);
 })();

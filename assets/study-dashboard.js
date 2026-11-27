@@ -8,7 +8,7 @@
   if(!root||window.NOSStudy)return;
   const $=id=>document.getElementById(id), fmt=new Intl.NumberFormat('vi-VN');
   const n=value=>fmt.format(value||0);
-  let snapshot=null, support=null, selected='', budget=30, pending=false, requestAt=0, revision='';
+  let snapshot=null, support=null, selected='', budget=30, pending=false, requestAt=-Infinity, revision='';
   const command=(action,args={})=>window.AnkiNOS?.studioCommand(action,args);
   const allDecks=nodes=>nodes.flatMap(node=>[node,...allDecks(node.children||[])]);
   const queue=deck=>(deck?.new||0)+(deck?.learn||0)+(deck?.review||0);
@@ -125,7 +125,18 @@
     const key=JSON.stringify([data.today,data.stats?.reviews,data.support_revision]);
     const changed=revision!==key;revision=key;snapshot=data;
     budget=[15,30,60].includes(data.settings?.study_budget)?data.settings.study_budget:budget;
-    render();if(changed||!support)request(true);
+    render();
+    if(data.partial)return;
+    if(changed||!support){
+      const isNative=document.getElementById('nos-app')?.dataset.native==='true';
+      if(isNative){
+        const run=()=>request(false);
+        if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:250});
+        else setTimeout(run,0);
+      }else{
+        request(false);
+      }
+    }
   }
   $('study-deck').addEventListener('change',e=>{selected=e.target.value;render();});
   $('study-budget').addEventListener('change',e=>{budget=Number(e.target.value);command('save_ui',{values:{study_budget:budget}});render();});

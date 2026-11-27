@@ -2,8 +2,11 @@
 #nos-review-tools .nos-focus-controls{display:flex;align-items:center;gap:6px}
 #nos-review-tools .nos-focus-controls [hidden]{display:none!important}
 #nos-review-tools .nos-focus-controls select{background:#233552;border:1px solid #d9e9ff55;border-radius:9px;padding:8px 5px;color:#f2f6ff;max-width:92px;font:12px 'Segoe UI',sans-serif}
-#nos-review-tools #nos-focus-time{font:600 13px ui-monospace,monospace;color:#d3f8e5;white-space:nowrap;min-width:44px}
+#nos-review-tools #nos-focus-time{display:inline-flex;align-items:center;gap:6px;font:600 13px ui-monospace,monospace;color:#d3f8e5;white-space:nowrap;min-width:44px}
+#nos-review-tools #nos-focus-time[data-running="true"]::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:nos-focus-pulse 1.8s ease-in-out infinite}
 #nos-review-tools #nos-focus-time[data-paused="true"]{color:#ffe4a8}
+#nos-review-tools #nos-focus-time[data-paused="true"]::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.75}
+@keyframes nos-focus-pulse{0%,100%{transform:scale(.85);opacity:.55}50%{transform:scale(1.18);opacity:1}}
 #nos-review-tools .nos-focus-controls button{font-size:12px;padding:8px 10px;white-space:nowrap}
 @media(max-width:850px){#nos-review-header{gap:8px}#nos-review-tools{gap:5px}}
 @media(max-width:560px){#nos-review-tools .nos-focus-controls{gap:3px}#nos-review-tools .nos-focus-controls button{padding:8px;font-size:12px}#nos-review-tools .nos-focus-controls select{max-width:95px;font-size:12px;padding:8px 5px}#nos-review-tools #nos-focus-time{font-size:13px;min-width:44px}}

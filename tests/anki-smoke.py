@@ -174,7 +174,7 @@ def main():
     assert max(redraw_times)<1800, redraw_times
     assert js("document.getElementById('profile-name').textContent") == "NOS Test"
     assert js("document.getElementById('stat-retention').textContent") == "—"
-    assert not js("document.getElementById('page-footnote').textContent.includes('minh họa')")
+    assert not js("document.getElementById('page-footnote')?.textContent.includes('minh họa')")
     assert js("getComputedStyle(document.querySelector('.glass')).backdropFilter") != "none"
     assert not any(action.text().startswith("AnkiNOS") for action in aqt.mw.form.menuTools.actions())
     assert any(action.shortcut().toString() == "Ctrl+K" for action in aqt.mw.actions())

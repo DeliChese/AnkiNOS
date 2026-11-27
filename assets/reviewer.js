@@ -24,7 +24,11 @@
   }
   shell.dataset.side='question';
   shell.style.zoom=String(([85,90,100,110,120].includes(initial.ui_scale)?initial.ui_scale:100)/100);
-  shell.classList.toggle('no-motion',initial.animations===false);
+  shell.classList.toggle('lite-mode',!!initial.lite_mode);
+  shell.classList.toggle('no-blur',initial.blur===false);
+  const motionDisabled=initial.animations===false||!!initial.lite_mode;
+  shell.classList.toggle('no-motion',motionDisabled);
+  shell.dataset.animations=motionDisabled?'off':'on';
   const summary=document.createElement('section');
   summary.id='nos-focus-summary';summary.hidden=true;summary.setAttribute('role','status');
   const summaryText=document.createElement('p');summaryText.id='nos-focus-summary-text';
@@ -56,9 +60,19 @@
       if(style.backgroundImage!==lastImage){card.style.backgroundImage=style.backgroundImage;lastImage=style.backgroundImage;}
     });
   }
+  let sideTimer=0;
   function setState(value){
+    const changed=shell.dataset.side!==value.side;
     shell.dataset.side=value.side;
-    $('nos-review-side').textContent=value.side==='answer'?'Đáp án':'Mặt trước';
+    const sidePill=$('nos-review-side');
+    sidePill.textContent=value.side==='answer'?'Đáp án':'Mặt trước';
+    if(changed&&!shell.classList.contains('no-motion')){
+      sidePill.classList.remove('nos-side-pulse');
+      void sidePill.offsetWidth;
+      sidePill.classList.add('nos-side-pulse');
+      clearTimeout(sideTimer);
+      sideTimer=setTimeout(()=>sidePill.classList.remove('nos-side-pulse'),360);
+    }
     const progress=`Đã ôn ${format.format(value.answered||0)} lượt trong phiên này`;
     if($('nos-review-progress').textContent!==progress)$('nos-review-progress').textContent=progress;
     preserveCardStyle();
@@ -105,6 +119,7 @@
     $('nos-focus-resume').hidden=!active||!paused;
     $('nos-focus-stop').hidden=!active;
     $('nos-focus-time').dataset.paused=String(paused);
+    $('nos-focus-time').dataset.running=String(active&&!paused);
     if(!active&&previous)$('nos-focus-time').title='Đã lưu phiên Focus';
     updateFocusClock();
   }

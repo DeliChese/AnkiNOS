@@ -63,13 +63,18 @@
 
   window.NOSTheme.watch(app,()=>state.settings,true);
   function theme() {
-    window.NOSTheme.apply(app,state.settings,true);
-    const selected = (state.settings.images || []).find(image => image.id === state.settings.image_overview);
+    const st = state.settings;
+    window.NOSTheme.apply(app,st,true);
+    app.classList.toggle('lite-mode', !!st.lite_mode);
+    app.classList.toggle('no-blur', st.blur === false);
+    app.classList.toggle('reduce-motion', st.animations === false);
+    app.dataset.animations = st.animations === false ? 'off' : 'on';
+    app.style.zoom = [85,90,100,110,120].includes(st.ui_scale) && st.ui_scale !== 100 ? String(st.ui_scale / 100) : '';
+    const selected = (st.images || []).find(image => image.id === st.image_overview);
     const safe = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}(?:-wall)?\.(?:png|jpg|webp)$/;
     const imageUrl = [selected?.wall_url, selected?.url].find(url => url && safe.test(url)) || '';
     app.dataset.customBackground = imageUrl ? 'true' : 'false';
-    const st = state.settings, int = (v, lo, hi, d) => Number.isInteger(v) ? Math.min(hi, Math.max(lo, v)) : d;
-    const blur = int(st.wallpaper_blur, 0, 24, 0);
+    const int = (v, lo, hi, d) => Number.isInteger(v) ? Math.min(hi, Math.max(lo, v)) : d, blur = int(st.wallpaper_blur, 0, 24, 0);
     app.style.setProperty('--wall-fit', st.image_fit_overview === 'contain' ? 'contain' : 'cover');
     app.style.setProperty('--wall-dim', String(int(st.wallpaper_dim, 0, 80, 28) / 100));
     app.style.setProperty('--wall-blur', blur + 'px');
@@ -80,7 +85,7 @@
       if(!imageUrl) wallpaperImage.removeAttribute('src');
       wallpaperImage.hidden=!imageUrl;
     }
-    $('overview-theme-label').textContent=state.settings.theme==='night'?'Chuyển sang kính hoàng hôn':'Chuyển sang kính tối';
+    $('overview-theme-label').textContent=st.theme==='night'?'Chuyển sang kính hoàng hôn':'Chuyển sang kính tối';
   }
 
   function time(milliseconds) {
@@ -185,6 +190,45 @@
     if (event.key==='Enter' && [document.body,document.documentElement].includes(event.target)) {event.preventDefault();start();}
   });
   document.addEventListener('fullscreenchange',()=>fullscreen(!!document.fullscreenElement));
+  // Subtle 3D tilt on queue cards + ripple feedback when animations are active.
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const motionOff = () => app.classList.contains('reduce-motion') || app.classList.contains('lite-mode') || (app.dataset.animations !== 'on' && reducedMotion.matches);
+  let tiltFrame = 0, tiltedCard = null, ptrX = 0, ptrY = 0, ptrNode = null;
+  function clearTilt() {
+    if (tiltFrame) { cancelAnimationFrame(tiltFrame); tiltFrame = 0; }
+    if (tiltedCard) { tiltedCard.style.removeProperty('transform'); tiltedCard = null; }
+  }
+  app.addEventListener('pointermove', event => {
+    if (event.pointerType !== 'mouse' || motionOff()) { clearTilt(); return; }
+    ptrX = event.clientX; ptrY = event.clientY; ptrNode = event.target;
+    if (!tiltFrame) tiltFrame = requestAnimationFrame(() => {
+      tiltFrame = 0;
+      const card = ptrNode?.closest('.overview-count');
+      if (tiltedCard && tiltedCard !== card) { tiltedCard.style.removeProperty('transform'); tiltedCard = null; }
+      if (!card) return;
+      const box = card.getBoundingClientRect();
+      const rx = ((ptrY - box.top) / box.height - .5) * -8;
+      const ry = ((ptrX - box.left) / box.width - .5) * 10;
+      card.style.transform = `perspective(700px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateY(-4px)`;
+      tiltedCard = card;
+    });
+  }, {passive: true});
+  app.addEventListener('pointerleave', clearTilt);
+  app.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || motionOff()) return;
+    const button = event.target.closest('.overview-start,.overview-menu-items > button');
+    if (!button || button.disabled) return;
+    const box = button.getBoundingClientRect();
+    const zoom = Number(app.style.zoom) || 1;
+    const size = Math.max(box.width, box.height) * 2.2 / zoom;
+    const ripple = document.createElement('span');
+    ripple.className = 'nos-ripple';
+    ripple.setAttribute('aria-hidden', 'true');
+    ripple.style.cssText = `position:absolute;border-radius:50%;pointer-events:none;background:currentColor;opacity:.28;transform:translate(-50%,-50%) scale(0);transition:transform 520ms ease-out,opacity 520ms ease-out;width:${size}px;height:${size}px;left:${(event.clientX - box.left) / zoom}px;top:${(event.clientY - box.top) / zoom}px`;
+    button.appendChild(ripple);
+    requestAnimationFrame(() => { ripple.style.transform = 'translate(-50%,-50%) scale(1)'; ripple.style.opacity = '0'; });
+    setTimeout(() => ripple.remove(), 560);
+  });
 
   function preview() {
     return {id:'101',name:'Chinese Vocabulary in Chunks',full_name:'Ngoại ngữ::Chinese Vocabulary in Chunks',

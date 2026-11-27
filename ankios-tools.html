@@ -2,7 +2,21 @@
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnkiNOS · Công cụ học</title><link rel="stylesheet" href="assets/tools.css"><link rel="stylesheet" href="assets/theme.css"></head>
 <body>
   <main id="nos-tool" class="tool-shell">
-    <header class="tool-header"><div><span class="tool-brand">ANKINOS</span><h1 id="tool-title">Công cụ học</h1><p id="tool-context"></p></div><button type="button" id="tool-close" aria-label="Đóng cửa sổ">Đóng <kbd>Esc</kbd></button></header>
+    <div class="tool-backdrop" aria-hidden="true"><i></i><i></i></div>
+    <header class="tool-header">
+      <div class="tool-heading">
+        <span class="tool-emblem" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3 14.3 9.7 21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3Z"/></svg>
+        </span>
+        <div class="tool-title-block">
+          <span class="tool-brand">ANKINOS</span>
+          <div class="tool-title-row">
+            <h1 id="tool-title">Công cụ học</h1>
+            <span id="tool-context" class="tool-context-pill"></span>
+          </div>
+        </div>
+      </div>
+    </header>
     <p id="tool-preview" class="notice" hidden>Bản xem trước giao diện · không ghi dữ liệu học. Mở Anki để sử dụng với bộ sưu tập thật.</p>
     <p id="tool-status" class="tool-status" role="status" aria-live="polite"></p>
     <section id="tool-content" aria-label="Nội dung công cụ"></section>

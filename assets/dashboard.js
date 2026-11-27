@@ -20,7 +20,7 @@
   const parseDate = value => new Date(`${value}T12:00:00`);
   const addDays = (date, days) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
   const defaultLayout = 'aurora';
-  const state = {snapshot: null, settings: {layout: app.dataset.layout || defaultLayout}, filter: 'all', color: '', query: '', sort: 'name', period: 'year', calendar: null, expanded: new Set(), collapsed: new Set(), page: 'home'};
+  const state = {snapshot: null, settings: {layout: app.dataset.layout || defaultLayout, sidebar_side: app.dataset.sidebarSide === 'right' ? 'right' : 'left'}, filter: 'all', color: '', query: '', sort: 'name', period: 'year', calendar: null, expanded: new Set(), collapsed: new Set(), page: 'home'};
   const popups = [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle'],['layout-menu','layout-toggle']];
   let toastTimer;
   let settingsDraft = null;
@@ -79,7 +79,7 @@
     }
     // Qt installs pycmd asynchronously, after the document can already be ready.
     if (typeof window.pycmd !== 'function') {
-      if (performance.now() - bridgeStarted < 15000) setTimeout(() => command(action,args),50);
+      if (performance.now() - bridgeStarted < 15000) setTimeout(() => command(action,args),10);
       else receive({event:'error',payload:'Cầu nối Anki chưa sẵn sàng. Nhấn Làm mới để thử lại.'});
       return;
     }
@@ -125,7 +125,7 @@
       if (previous.heatmap_day !== state.settings.heatmap_day) renderHeatmap();
     }
     // Never send the image gallery (or large resource lists) back over pycmd.
-    const keys = ['goal','layout','theme','color_theme','accent','custom_accent','blur','animations','lite_mode','ui_scale',
+    const keys = ['goal','layout','sidebar_side','theme','color_theme','accent','custom_accent','blur','animations','lite_mode','ui_scale',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
       'activity_collapsed','library_collapsed','sidebar_collapsed','view',
       // Image assignments belong exclusively to Studio and save immediately.
@@ -176,17 +176,23 @@
     const viewportHeight = innerHeight / zoom;
     const narrow = innerWidth <= 720;
     const layout = app.dataset.layout;
-    const floating = !narrow && ['bento', 'dock', 'zen'].includes(layout);
+    const sidebarSide = app.dataset.sidebarSide === 'right' ? 'right' : 'left';
+    const floating = !narrow && ['bento', 'dock', 'zen', 'edges'].includes(layout);
     const topMargin = narrow ? 16 : ({bento: 84, zen: 72}[layout] || 24);
     const bottomMargin = narrow ? 109 : floating && layout === 'dock' ? 104 : 28;
     const height = Math.max(1, Math.min(760, viewportHeight - topMargin - bottomMargin));
-    const sideLeft = anchor.right / zoom + 24;
-    const width = Math.max(1, Math.min(1280, viewportWidth - (narrow ? 32 : floating ? 48 : sideLeft + 24)));
-    const left = narrow ? 16 : floating ? (viewportWidth - width) / 2 : sideLeft;
+    // Anchor to the resting (collapsed) rail width so hovering the aurora rail never shifts the popover.
+    const railOuter = layout === 'sidebar'
+      ? (innerWidth <= 1100 ? 200 : 236)
+      : (innerHeight <= 600 ? (innerWidth <= 1200 ? 67 : 66) : (innerWidth <= 1200 ? 83 : 84));
+    const sideOffset = railOuter + 24;
+    const width = Math.max(1, Math.min(1280, viewportWidth - (narrow ? 32 : floating ? 48 : sideOffset + 24)));
+    const left = narrow ? 16 : floating ? (viewportWidth - width) / 2
+      : sidebarSide === 'right' ? Math.max(16, viewportWidth - sideOffset - width) : sideOffset;
     const top = floating || narrow ? topMargin : Math.max(24, Math.min(anchor.top / zoom - 50, viewportHeight - height - bottomMargin));
     const anchorX = (anchor.left + anchor.width / 2) / zoom - left;
     const anchorY = (anchor.top + anchor.height / 2) / zoom - top;
-    dialog.dataset.side = floating ? 'none' : narrow ? 'bottom' : 'left';
+    dialog.dataset.side = floating ? 'none' : narrow ? 'bottom' : sidebarSide;
     for (const [key, value] of Object.entries({
       '--popover-left': left, '--popover-top': top, '--popover-width': width, '--popover-height': height,
       '--anchor-y': Math.max(30, Math.min(height - 30, anchorY)),
@@ -283,6 +289,11 @@
     });
     if ($('set-blur')) $('set-blur').checked = s.blur !== false;
     if ($('set-animations')) $('set-animations').checked = s.animations !== false;
+    if ($('row-set-blur')) $('row-set-blur').classList.toggle('is-overridden', !!s.lite_mode);
+    if ($('row-set-animations')) $('row-set-animations').classList.toggle('is-overridden', !!s.lite_mode);
+    if ($('settings-lite-hint')) $('settings-lite-hint').hidden = !s.lite_mode;
+    const draftLayout = window.NOSLayout?.normalize(s.layout) || defaultLayout;
+    if ($('sidebar-side-row')) $('sidebar-side-row').classList.toggle('is-overridden', draftLayout !== 'aurora' && draftLayout !== 'sidebar');
     if ($('set-stat-retention')) $('set-stat-retention').checked = s.stat_retention !== false;
     if ($('set-stat-pace')) $('set-stat-pace').checked = s.stat_pace !== false;
     if ($('set-stat-time')) $('set-stat-time').checked = s.stat_time !== false;
@@ -295,6 +306,12 @@
     if ($('set-goal-range')) $('set-goal-range').value = Math.min(500, goal);
     app.querySelectorAll('.scale-btn').forEach(btn => {
       btn.classList.toggle('active', Number(btn.dataset.scale) === (s.ui_scale || 100));
+    });
+    const side = s.sidebar_side === 'right' ? 'right' : 'left';
+    app.querySelectorAll('#settings-dialog .side-btn[data-sidebar-side]').forEach(btn => {
+      const selected = btn.dataset.sidebarSide === side;
+      btn.classList.toggle('active', selected);
+      btn.setAttribute('aria-pressed', String(selected));
     });
   }
 
@@ -336,7 +353,7 @@
   function resetSettings() {
     if (confirm('Khôi phục toàn bộ cài đặt AnkiNOS về mặc định ban đầu?')) {
       const defaults = {
-        goal: 200, layout: defaultLayout, theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
+        goal: 200, layout: defaultLayout, sidebar_side: 'left', theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
         blur: true, animations: true, ui_scale: 100,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
         heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false
@@ -372,8 +389,9 @@
   function applySettings() {
     const s = state.settings;
     const layout = window.NOSLayout?.normalize(s.layout) || defaultLayout;
+    const sidebarSide = s.sidebar_side === 'right' ? 'right' : 'left';
     const signature = JSON.stringify([
-      layout,s.theme,s.color_theme,s.accent,s.custom_accent,s.blur,s.animations,s.lite_mode,s.ui_scale,
+      layout,sidebarSide,s.theme,s.color_theme,s.accent,s.custom_accent,s.blur,s.animations,s.lite_mode,s.ui_scale,
       s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
       s.heatmap_palette,s.activity_collapsed,s.sidebar_collapsed,s.view,
       s.image_dashboard,s.image_avatar,
@@ -383,6 +401,7 @@
     if (signature === lastAppliedSettings) return;
     lastAppliedSettings = signature;
     if (app.dataset.layout !== layout) app.dataset.layout = layout;
+    if (app.dataset.sidebarSide !== sidebarSide) app.dataset.sidebarSide = sidebarSide;
     window.NOSTheme.apply(app,s,true);
     const background = mediaUrl('image_dashboard', s);
     app.dataset.customBackground = background ? 'true' : 'false';
@@ -408,11 +427,10 @@
     app.classList.toggle('lite-mode', !!s.lite_mode);
     app.classList.toggle('no-blur', s.blur === false);
     app.classList.toggle('reduce-motion', s.animations === false);
-    if (s.ui_scale && s.ui_scale !== 100) {
-      app.style.zoom = String(s.ui_scale / 100);
-    } else {
-      app.style.zoom = '';
-    }
+    app.dataset.animations = s.animations === false ? 'off' : 'on';
+    const zoom = (s.ui_scale && s.ui_scale !== 100) ? (s.ui_scale / 100) : 1;
+    app.style.zoom = zoom !== 1 ? String(zoom) : '';
+    app.style.setProperty('--nos-zoom', String(zoom));
     positionLibrary();
     window.NOSLayout?.changed();
 
@@ -435,6 +453,9 @@
     $('sidebar-toggle').setAttribute('aria-expanded', String(!s.sidebar_collapsed));
     $('sidebar-toggle').setAttribute('aria-label', s.sidebar_collapsed ? 'Hiện bộ lọc' : 'Ẩn bộ lọc');
     $('theme-label').textContent = s.theme === 'night' ? 'Chuyển sang kính hoàng hôn' : 'Chuyển sang kính tối';
+    if ($('animations-label')) {
+      $('animations-label').textContent = s.animations === false ? 'Hiệu ứng mượt: Đang tắt' : 'Hiệu ứng mượt: Đang bật';
+    }
     app.querySelectorAll('[data-action="view"]').forEach(button => {
       const selected = button.dataset.value === (s.view || 'list');
       button.classList.toggle('selected', selected);
@@ -449,6 +470,12 @@
     if (minutes) return `${minutes} <small>phút</small>`;
     return `${Math.floor(ms / 1000)} <small>giây</small>`;
   }
+
+  // The Stats page re-renders these cards from the selected scope's data.
+  window.NOSMetricCharts = {
+    sparkline: (...args) => sparkline(...args),
+    renderTrend: (...args) => renderTrend(...args),
+  };
 
   function renderStats() {
     const data = state.snapshot, stats = data.stats;
@@ -483,7 +510,7 @@
     });
     for (const [id,key,unit,value] of [
       ['retention','retention','%', d => d.tested ? Math.max(0,Math.min(100,d.passed / d.tested * 100)) : null],
-      ['pace','pace','lượt/giờ', d => d.milliseconds > 0 ? Math.max(0,d.reviews / (d.milliseconds / 3600000)) : 0],
+      ['pace','pace','lượt/giờ', d => d.milliseconds > 0 ? Math.max(0,d.reviews / (d.milliseconds / 3600000)) : null],
       ['time','milliseconds','phút', d => d.milliseconds / 60000],
       ['studied','reviews','lượt ôn', d => d.reviews],
     ]) {
@@ -811,15 +838,33 @@
     return nodes.flatMap(node=>[node,...flattenFiltered(node.visibleChildren||[])]);
   }
 
+  let pageEnterTimer = 0;
+  function animatePageEnter(node) {
+    if (!node || app.classList.contains('reduce-motion') || app.classList.contains('lite-mode')) return;
+    node.classList.remove('nos-page-enter');
+    void node.offsetWidth;
+    node.classList.add('nos-page-enter');
+    clearTimeout(pageEnterTimer);
+    pageEnterTimer = setTimeout(() => node.classList.remove('nos-page-enter'), 460);
+  }
+
   function changePage(page) {
     if(page==='library'){openLibrary();return;}
+    const wasLibraryOpen = $('library-dialog').open;
     closeLibrary(false);
+    closePopups();
+    if (page === state.page && !wasLibraryOpen) return;
+    const changed = page !== state.page;
     state.page = page;
     app.dataset.page = page;
-    app.querySelector('.workspace').hidden = page !== 'home';
-    $('stats-page').hidden = page !== 'stats';
-    $('daily-page').hidden = page !== 'daily';
+    const homeNode = app.querySelector('.workspace');
+    const statsNode = $('stats-page');
+    const dailyNode = $('daily-page');
+    homeNode.hidden = page !== 'home';
+    statsNode.hidden = page !== 'stats';
+    dailyNode.hidden = page !== 'daily';
     app.scrollTop=0;
+    if (changed) animatePageEnter(page === 'stats' ? statsNode : page === 'daily' ? dailyNode : homeNode);
     if (page === 'stats') { window.NOSStats?.open(); window.NOSFocusHistory?.open(); }
     if (page === 'daily') window.NOSDaily?.open();
     app.querySelectorAll('.rail-main [data-action="page"]').forEach(button => {
@@ -827,7 +872,6 @@
       if (button.dataset.value === page) button.setAttribute('aria-current','page');
       else button.removeAttribute('aria-current');
     });
-    closePopups();
   }
 
   function openCommands() {
@@ -903,7 +947,7 @@
       clearTimeout(refreshTimer);
       $('refresh-button').disabled = false;
       $('connection').innerHTML = `<span class="status-dot"></span>${native ? 'Bộ sưu tập Anki' : 'Bản xem trước'}`;
-      $('page-footnote').textContent = native ? 'Dữ liệu từ bộ sưu tập Anki của bạn' : 'Dữ liệu minh họa · Mở Anki để dùng bộ sưu tập thật';
+      if ($('page-footnote')) $('page-footnote').textContent = native ? 'Dữ liệu từ bộ sưu tập Anki của bạn' : 'Dữ liệu minh họa · Mở Anki để dùng bộ sưu tập thật';
     } else if (event === 'settings') {
       state.settings = payload;
       if (!settingsDirty) settingsDraft = $('settings-dialog').open ? {...payload} : null;
@@ -961,6 +1005,18 @@
     if (accentBtn) { saveUI({accent: accentBtn.dataset.setAccent}); return; }
     const scaleBtn = event.target.closest('.scale-btn[data-scale]');
     if (scaleBtn) { saveUI({ui_scale: Number(scaleBtn.dataset.scale)}); return; }
+    const sideBtn = event.target.closest('.side-btn[data-sidebar-side]');
+    if (sideBtn) {
+      const side = sideBtn.dataset.sidebarSide === 'right' ? 'right' : 'left';
+      if (sideBtn.closest('#layout-menu')) {
+        closePopups(true);
+        saveUI({sidebar_side: side});
+        toast(side === 'right' ? 'Sidebar: Bên phải' : 'Sidebar: Bên trái');
+      } else {
+        saveUI({sidebar_side: side});
+      }
+      return;
+    }
     if (event.target.closest('#btn-apply-settings')) { applySettingsDraft(); return; }
     if (event.target.closest('#btn-export-settings')) { exportSettings(); return; }
     if (event.target.closest('#btn-import-settings')) { importSettings(); return; }
@@ -986,7 +1042,34 @@
     if (action === 'close_library') return closeLibrary();
     if (action === 'show_children') return openLibrary({focusDeck:id});
     if (action === 'page') return changePage(value);
+    if (action === 'edge_study_now') {
+      closePopups();
+      const studyBtn = $('study-now');
+      if (studyBtn && !studyBtn.disabled) {
+        if (state.page !== 'home') changePage('home');
+        studyBtn.click();
+      } else {
+        openLibrary();
+      }
+      return;
+    }
+    if (action === 'edge_toggle_peek') {
+      const next = app.dataset.edgesPeek !== 'true';
+      if (next) app.dataset.edgesPeek = 'true';
+      else delete app.dataset.edgesPeek;
+      const peekBtn = $('edge-peek-toggle');
+      if (peekBtn) peekBtn.setAttribute('aria-pressed', String(next));
+      if (next && state.page !== 'home') changePage('home');
+      toast(next ? 'Đang ngắm ảnh nền thuần · di chuột lên 4 cạnh để mở dock' : 'Đã hiện lại bảng học tập');
+      return;
+    }
     if (action === 'theme') return saveUI({theme:state.settings.theme === 'night' ? 'dusk' : 'night'});
+    if (action === 'toggle_animations') {
+      const next = state.settings.animations === false;
+      saveUI({animations: next});
+      toast(next ? 'Đã bật hiệu ứng mượt mà' : 'Đã tắt hiệu ứng mượt mà');
+      return;
+    }
     if (action === 'collapse_activity') return saveUI({activity_collapsed:!state.settings.activity_collapsed});
     if (action === 'collapse_sidebar') return saveUI({sidebar_collapsed:!state.settings.sidebar_collapsed});
     if (action === 'view') { saveUI({view:value}); renderLibrary(); return; }
@@ -1058,7 +1141,16 @@
   $('library-dialog').addEventListener('click',event=>{
     if(event.target!==event.currentTarget)return;
     const rect=event.currentTarget.getBoundingClientRect();
-    if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeLibrary();
+    if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom){
+      closeLibrary(false);
+      // Forward a single click on the visible rail or topbar so switching tabs never needs 2 clicks.
+      const underlying=document.elementFromPoint(event.clientX,event.clientY)?.closest('.rail button, .topbar button, .nos-edge-dock button');
+      if(underlying && underlying.id!=='library-toggle' && !underlying.disabled){
+        underlying.click();
+      }else{
+        $('library-toggle').focus({preventScroll:true});
+      }
+    }
   });
   if ($('settings-dialog')) {
     $('settings-dialog').addEventListener('cancel', event => { event.preventDefault(); closeSettings(); });
@@ -1072,7 +1164,7 @@
   $('set-stat-pace')?.addEventListener('change', e => saveUI({stat_pace: e.target.checked}));
   $('set-stat-time')?.addEventListener('change', e => saveUI({stat_time: e.target.checked}));
   $('set-stat-studied')?.addEventListener('change', e => saveUI({stat_studied: e.target.checked}));
-  $('set-lite-mode')?.addEventListener('change', e => saveUI({lite_mode: e.target.checked, blur: !e.target.checked}));
+  $('set-lite-mode')?.addEventListener('change', e => saveUI({lite_mode: e.target.checked}));
   $('set-heatmap-day')?.addEventListener('change', e => saveUI({heatmap_day: e.target.value}));
   $('set-custom-accent')?.addEventListener('input',e=>saveUI({accent:'custom',custom_accent:e.target.value}));
   $('set-heatmap-palette')?.addEventListener('change', e => saveUI({heatmap_palette: e.target.value}));
@@ -1139,10 +1231,22 @@
       decks:[deck('101','Tiếng Anh — Từ vựng',4872,'blue',[deck('111','Từ vựng theo chủ đề',1520,'blue'),deck('112','Collocations & Phrasal Verbs',2180,'purple'),deck('113','Idioms',1172,'purple')]),deck('102','Tiếng Nhật — N5',1986,'pink'),deck('103','Y học cơ sở',1204,'green'),deck('104','Lịch sử Việt Nam',642,'amber')],
       settings:{goal:200,layout:state.settings.layout || defaultLayout,theme:'dusk',view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
   }
-  // Show the calendar structure immediately, then request real data without
-  // introducing an artificial startup delay.
-  renderHeatmap();
-  command('snapshot');
+  // Paint immediately from inline bootstrap when hosted in Anki so startup
+  // feels instantaneous, then pull the prefetched full revlog snapshot if partial.
+  const dashboardBootstrap = $('nos-dashboard-bootstrap');
+  if (native && dashboardBootstrap) {
+    try {
+      const boot = JSON.parse(dashboardBootstrap.textContent);
+      receive({event: 'snapshot', payload: boot});
+      if (boot.partial) command('snapshot');
+    } catch {
+      renderHeatmap();
+      command('snapshot');
+    }
+  } else {
+    renderHeatmap();
+    command('snapshot');
+  }
   if (native) {
     // Poll at most every 5 minutes, and only when the window is visible.
     let pollTimer = 0;

@@ -5,6 +5,7 @@ import html
 import json
 from pathlib import Path
 import re
+from typing import Any
 from uuid import uuid4
 
 from aqt import dialogs, gui_hooks, mw
@@ -12,17 +13,16 @@ from aqt.operations import QueryOp
 from aqt.qt import QAction, QDialog, QKeySequence, QVBoxLayout, qconnect
 from aqt.webview import AnkiWebView
 
-from .workspace_store import WorkspaceStore
 from .media_store import profile_dir
-from .study_tools_data import COLLECTION_KEY, palette_results
 
 ROOT = Path(__file__).resolve().parent
 _dialogs: dict[str, "ToolDialog"] = {}
-_workspace: dict[str, WorkspaceStore] = {}
+_workspace: dict[str, Any] = {}
 _installed = False
 
 
 def collection_key() -> str:
+    from .study_tools_data import COLLECTION_KEY
     value = mw.col.get_config(COLLECTION_KEY)
     if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{32}", value):
         value = uuid4().hex
@@ -30,9 +30,10 @@ def collection_key() -> str:
     return value
 
 
-def workspace_store() -> WorkspaceStore:
+def workspace_store() -> Any:
     profile = mw.pm.name
     if profile not in _workspace:
+        from .workspace_store import WorkspaceStore
         _workspace[profile] = WorkspaceStore(profile_dir(ROOT,profile)/"workspace.sqlite3")
     return _workspace[profile]
 
@@ -58,7 +59,7 @@ class ToolDialog(QDialog):
         body = re.search(r"<body[^>]*>(.*?)</body>",(ROOT/"ankios-tools.html").read_text(encoding="utf-8"),re.S).group(1)
         body = re.sub(r"<script\b[^>]*>.*?</script>","",body,flags=re.S)
         from .integration import settings
-        appearance = {key: value for key, value in settings().items() if key in {"theme", "color_theme", "accent", "custom_accent"}}
+        appearance = {key: value for key, value in settings().items() if key in {"theme", "color_theme", "accent", "custom_accent", "blur", "animations", "lite_mode"}}
         initial = {"settings":appearance,"kind":kind,"native":True,"deck":self.deck_name,"deck_id":str(self.did),"note_id":self.note_id}
         body += '<textarea id="nos-tool-bootstrap" hidden>'+html.escape(json.dumps(initial,ensure_ascii=True))+'</textarea>'
         package = mw.addonManager.addonFromModule(__package__)
@@ -106,6 +107,7 @@ class ToolDialog(QDialog):
 
     def palette(self, action, command):
         from . import integration as host
+        from .study_tools_data import COLLECTION_KEY, palette_results
         if action in {"boot","search"}:
             query = str(command.get("query",""))[:200]
             seq = command.get("seq",0)

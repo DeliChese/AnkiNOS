@@ -9,12 +9,11 @@ from aqt import gui_hooks, mw
 from aqt.reviewer import Reviewer, ReviewerBottomBar
 from aqt.qt import QTimer, QObject, QEvent
 from pathlib import Path
-from .focus_store import FocusStore
 
 _enabled: Callable[[], bool]
 _settings: Callable[[], dict[str, Any]]
 _answered = 0
-_focus: FocusStore | None = None
+_focus: Any = None
 _focus_profile: str | None = None
 _focus_timer: QTimer | None = None
 _focus_guard: QObject | None = None
@@ -35,10 +34,11 @@ def reset_focus_store() -> None:
     _profile_close()
 
 
-def focus_store() -> FocusStore:
+def focus_store() -> Any:
     global _focus, _focus_profile
     name = mw.pm.name
     if _focus is None or _focus_profile != name:
+        from .focus_store import FocusStore
         if _focus is not None:
             _focus.stop("interrupted")
         _focus = FocusStore(Path(__file__).resolve().parent, name)
@@ -87,9 +87,11 @@ def _review_content(content: Any, context: Any) -> None:
                    "wallpaper_blur": current_settings.get("wallpaper_blur", 0),
                    "background_position": current_settings.get("image_position_review", "center"),
                    "ui_scale": current_settings.get("ui_scale", 100),
+                   "blur": current_settings.get("blur", True),
+                   "lite_mode": bool(current_settings.get("lite_mode", False)),
                    "animations": current_settings.get("animations", True)}
         content.body = (
-            '<div id="nos-review-shell"><div class="nos-review-wallpaper" aria-hidden="true"><img class="nos-review-wallpaper-image" alt="" hidden></div>'
+            '<div id="nos-review-shell"><div class="nos-review-wallpaper" aria-hidden="true"><img class="nos-review-wallpaper-image" alt="" hidden><div class="nos-review-aurora"><i></i><i></i></div></div>'
             '<header id="nos-review-header"></header><main id="nos-review-stage">'
             '<section id="nos-review-card" aria-label="Nội dung thẻ">' + content.body + '</section></main></div>'
             '<textarea id="nos-review-bootstrap" hidden>' + html.escape(json.dumps(initial,ensure_ascii=True)) + '</textarea>'
@@ -99,7 +101,12 @@ def _review_content(content: Any, context: Any) -> None:
         content.js.append(f"{base}/runtime-guard.js")
         content.js.append(f"{base}/reviewer.js")
     else:
-        content.body += '<textarea id="nos-theme-bootstrap" hidden>' + html.escape(json.dumps(appearance)) + '</textarea>'
+        bottom_appearance = {
+            **appearance,
+            "animations": current_settings.get("animations", True),
+            "lite_mode": bool(current_settings.get("lite_mode", False)),
+        }
+        content.body += '<textarea id="nos-theme-bootstrap" hidden>' + html.escape(json.dumps(bottom_appearance)) + '</textarea>'
         keys = {str(i): mw.pm.get_answer_key(i) or "" for i in (1,2,3,4)}
         content.body += '<textarea id="nos-rating-keys" hidden>' + html.escape(json.dumps(keys)) + '</textarea>'
         content.css.append(f"{base}/reviewer-bottom.css")

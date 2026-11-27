@@ -14,6 +14,65 @@ def clear_snapshot_cache() -> None:
     _AGGREGATES = None
 
 
+def quick_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = None) -> dict[str, Any]:
+    """Build an immediate dashboard bootstrap payload without running revlog scans.
+
+    If the read-only aggregate cache is still warm for this collection and day,
+    return a complete snapshot instantly; otherwise return live deck counts so
+    the dashboard paints and accepts study clicks on the very first frame.
+    """
+    cutoff = int(col.sched.day_cutoff)
+    end = datetime.fromtimestamp(cutoff)
+    today = (end - timedelta(days=1)).date()
+    cached = _AGGREGATES if _AGGREGATES and _AGGREGATES['col'] is col else None
+    stamp = (revision, int(col.db.scalar('SELECT total_changes()')))
+    if cached and cached['stamp'] == stamp and cached['cutoff'] == cutoff:
+        result = collect_snapshot(col, due_tree=due_tree, revision=revision, review_only=True)
+        result["partial"] = False
+        return result
+
+    tree = due_tree if due_tree is not None else col.sched.deck_due_tree()
+    names = {int(entry.id): entry.name for entry in col.decks.all_names_and_ids()}
+    records: dict[int, dict[str, Any]] = {}
+
+    def gather(node: Any) -> None:
+        if node.deck_id:
+            full_name = names.get(int(node.deck_id), node.name)
+            records[int(node.deck_id)] = {
+                "id": str(node.deck_id), "name": full_name.split("::")[-1], "full_name": full_name,
+                "new": int(node.new_count), "learn": int(node.learn_count),
+                "review": int(node.review_count), "filtered": bool(node.filtered), "children": [],
+                "depth": full_name.count("::"), "parent_id": None,
+                "total": 0, "tested": 0, "passed": 0, "retention": None,
+            }
+        for child in node.children:
+            gather(child)
+
+    gather(tree)
+    by_name = {record["full_name"]: record for record in records.values()}
+    decks = []
+    for record in records.values():
+        parent = by_name.get(record["full_name"].rpartition("::")[0])
+        if parent:
+            record["parent_id"] = parent["id"]
+            parent["children"].append(record)
+        else:
+            decks.append(record)
+
+    return {
+        "today": today.isoformat(),
+        "days": {},
+        "decks": decks,
+        "history_start_year": today.year,
+        "history_loaded_years": [today.year],
+        "due": sum(d["new"] + d["learn"] + d["review"] for d in decks),
+        "total_cards": 0,
+        "trends": {},
+        "stats": {"retention": None, "pace": None, "milliseconds": 0, "reviews": 0, "streak": 0, "tested": 0},
+        "partial": True,
+    }
+
+
 def metric_change(current: float | int | None, previous: float | int | None, comparison: str) -> dict[str, Any]:
     # A zero baseline cannot produce a meaningful relative percentage.
     change = None if current is None or previous is None or previous == 0 else round((current - previous) / previous * 100, 1)

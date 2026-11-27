@@ -127,6 +127,8 @@ try {
   await navigate('assets/reviewer-controls-preview.html',`document.documentElement.dataset.nosRatings==='true'`);
   await evaluate(`window.NOSTheme.apply(document.documentElement,{theme:'light',color_theme:'rosepine',accent:'auto'},true);showPreviewAnswer()`);
   assert.equal(await evaluate(`document.querySelectorAll('button[data-ease]').length`),4);
+  assert.equal(await evaluate(`Array.from(document.querySelectorAll('button[data-ease]')).every(b => !!b.querySelector('.nos-btn-fill') && b.getBoundingClientRect().height <= 54)`), true, 'Rating buttons must stay compact and have radial fill element');
+  assert.equal(await evaluate(`['--on-danger','--on-warning','--on-blue','--on-success'].every(v => !!getComputedStyle(document.documentElement).getPropertyValue(v).trim())`), true, 'Rating hover contrast tokens must be defined');
   await shot('theme-ratings-light.png');
   await navigate('ankios-tools.html',`!!window.NOSTool`);
   await evaluate(`window.NOSTheme.apply(document.getElementById('nos-tool'),{theme:'light',color_theme:'rosepine',accent:'auto'},true)`);

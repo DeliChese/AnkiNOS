@@ -26,9 +26,15 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(theme.clean_theme_settings({"custom_accent": color}), {})
 
     def test_layouts_are_validated_independently_of_the_palette(self):
-        for layout in ("aurora", "bento", "dock", "sidebar", "zen"):
+        for layout in ("aurora", "bento", "dock", "sidebar", "zen", "edges"):
             settings = {"layout": layout, "color_theme": "mononoke"}
             self.assertEqual(theme.clean_theme_settings(settings), settings)
+
+    def test_sidebar_side_is_validated(self):
+        for side in ("left", "right"):
+            self.assertEqual(theme.clean_theme_settings({"sidebar_side": side}), {"sidebar_side": side})
+        for invalid in ("top", "bottom", "", None, 123, True):
+            self.assertEqual(theme.clean_theme_settings({"sidebar_side": invalid}), {})
 
 
 if __name__ == "__main__":

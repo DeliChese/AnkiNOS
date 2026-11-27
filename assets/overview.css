@@ -121,3 +121,54 @@
   #nos-app .overview-menu { right: 18px; top: 65px; max-width: calc(100vw - 36px); }
 }
 @media (max-height:750px) and (min-width:761px) { #nos-app .overview-stage { align-items: flex-start; padding-top: 24px; } #nos-app .overview-hero-heading { margin-bottom: 20px; } #nos-app .overview-counts { margin: 22px 0; } }
+/* Next-level ambient aurora, choreographed entrance, tactile cards, and smooth menu transitions. */
+@keyframes nos-ov-drift-a { 0%,100% { transform: translate3d(-6%,-5%,0) scale(1); } 50% { transform: translate3d(10%,7%,0) scale(1.16); } }
+@keyframes nos-ov-drift-b { 0%,100% { transform: translate3d(7%,8%,0) scale(1.08); } 50% { transform: translate3d(-10%,-5%,0) scale(.94); } }
+@keyframes nos-ov-drift-c { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-6%,12%,0) scale(1.18); } }
+@keyframes nos-ov-rise { from { opacity: 0; transform: translate3d(0, 18px, 0) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes nos-ov-side { from { opacity: 0; transform: translate3d(18px, 0, 0) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes nos-num-pop { from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.92); } to { opacity: 1; transform: none; } }
+#nos-app.nos-overview .nos-aurora { position: absolute; inset: -12%; overflow: hidden; pointer-events: none; opacity: .68; transition: opacity .8s ease; }
+#nos-app.nos-overview .nos-aurora i { position: absolute; width: min(56vmax, 900px); height: min(56vmax, 900px); border-radius: 50%; }
+#nos-app.nos-overview .nos-aurora i:nth-child(1) { left: -8%; top: -14%; background: radial-gradient(circle, color-mix(in srgb, var(--accent, #83b8ff) 58%, transparent), transparent 64%); animation: nos-ov-drift-a 28s ease-in-out infinite; }
+#nos-app.nos-overview .nos-aurora i:nth-child(2) { right: -10%; top: 18%; background: radial-gradient(circle, color-mix(in srgb, var(--success, #a2efd2) 44%, transparent), transparent 62%); animation: nos-ov-drift-b 34s ease-in-out infinite; }
+#nos-app.nos-overview .nos-aurora i:nth-child(3) { left: 24%; bottom: -28%; background: radial-gradient(circle, color-mix(in srgb, var(--blue, #c8b6ff) 48%, transparent), transparent 60%); animation: nos-ov-drift-c 40s ease-in-out infinite; }
+#nos-app.nos-overview[data-color-mode="light"] .nos-aurora { opacity: .45; }
+#nos-app.nos-overview:is(.lite-mode,.reduce-motion,[data-custom-background="true"],[data-theme="oled"]) .nos-aurora { display: none; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-topbar { animation: nos-ov-rise 380ms cubic-bezier(.22,1,.36,1) both; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-breadcrumb { animation: nos-ov-rise 380ms cubic-bezier(.22,1,.36,1) 40ms both; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-hero { animation: nos-ov-rise 460ms cubic-bezier(.22,1.08,.36,1) 70ms both; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-today { animation: nos-ov-side 480ms cubic-bezier(.22,1.08,.36,1) 150ms both; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-count:nth-child(1) { animation: nos-ov-rise 420ms cubic-bezier(.22,1.12,.36,1) 130ms both; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-count:nth-child(2) { animation: nos-ov-rise 420ms cubic-bezier(.22,1.12,.36,1) 190ms both; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-count:nth-child(3) { animation: nos-ov-rise 420ms cubic-bezier(.22,1.12,.36,1) 250ms both; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) :is(.overview-count > strong,.overview-completed > strong) { animation: nos-num-pop 440ms cubic-bezier(.22,1.18,.36,1) 220ms both; }
+#nos-app .overview-count { transition: transform 320ms cubic-bezier(.22,1.18,.36,1), border-color 260ms ease, box-shadow 320ms ease; will-change: transform; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-count:hover { border-color: color-mix(in srgb, var(--queue-color, var(--blue)) 65%, var(--edge)); box-shadow: 0 14px 32px color-mix(in srgb, var(--queue-color, var(--blue)) 18%, transparent); }
+#nos-app .overview-start { position: relative; overflow: hidden; isolation: isolate; transition: transform 280ms cubic-bezier(.22,1.2,.36,1), box-shadow 320ms ease, filter 260ms ease; }
+#nos-app .overview-start::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,.32) 50%, transparent 75%); transform: translateX(-130%) skewX(-18deg); transition: transform 760ms cubic-bezier(.22,1,.36,1); pointer-events: none; }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-start:not(:disabled):hover { transform: translateY(-2px) scale(1.015); box-shadow: 0 12px 30px color-mix(in srgb, var(--primary, #5289f1) 42%, transparent); filter: brightness(1.06); }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-start:not(:disabled):hover::after { transform: translateX(230%) skewX(-18deg); }
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-menu {
+  opacity: 1;
+  transform: none;
+  transition: opacity 240ms ease, transform 320ms cubic-bezier(.22,1.14,.36,1), display 240ms allow-discrete;
+}
+#nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-menu[hidden] {
+  opacity: 0;
+  transform: translate3d(0, -10px, 0) scale(.96);
+  pointer-events: none;
+}
+@starting-style {
+  #nos-app.nos-overview:not(.reduce-motion):not(.lite-mode) .overview-menu:not([hidden]) {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(.96);
+  }
+}
+#nos-app.nos-overview:is(.lite-mode,.reduce-motion) .overview-start::after { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  #nos-app.nos-overview:not([data-animations="on"]) *,
+  #nos-app.nos-overview:not([data-animations="on"]) *::before,
+  #nos-app.nos-overview:not([data-animations="on"]) *::after { animation: none !important; transition: none !important; }
+  #nos-app.nos-overview:not([data-animations="on"]) .nos-aurora { display: none; }
+}

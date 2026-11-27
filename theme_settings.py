@@ -5,7 +5,9 @@ THEME_MODES = {"dusk", "night", "oled", "light", "system"}
 COLOR_THEMES = {"nos", "tokyo", "mononoke", "catppuccin", "rosepine", "nord", "solarized", "dracula"}
 ACCENTS = {"auto", "blue", "cyan", "mint", "purple", "amber", "pink", "custom"}
 DEFAULT_LAYOUT = "aurora"
-DASHBOARD_LAYOUTS = {DEFAULT_LAYOUT, "bento", "dock", "sidebar", "zen"}
+DASHBOARD_LAYOUTS = {DEFAULT_LAYOUT, "bento", "dock", "sidebar", "zen", "edges"}
+DEFAULT_SIDEBAR_SIDE = "left"
+SIDEBAR_SIDES = {DEFAULT_SIDEBAR_SIDE, "right"}
 THEME_DEFAULTS = {"theme": "dusk", "color_theme": "nos", "accent": "blue", "custom_accent": "#83b8ff"}
 
 
@@ -14,7 +16,8 @@ def clean_theme_settings(raw: object) -> dict:
         return {}
     result = {}
     for key, choices in (("theme", THEME_MODES), ("color_theme", COLOR_THEMES),
-                         ("accent", ACCENTS), ("layout", DASHBOARD_LAYOUTS)):
+                         ("accent", ACCENTS), ("layout", DASHBOARD_LAYOUTS),
+                         ("sidebar_side", SIDEBAR_SIDES)):
         value = raw.get(key)
         if isinstance(value, str) and value in choices:
             result[key] = value

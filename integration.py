@@ -20,11 +20,8 @@ from aqt.operations.deck import add_deck, remove_decks
 from aqt.qt import QAction, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QColor, QImage, QImageReader, QPainter, QSize, QInputDialog, QLabel, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, Qt, qconnect
 from aqt.utils import askUser, getOnlyText, showWarning
 
-from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, clear_snapshot_cache
-from .graphs_data import collect_native_graphs
-from .study_data import collect_support, insight_cards, clear_cache as clear_support_cache
-from .backup_store import export_archive, inspect_archive, restore_archive
-from .theme_settings import DEFAULT_LAYOUT, THEME_DEFAULTS, clean_theme_settings
+from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, quick_snapshot, clear_snapshot_cache
+from .theme_settings import DEFAULT_LAYOUT, DEFAULT_SIDEBAR_SIDE, THEME_DEFAULTS, clean_theme_settings
 from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, WALLPAPER_SUFFIX, WALLPAPER_MAX_SIDE,
                           WALLPAPER_DIM_MAX, WALLPAPER_BLUR_MAX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
@@ -56,7 +53,15 @@ _backup_busy = False
 _session_error = ""
 _quick_plan: tuple | None = None
 _landing_page: str | None = None
+_prefetched_snapshot: tuple[tuple[int, str, int], dict[str, Any]] | None = None
 ALLOWED_FILES = {".pdf", ".epub", ".txt", ".md", ".csv", ".xlsx", ".docx", ".pptx", ".mp3", ".wav", ".mp4", ".webm", ".png", ".jpg", ".jpeg", ".webp"}
+
+
+def _clear_support_cache() -> None:
+    import sys
+    mod = sys.modules.get(f"{__package__}.study_data") if __package__ else None
+    if mod is not None:
+        mod.clear_cache()
 
 
 def enabled() -> bool:
@@ -274,6 +279,7 @@ def _begin_navigation() -> None:
 
 def settings() -> dict[str, Any]:
     profile = config().get("profiles", {}).get(mw.pm.name, {})
+    cleaned = clean_theme_settings(profile)
     return {"goal": 200, **THEME_DEFAULTS,
             "activity_collapsed": False, "library_collapsed": False, "sidebar_collapsed": False,
             "favorites": [], "colors": {}, "resources": [], "view": "list",
@@ -288,7 +294,8 @@ def settings() -> dict[str, Any]:
             "image_position_dashboard": "center", "image_position_overview": "center",
             "image_position_review": "center", "image_position_avatar": "center",
             **profile,
-            "layout": clean_theme_settings(profile).get("layout", DEFAULT_LAYOUT)}
+            "layout": cleaned.get("layout", DEFAULT_LAYOUT),
+            "sidebar_side": cleaned.get("sidebar_side", DEFAULT_SIDEBAR_SIDE)}
 
 
 def public_settings() -> dict[str, Any]:
@@ -565,12 +572,30 @@ def send(event: str, payload: Any) -> None:
         mw.web.eval(f"window.AnkiNOS && window.AnkiNOS.receive({encoded});")
 
 
-def refresh() -> None:
-    global _active_query, _dashboard_tree
+def _deliver_snapshot(snapshot: dict[str, Any], profile_name: str, overview: bool) -> None:
+    global _landing_page
+    payload = {**snapshot, 'profile': profile_name, 'settings': public_settings(),
+               'fullscreen': mw.isFullScreen(), 'selected_deck': str(mw.col.decks.selected()),
+               'support_revision': _data_revision, 'partial': False}
+    if not overview and _library_focus:
+        payload["library_focus"] = _library_focus
+    if not overview and _landing_page:
+        payload["open_page"], _landing_page = _landing_page, None
+    send("overview_snapshot" if overview else "snapshot", payload)
+
+
+def refresh(*, prefetch: bool = False) -> None:
+    global _active_query, _dashboard_tree, _prefetched_snapshot
     if _navigating or not mw.col or mw.state not in {"deckBrowser", "overview"} or not enabled():
         return
     overview = mw.state == "overview"
     if overview and not _overview_rendered:
+        return
+    cache_key = (_generation, mw.pm.name, _data_revision)
+    if not prefetch and not overview and _prefetched_snapshot and _prefetched_snapshot[0] == cache_key:
+        cached_payload = _prefetched_snapshot[1]
+        _prefetched_snapshot = None
+        _deliver_snapshot(cached_payload, mw.pm.name, False)
         return
     token = (_generation, mw.pm.name)
     if _active_query == token:
@@ -583,7 +608,7 @@ def refresh() -> None:
         _dashboard_tree = None
 
     def success(snapshot: dict[str, Any] | None) -> None:
-        global _active_query, _review_changes_only, _landing_page
+        global _active_query, _review_changes_only, _prefetched_snapshot
         if _active_query == token:
             _active_query = None
         if token != (_generation, mw.pm.name) or not mw.col:
@@ -595,18 +620,19 @@ def refresh() -> None:
             return
         if not overview:
             _review_changes_only = True
-        snapshot = {**snapshot, 'profile':profile_name, 'settings':public_settings(), 'fullscreen':mw.isFullScreen(), 'selected_deck':str(mw.col.decks.selected()), 'support_revision':_data_revision}
-        if not overview and _library_focus:
-            snapshot["library_focus"] = _library_focus
-        if not overview and _landing_page:
-            snapshot["open_page"], _landing_page = _landing_page, None
-        send("overview_snapshot" if overview else "snapshot", snapshot)
+        if prefetch and not overview:
+            # Keep the prefetched payload ready if JS hasn't finished booting yet,
+            # and also push immediately if window.AnkiNOS is already mounted.
+            _prefetched_snapshot = ((token[0], profile_name, revision), snapshot)
+        else:
+            _prefetched_snapshot = None
+        _deliver_snapshot(snapshot, profile_name, overview)
 
     def failure(error: Exception) -> None:
         global _active_query
         if _active_query == token:
             _active_query = None
-        if token == (_generation, mw.pm.name):
+        if token == (_generation, mw.pm.name) and not prefetch:
             send("error", "Không thể đọc dữ liệu Anki: " + str(error))
 
     def read(col: Any) -> dict[str, Any] | None:
@@ -625,6 +651,7 @@ def _study_support(force: bool = False) -> None:
     global _support_query
     if not mw.col or mw.state != "deckBrowser" or _navigating:
         return
+    from .study_data import collect_support, clear_cache as clear_support_cache
     token = (_generation, mw.pm.name, _data_revision)
     if _support_query == token:
         return
@@ -688,6 +715,7 @@ def _start_overview_review() -> None:
 
 
 def _insight_browse(did: int, kind: str) -> None:
+    from .study_data import insight_cards
     token = (_generation, mw.pm.name)
     def success(ids: list[int]) -> None:
         if token != (_generation, mw.pm.name) or not mw.col:
@@ -723,6 +751,7 @@ def _backup_job(task: Any, done: Any) -> None:
 def _backup_export() -> None:
     if _backup_busy:
         return
+    from .backup_store import export_archive
     path, _ = QFileDialog.getSaveFileName(mw, "Sao lưu đầy đủ AnkiNOS", "AnkiNOS-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".nosbackup", "Gói AnkiNOS (*.nosbackup)")
     if not path:
         return
@@ -742,6 +771,7 @@ def _backup_export() -> None:
 def _backup_restore() -> None:
     if _backup_busy:
         return
+    from .backup_store import inspect_archive, restore_archive
     path, _ = QFileDialog.getOpenFileName(mw, "Chọn gói AnkiNOS để xem trước", "", "Gói AnkiNOS (*.nosbackup)")
     if not path:
         return
@@ -791,7 +821,7 @@ def _backup_restore() -> None:
         def restored(backup: Path) -> None:
             global _data_revision
             _data_revision += 1
-            clear_support_cache()
+            _clear_support_cache()
             send("settings", public_settings())
             refresh()
             send("backup_status", {"busy": False, "message": "Đã khôi phục đầy đủ. Bản trước khôi phục: " + str(backup)})
@@ -810,17 +840,53 @@ def _backup_restore() -> None:
 
 
 def _stats_pdf() -> None:
-    """Export the currently visible AnkiNOS statistics page, not the legacy dialog."""
+    """Export the currently visible AnkiNOS statistics page like Anki's native NewDeckStats."""
     if mw.state != "deckBrowser" or not mw.col:
         return
-    suggested = f"AnkiNOS-Thong-ke-{datetime.now():%Y-%m-%d}.pdf"
-    path, _ = QFileDialog.getSaveFileName(
-        mw, "Lưu báo cáo Thống kê AnkiNOS",
-        str(Path.home() / suggested), "Tệp PDF (*.pdf)")
+    try:
+        from aqt.utils import getSaveFile, tooltip, tr
+
+        stats_word = tr.statistics_stats()
+        title = tr.statistics_save_pdf()
+        saved_msg = tr.statistics_saved()
+    except Exception:
+        getSaveFile = None
+        tooltip = None
+        stats_word = "stats"
+        title = "Lưu PDF"
+        saved_msg = "Đã lưu."
+    stamp = datetime.now().strftime("-%Y-%m-%d@%H-%M-%S.pdf")
+    suggested = f"anki-{stats_word}{stamp}"
+    if callable(getSaveFile):
+        path = getSaveFile(
+            mw,
+            title=title,
+            dir_description="stats",
+            key="stats",
+            ext=".pdf",
+            fname=suggested,
+        )
+    else:
+        path, _ = QFileDialog.getSaveFileName(
+            mw, title, str(Path.home() / suggested), "PDF (*.pdf)"
+        )
     if not path:
         return
     destination = str(Path(path).with_suffix(".pdf"))
-    mw.web.page().printToPdf(destination)
+
+    def after_scroll(_arg: Any = None) -> None:
+        if not mw.col or mw.state != "deckBrowser":
+            return
+        page = mw.web.page()
+        if page is not None:
+            page.printToPdf(destination)
+            if callable(tooltip):
+                tooltip(saved_msg)
+
+    mw.web.evalWithCallback(
+        "window.scrollTo(0, 0); document.getElementById('nos-app')?.scrollTo(0, 0);",
+        after_scroll,
+    )
 
 
 def open_statistics() -> None:
@@ -846,14 +912,33 @@ def open_daily_schedule() -> None:
         refresh()
 
 
-def _stats_graphs(scope: str, days: int) -> None:
+def _stats_graphs(
+    scope: str,
+    days: int,
+    search: str | None = None,
+    deck_id: int | None = None,
+) -> None:
     """Fetch the native Anki graphs lazily, only while the Stats page is open."""
     global _stats_request_serial
     if not mw.col or mw.state != "deckBrowser" or _navigating:
         return
+    from .graphs_data import MAX_SEARCH_LENGTH, collect_native_graphs
     if scope not in {"deck", "collection"} or type(days) is not int or days not in {0, 365}:
         send("graphs_error", "Bộ lọc thống kê không hợp lệ.")
         return
+    clean_search: str | None = None
+    if search is not None:
+        if not isinstance(search, str) or len(search) > MAX_SEARCH_LENGTH:
+            send("graphs_error", "Bộ lọc tìm kiếm thẻ không hợp lệ.")
+            return
+        clean_search = search.strip()
+    clean_deck_id: int | None = None
+    if deck_id is not None and deck_id != "":
+        try:
+            clean_deck_id = _deck_id(deck_id)
+        except Exception as error:
+            send("graphs_error", str(error))
+            return
     _stats_request_serial += 1
     token = (_generation, mw.pm.name, _stats_request_serial)
     revision = _data_revision
@@ -861,13 +946,19 @@ def _stats_graphs(scope: str, days: int) -> None:
     def read(col: Any) -> dict[str, Any] | None:
         if token != (_generation, mw.pm.name, _stats_request_serial) or _navigating:
             return None
-        return collect_native_graphs(col, scope, days)
+        return collect_native_graphs(
+            col,
+            scope,
+            days,
+            search=clean_search,
+            deck_id=clean_deck_id,
+        )
 
     def success(payload: dict[str, Any] | None) -> None:
         if not payload or token != (_generation, mw.pm.name, _stats_request_serial):
             return
         if revision != _data_revision:
-            _stats_graphs(scope, days)
+            _stats_graphs(scope, days, search=clean_search, deck_id=clean_deck_id)
             return
         send("graphs", payload)
 
@@ -876,6 +967,34 @@ def _stats_graphs(scope: str, days: int) -> None:
             send("graphs_error", "Không thể tải thống kê Anki: " + str(error))
 
     QueryOp(parent=mw, op=read, success=success).failure(failure).run_in_background()
+
+
+def _stats_select_deck(
+    did: int,
+    scope: str = "deck",
+    days: int = 365,
+    search: str | None = None,
+) -> None:
+    """Switch Anki's selected deck from Stats (like NewDeckStats.on_deck_changed) and reload graphs."""
+    if not mw.col or mw.state != "deckBrowser" or _navigating:
+        return
+    from aqt.operations.deck import set_current_deck
+
+    token = (_generation, mw.pm.name)
+
+    def after_select(_result: Any) -> None:
+        if token != (_generation, mw.pm.name) or not mw.col or mw.state != "deckBrowser":
+            return
+        _stats_graphs(scope if scope in {"deck", "collection"} else "deck",
+                      days if days in {0, 365} else 365,
+                      search=search,
+                      deck_id=did)
+
+    def failed(error: Exception) -> None:
+        if token == (_generation, mw.pm.name):
+            send("graphs_error", "Không thể đổi bộ thẻ thống kê: " + str(error))
+
+    set_current_deck(parent=mw, deck_id=did).success(after_select).failure(failed).run_in_background(initiator=mw.deckBrowser)
 
 
 def _history_year(year: int) -> None:
@@ -910,10 +1029,11 @@ def _history_year(year: int) -> None:
 
 
 def _replace_content(content: Any, context: Any) -> None:
-    global _generation, _overview_rendered, _overview_pending, _dashboard_tree, _live_context
+    global _generation, _overview_rendered, _overview_pending, _dashboard_tree, _live_context, _prefetched_snapshot, _landing_page
     if not isinstance(context, (DeckBrowser, Overview)) or not enabled():
         return
     _live_context = context
+    _prefetched_snapshot = None
     overview = isinstance(context, Overview)
     if overview:
         _overview_rendered = _overview_pending = True
@@ -930,8 +1050,44 @@ def _replace_content(content: Any, context: Any) -> None:
         initial.update(profile=mw.pm.name, settings=public_settings(), fullscreen=mw.isFullScreen())
         content.body += '<textarea id="nos-overview-bootstrap" hidden>' + html.escape(json.dumps(initial, ensure_ascii=True)) + '</textarea>'
     else:
-        layout = settings()["layout"]
+        current_settings = public_settings()
+        layout = current_settings["layout"]
+        sidebar_side = current_settings.get("sidebar_side", DEFAULT_SIDEBAR_SIDE)
         content.body = content.body.replace(f'data-layout="{DEFAULT_LAYOUT}"', f'data-layout="{layout}"', 1)
+        content.body = content.body.replace(f'data-sidebar-side="{DEFAULT_SIDEBAR_SIDE}"', f'data-sidebar-side="{sidebar_side}"', 1)
+        boot_classes = []
+        if current_settings.get("lite_mode"):
+            boot_classes.append("lite-mode")
+        if current_settings.get("blur") is False:
+            boot_classes.append("no-blur")
+        if current_settings.get("animations") is False:
+            boot_classes.append("reduce-motion")
+        animations_attr = "off" if current_settings.get("animations") is False else "on"
+        content.body = content.body.replace(
+            'id="nos-app"',
+            f'id="nos-app" data-animations="{animations_attr}"' + (f' class="{" ".join(boot_classes)}"' if boot_classes else ''),
+            1,
+        )
+        try:
+            initial = quick_snapshot(mw.col, due_tree=_dashboard_tree, revision=_data_revision)
+        except Exception:
+            initial = {"partial": True}
+        initial.update(
+            profile=mw.pm.name,
+            settings=current_settings,
+            fullscreen=mw.isFullScreen(),
+            selected_deck=str(mw.col.decks.selected()),
+            support_revision=_data_revision,
+        )
+        if _library_focus:
+            initial["library_focus"] = _library_focus
+        if _landing_page:
+            initial["open_page"], _landing_page = _landing_page, None
+        content.body += '<textarea id="nos-dashboard-bootstrap" hidden>' + html.escape(json.dumps(initial, ensure_ascii=True)) + '</textarea>'
+        if initial.get("partial"):
+            # Start computing the full revlog snapshot immediately in parallel
+            # with HTML/CSS/JS parsing so first load finishes without waiting.
+            QTimer.singleShot(0, lambda: refresh(prefetch=True))
     package = mw.addonManager.addonFromModule(MODULE)
     base = f"/_addons/{package}/assets"
     content.css = [p for p in content.css if p != "css/deckbrowser.css"]
@@ -1263,12 +1419,13 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
                     )
 
                 def mutated() -> None:
-                    global _data_revision, _review_changes_only, _dashboard_tree
+                    global _data_revision, _review_changes_only, _dashboard_tree, _prefetched_snapshot
                     _dashboard_tree = None
+                    _prefetched_snapshot = None
                     _data_revision += 1
                     _review_changes_only = False
                     clear_snapshot_cache()
-                    clear_support_cache()
+                    _clear_support_cache()
 
                 def launch_review(did: int, minutes: int | None) -> None:
                     if current():
@@ -1300,6 +1457,8 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             mw.moveToState("deckBrowser")
         elif action == "snapshot":
             if command.get('force') is True:
+                global _prefetched_snapshot
+                _prefetched_snapshot = None
                 _data_revision += 1
                 _review_changes_only = False
             refresh()
@@ -1330,7 +1489,26 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             _history_year(int(command.get('year')))
         elif action == "graphs":
             # Native Rust graph data: all standard Anki statistics sections.
-            _stats_graphs(command.get("scope"), command.get("days"))
+            _stats_graphs(
+                command.get("scope"),
+                command.get("days"),
+                search=command.get("search"),
+                deck_id=command.get("deck_id"),
+            )
+        elif action == "stats_select_deck":
+            _stats_select_deck(
+                _deck_id(command.get("deck_id")),
+                scope=command.get("scope") or "deck",
+                days=command.get("days") if command.get("days") in {0, 365} else 365,
+                search=command.get("search"),
+            )
+        elif action == "stats_browser_search":
+            query = str(command.get("query") or "")[:1000]
+            browser = dialogs.open("Browser", mw)
+            browser.search_for(query)
+            browser.show()
+            browser.raise_()
+            browser.activateWindow()
         elif action == "focus_history":
             from .reviewer_ui import focus_history
             send("focus_history", focus_history())
@@ -1417,13 +1595,14 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
 
 
 def _operation_finished(changes: Any, initiator: Any) -> None:
-    global _data_revision, _review_changes_only, _dashboard_tree
+    global _data_revision, _review_changes_only, _dashboard_tree, _prefetched_snapshot
     if not any(getattr(changes, key, False) for key in ('card','note','deck','config','deck_config','notetype','study_queues','mtime')):
         return
     navigation_only = isinstance(initiator, DeckBrowser) and not any(
         getattr(changes, key, False) for key in ('card','note','deck','notetype','deck_config'))
     if not navigation_only:
         _dashboard_tree = None
+        _prefetched_snapshot = None
         _data_revision += 1
         # Answers and mark/flag operations initiated by Reviewer leave the
         # archive/card totals intact. Edits, imports, sync and Undo invalidate it.
@@ -1433,7 +1612,7 @@ def _operation_finished(changes: Any, initiator: Any) -> None:
 
 
 def _profile_closing() -> None:
-    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page
+    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page, _prefetched_snapshot
     _live_context = None
     _generation += 1
     _stats_request_serial += 1
@@ -1441,23 +1620,25 @@ def _profile_closing() -> None:
     _library_focus = None
     _landing_page = None
     _dashboard_tree = None
+    _prefetched_snapshot = None
     _data_revision += 1
     _review_changes_only = False
     _history_queries.clear()
     clear_snapshot_cache()
-    clear_support_cache()
+    _clear_support_cache()
     if _refresh_timer:
         _refresh_timer.stop()
     _restore_chrome()
 
 
 def _sync_finished(*_args: Any) -> None:
-    global _data_revision, _review_changes_only, _dashboard_tree
+    global _data_revision, _review_changes_only, _dashboard_tree, _prefetched_snapshot
     _dashboard_tree = None
+    _prefetched_snapshot = None
     _data_revision += 1
     _review_changes_only = False
     clear_snapshot_cache()
-    clear_support_cache()
+    _clear_support_cache()
     if _refresh_timer and _dashboard_active():
         _refresh_timer.start(120)
 

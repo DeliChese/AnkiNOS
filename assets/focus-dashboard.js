@@ -13,7 +13,8 @@
     const d=new Date(value);
     return Number.isNaN(d.getTime())?value:new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d);
   };
-  let loaded=false;
+  let loaded=false, loadedRevision=null;
+  const currentRevision=()=>window.AnkiNOS?.getSnapshot?.()?.support_revision??null;
   function request(){
     if(typeof window.pycmd==='function'){window.pycmd('nos:'+JSON.stringify({action:'focus_history'}));}
     else{
@@ -23,6 +24,7 @@
   }
   function render(data,preview=false){
     loaded=true;
+    loadedRevision=currentRevision();
     byId('nos-focus-today').textContent=duration(data.today_seconds);
     byId('nos-focus-week').textContent=duration(data.week_seconds);
     byId('nos-focus-total').textContent=duration(data.total_seconds);
@@ -66,6 +68,6 @@
     }
     byId('nos-focus-history-status').textContent=preview?'Bản xem trước · chưa có dữ liệu thật':'Dữ liệu Focus lưu cục bộ theo hồ sơ, không đồng bộ AnkiWeb';
   }
-  window.NOSFocusHistory={request,render,open(){request();}};
+  window.NOSFocusHistory={request,render,open(){if(loaded&&loadedRevision===currentRevision())return;request();}};
   byId('nos-focus-refresh').addEventListener('click',request);
 })();

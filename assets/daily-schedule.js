@@ -27,6 +27,8 @@
   let scopeQuery = '';
   let busy = false;
   let previewMock = null;
+  let loadedRevision = null;
+  const currentRevision = () => window.AnkiNOS?.getSnapshot?.()?.support_revision ?? null;
 
   function fold(text) {
     return String(text || '')
@@ -314,6 +316,7 @@
       const data = await task();
       if (data && data.schedule) {
         state = data;
+        loadedRevision = currentRevision();
         scopeDraft = {
           scope_mode: data.config.scope_mode,
           deck_names: [...(data.config.deck_names || [])],
@@ -828,11 +831,23 @@
   });
 
   function open() {
+    const rev = currentRevision();
+    if (state && loadedRevision === rev) {
+      render();
+      return;
+    }
+    if (state) {
+      // Keep cached schedule visible while refreshing silently in the background.
+      render();
+      runAction('', () => request('load'));
+      return;
+    }
     runAction('Đang tải Lịch ôn…', () => request('load'));
   }
 
   function sync() {
-    if (!page.hidden && !busy) open();
+    const rev = currentRevision();
+    if (!page.hidden && !busy && (!state || loadedRevision !== rev)) open();
   }
 
   window.NOSDaily = {open, sync, receive};

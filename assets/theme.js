@@ -54,7 +54,10 @@
     const id=Object.hasOwn(palettes,settings.color_theme)?settings.color_theme:'nos';
     const palette=palettes[id], variant=light?'light':'dark';
     let [bg,surface,fg,muted,accent]=palette[variant];
-    if(id==='nos'&&mode==='dusk') {bg='#384c6b';surface='#405675';}
+    if(mode==='dusk') {
+      if(id==='nos') {bg='#384c6b';surface='#405675';}
+      else {bg=mix(bg,fg,.075);surface=mix(surface,fg,.07);}
+    }
     if(mode==='oled') {bg='#000000';surface=mix('#000000',surface,.24);}
     if(settings.accent==='custom'&&/^#[0-9a-f]{6}$/i.test(settings.custom_accent||''))accent=settings.custom_accent.toLowerCase();
     else if(Object.hasOwn(accents,settings.accent||'blue'))accent=accents[settings.accent||'blue'];
@@ -69,6 +72,7 @@
       '--glass':surface+(light?'f2':'e8'),'--blue':link,'--accent':accent,'--accent-soft':soft,
       '--primary':primary,'--on-primary':readable(primary),'--mint':success,'--success':success,
       '--warning':warning,'--danger':danger,'--focus':link,
+      '--on-danger':readable(danger),'--on-warning':readable(warning),'--on-blue':readable(link),'--on-success':readable(success),
       '--panel-shadow':`0 14px 40px ${light?'#18203412':'#00000026'}`,
       '--nos-toolbar':surface,'--nos-fg':fg,'--nos-secondary':visible(muted,surface),'--nos-edge':edge,
       '--heat-0':mix(surface,fg,.18), '--heat-1':mix(surface,accent,.38),
@@ -129,6 +133,19 @@
     const hex=document.getElementById('custom-accent-value');if(hex)hex.textContent=input?.value||'';
     const preview=document.getElementById('theme-preview');
     apply(preview,settings);
+    if(preview) {
+      preview.classList.toggle('no-blur', settings.blur===false || !!settings.lite_mode);
+      preview.classList.toggle('reduce-motion', settings.animations===false || !!settings.lite_mode);
+      const meta=document.getElementById('theme-preview-meta');
+      if(meta) {
+        const modeNames={dusk:'Hoàng hôn',night:'Kính tối',oled:'OLED',light:'Sáng',system:'Hệ thống'};
+        const layoutNames={aurora:'Cực quang',bento:'Bento',dock:'Dock nổi',sidebar:'Sidebar',zen:'Zen',edges:'4 Cạnh'};
+        const layoutId=settings.layout||'aurora';
+        const sideNote=(layoutId==='aurora'||layoutId==='sidebar')?(' · '+(settings.sidebar_side==='right'?'Phải':'Trái')):'';
+        const fx=settings.lite_mode?'Lite Mode':((settings.blur===false?'Nền đặc':'Kính mờ')+' · '+(settings.animations===false?'Tắt hiệu ứng':'Hiệu ứng mượt'));
+        meta.textContent=(modeNames[settings.theme||'dusk']||'Hoàng hôn')+' · '+(layoutNames[layoutId]||layoutId)+sideNote+' · '+fx;
+      }
+    }
     const title=document.getElementById('theme-preview-name');if(title)title.textContent=selected.name+' · '+(selected.light?'Sáng':'Tối');
   }
   window.NOSTheme={palettes,resolve,apply,watch,cards,sync,contrast};

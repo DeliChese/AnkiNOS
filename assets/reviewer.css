@@ -94,5 +94,24 @@ html.nos-review-page body { margin: 0; padding: 0; }
   #nos-review-stage { padding:18px 12px; }
   #nos-focus-summary { margin:12px; }
 }
-@media(prefers-reduced-motion:reduce) { #nos-review-header *,#nos-focus-summary * { transition:none!important; animation:none!important; } }
-#nos-review-shell.no-motion #nos-review-header * { transition:none!important; animation:none!important; }
+@media(prefers-reduced-motion:reduce) { #nos-review-shell:not([data-animations="on"]) #nos-review-header *,#nos-review-shell:not([data-animations="on"]) #nos-focus-summary *,#nos-review-shell:not([data-animations="on"]) .nos-review-aurora i { transition:none!important; animation:none!important; } }
+#nos-review-shell.no-motion #nos-review-header *,#nos-review-shell.no-motion #nos-focus-summary *,#nos-review-shell.no-motion .nos-review-aurora i { transition:none!important; animation:none!important; }
+
+/* Fluid reviewer chrome & ambient wallpaper orbs (strictly outside #nos-review-card / #qa). */
+@keyframes nos-rev-drift-a { 0%,100% { transform: translate3d(-6%,-4%,0) scale(1); } 50% { transform: translate3d(8%,6%,0) scale(1.12); } }
+@keyframes nos-rev-drift-b { 0%,100% { transform: translate3d(6%,6%,0) scale(1.06); } 50% { transform: translate3d(-8%,-5%,0) scale(.94); } }
+@keyframes nos-rev-head-in { from { opacity: 0; transform: translate3d(0, -10px, 0); } to { opacity: 1; transform: none; } }
+@keyframes nos-side-morph { 0% { transform: scale(.9); opacity: .6; } 60% { transform: scale(1.06); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes nos-focus-summary-in { from { opacity: 0; transform: translate3d(0, -10px, 0) scale(.985); } to { opacity: 1; transform: none; } }
+#nos-review-shell .nos-review-aurora { position: absolute; inset: -14%; overflow: hidden; pointer-events: none; opacity: .55; }
+#nos-review-shell .nos-review-aurora i { position: absolute; width: min(52vmax, 820px); height: min(52vmax, 820px); border-radius: 50%; }
+#nos-review-shell .nos-review-aurora i:nth-child(1) { left: -10%; top: -18%; background: radial-gradient(circle, color-mix(in srgb, var(--accent, #83b8ff) 48%, transparent), transparent 64%); animation: nos-rev-drift-a 32s ease-in-out infinite; }
+#nos-review-shell .nos-review-aurora i:nth-child(2) { right: -12%; bottom: -20%; background: radial-gradient(circle, color-mix(in srgb, var(--success, #a2efd2) 38%, transparent), transparent 62%); animation: nos-rev-drift-b 40s ease-in-out infinite; }
+#nos-review-shell:is(.lite-mode,.no-motion,[data-custom-background="true"],[data-theme="oled"]) .nos-review-aurora { display: none; }
+#nos-review-shell:not(.no-motion) #nos-review-header { animation: nos-rev-head-in 380ms cubic-bezier(.22,1,.36,1) both; }
+#nos-review-shell:not(.no-motion) #nos-review-header button { transition: transform 240ms cubic-bezier(.22,1.18,.36,1), background-color 220ms ease, border-color 220ms ease; }
+#nos-review-shell:not(.no-motion) #nos-review-header button:hover { transform: translateY(-1px); }
+#nos-review-shell:not(.no-motion) #nos-review-header button:active { transform: scale(.97); }
+#nos-review-shell:not(.no-motion) #nos-review-side { transition: color 260ms ease, background-color 260ms ease, border-color 260ms ease, box-shadow 280ms ease; }
+#nos-review-shell:not(.no-motion) #nos-review-side.nos-side-pulse { animation: nos-side-morph 340ms cubic-bezier(.22,1.22,.36,1); }
+#nos-review-shell:not(.no-motion) #nos-focus-summary:not([hidden]) { animation: nos-focus-summary-in 340ms cubic-bezier(.22,1.12,.36,1) both; }
