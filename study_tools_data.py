@@ -6,15 +6,15 @@ COLLECTION_KEY = "ankinos_learning_collection_uuid"
 
 
 COMMANDS = [
-    ("study", "Học bộ thẻ hiện tại", "học tiếp ôn tập study"),
-    ("daily", "Lịch ôn theo ngày", "lịch ôn theo ngày thông minh due schedule daily"),
-    ("focus", "Bắt đầu Focus", "tập trung thời gian focus"),
-    ("notebook", "Sổ tay của bộ thẻ", "ghi chú sổ tay notes"),
-    ("add", "Thêm thẻ Anki", "tạo thẻ note add"),
-    ("browse", "Duyệt thẻ", "tìm kiếm browser browse"),
-    ("stats", "Thống kê AnkiNOS", "thống kê số liệu lịch sử"),
+    ("study", "Học bộ thẻ hiện tại", "học tiếp ôn tập study review learn current deck"),
+    ("daily", "Lịch ôn theo ngày", "lịch ôn theo ngày thông minh due schedule daily memory"),
+    ("focus", "Bắt đầu Focus", "tập trung thời gian focus timer session"),
+    ("notebook", "Sổ tay của bộ thẻ", "ghi chú sổ tay notes notebook"),
+    ("add", "Thêm thẻ Anki", "tạo thẻ note add cards"),
+    ("browse", "Duyệt thẻ", "tìm kiếm browser browse cards"),
+    ("stats", "Thống kê AnkiNOS", "thống kê số liệu lịch sử stats statistics analytics graphs"),
     ("sync", "Đồng bộ Anki", "đồng bộ ankiweb sync"),
-    ("backup", "Tạo gói sao lưu AnkiNOS", "sao lưu dữ liệu backup"),
+    ("backup", "Tạo gói sao lưu AnkiNOS", "sao lưu dữ liệu backup archive export"),
 ]
 
 

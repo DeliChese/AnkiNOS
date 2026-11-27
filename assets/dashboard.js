@@ -11,8 +11,8 @@
   const $ = id => document.getElementById(id);
   const native = app.dataset.native === 'true' || typeof window.pycmd === 'function';
   const bridgeStarted = performance.now();
-  const format = new Intl.NumberFormat('vi-VN');
-  const historyDate = new Intl.DateTimeFormat('vi-VN', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const format = window.NOSI18n.numberFormat();
+  const historyDate = window.NOSI18n.dateFormat({weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const n = value => format.format(value ?? 0);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const icon = (name, cls = '') => `<svg class="icon ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
@@ -125,7 +125,7 @@
       if (previous.heatmap_day !== state.settings.heatmap_day) renderHeatmap();
     }
     // Never send the image gallery (or large resource lists) back over pycmd.
-    const keys = ['goal','layout','sidebar_side','theme','color_theme','accent','custom_accent','blur','animations','lite_mode','ui_scale',
+    const keys = ['goal','layout','sidebar_side','theme','color_theme','accent','custom_accent','blur','glass_blur','glass_opacity','animations','lite_mode','ui_scale','language',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
       'activity_collapsed','library_collapsed','sidebar_collapsed','view',
       // Image assignments belong exclusively to Studio and save immediately.
@@ -288,6 +288,17 @@
       btn.classList.toggle('active', (btn.dataset.setAccent || 'blue') === (s.accent || 'blue'));
     });
     if ($('set-blur')) $('set-blur').checked = s.blur !== false;
+    const gBlur = Number.isInteger(s.glass_blur) ? s.glass_blur : 16;
+    const gAlpha = Number.isInteger(s.glass_opacity) ? s.glass_opacity : 74;
+    if ($('set-glass-blur')) $('set-glass-blur').value = gBlur;
+    if ($('glass-blur-val')) $('glass-blur-val').textContent = `${gBlur} px`;
+    if ($('set-glass-opacity')) $('set-glass-opacity').value = gAlpha;
+    if ($('glass-opacity-val')) $('glass-opacity-val').textContent = `${gAlpha}%`;
+    const glassDisabled = !!s.lite_mode || s.blur === false;
+    if ($('row-glass-blur')) $('row-glass-blur').classList.toggle('is-overridden', glassDisabled);
+    if ($('row-glass-opacity')) $('row-glass-opacity').classList.toggle('is-overridden', glassDisabled);
+    if ($('set-glass-blur')) $('set-glass-blur').disabled = glassDisabled;
+    if ($('set-glass-opacity')) $('set-glass-opacity').disabled = glassDisabled;
     if ($('set-animations')) $('set-animations').checked = s.animations !== false;
     if ($('row-set-blur')) $('row-set-blur').classList.toggle('is-overridden', !!s.lite_mode);
     if ($('row-set-animations')) $('row-set-animations').classList.toggle('is-overridden', !!s.lite_mode);
@@ -308,12 +319,64 @@
       btn.classList.toggle('active', Number(btn.dataset.scale) === (s.ui_scale || 100));
     });
     const side = s.sidebar_side === 'right' ? 'right' : 'left';
+    const language = window.NOSI18n?.has(s.language) ? s.language : 'vi';
+    app.querySelectorAll('.language-card').forEach(btn => {
+      const selected = btn.dataset.setLanguage === language;
+      btn.classList.toggle('active', selected);
+      btn.setAttribute('aria-checked', String(selected));
+    });
+    renderLanguagePreview(language);
     app.querySelectorAll('#settings-dialog .side-btn[data-sidebar-side]').forEach(btn => {
       const selected = btn.dataset.sidebarSide === side;
       btn.classList.toggle('active', selected);
       btn.setAttribute('aria-pressed', String(selected));
     });
   }
+
+  // Shows a handful of real interface strings in the language being chosen,
+  // without changing the page itself until the user presses Apply.
+  function renderLanguagePreview(lang) {
+    const box = $('language-preview');
+    const i18n = window.NOSI18n;
+    if (!box || !i18n) return;
+    const active = state.settings.language || 'vi';
+    const key = `${lang}|${active}`;
+    if (box.dataset.key === key) return;
+    box.dataset.key = key;
+    const tr = text => escape(i18n.preview(text, lang));
+    const inUse = lang === active;
+    const nav = ['Tổng quan', 'Lịch ôn', 'Thống kê', 'Bộ thẻ', 'Sổ tay', 'Cài đặt'];
+    box.innerHTML = `
+      <div class="language-preview-head">
+        <strong>${tr('Một vài mục sau khi đổi ngôn ngữ')}</strong>
+        <span class="language-preview-badge" data-state="${inUse ? 'active' : 'draft'}">${tr(inUse ? 'Đang dùng' : 'Xem trước · chưa lưu')}</span>
+      </div>
+      <div class="language-preview-row"><span class="language-preview-label">${tr('Điều hướng')}</span>
+        <div class="language-preview-nav">${nav.map(item => `<span>${tr(item)}</span>`).join('')}</div></div>
+      <div class="language-preview-row"><span class="language-preview-label">${tr('Lời chào')}</span>
+        <div><strong>${tr('Chào buổi sáng')}, Minh ✦</strong><p>${tr('Mỗi lần ôn tập, một chút tiến bộ.')}</p></div></div>
+      <div class="language-preview-row"><span class="language-preview-label">${tr('Thẻ chỉ số')}</span>
+        <div class="language-preview-stats">
+          <div><small>${tr('Ghi nhớ')}</small><b>92%</b><em>${tr('30 ngày gần nhất')}</em></div>
+          <div><small>${tr('Nhịp học')}</small><b>109 <span>${tr('lượt/giờ')}</span></b><em>${tr('Tốc độ ôn hôm nay')}</em></div>
+        </div></div>
+      <div class="language-preview-row"><span class="language-preview-label">${tr('Hành động')}</span>
+        <div class="language-preview-action"><span class="language-preview-cta">${tr('Học ngay →')}</span><small>${tr('24 thẻ đang chờ · khoảng 8 phút')}</small></div></div>
+      <div class="language-preview-row"><span class="language-preview-label">${tr('Thanh trạng thái')}</span>
+        <div class="language-preview-action"><small>${tr('Nhấn Áp dụng để lưu thay đổi')}</small><span class="language-preview-apply">${tr('Áp dụng')}</span></div></div>`;
+  }
+
+  // Dynamic text is generated in Vietnamese; rebuild it so dates and numbers
+  // follow the newly selected language.
+  document.addEventListener('nos:language', () => {
+    if (!state.snapshot) return;
+    renderStats();
+    heatmapKey = '';
+    renderHeatmap();
+    libraryRenderKey = '';
+    if ($('library-dialog')?.open) renderLibrary();
+    if ($('settings-dialog')?.open) window.NOSTheme.sync(settingsDraft || state.settings);
+  });
 
   function exportSettings() {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(settingsDraft || state.settings, null, 2));
@@ -351,10 +414,10 @@
   }
 
   function resetSettings() {
-    if (confirm('Khôi phục toàn bộ cài đặt AnkiNOS về mặc định ban đầu?')) {
+    if (confirm(window.NOSI18n.t('Khôi phục toàn bộ cài đặt AnkiNOS về mặc định ban đầu?'))) {
       const defaults = {
         goal: 200, layout: defaultLayout, sidebar_side: 'left', theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
-        blur: true, animations: true, ui_scale: 100,
+        blur: true, glass_blur: 16, glass_opacity: 74, animations: true, ui_scale: 100,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
         heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false
       };
@@ -391,7 +454,7 @@
     const layout = window.NOSLayout?.normalize(s.layout) || defaultLayout;
     const sidebarSide = s.sidebar_side === 'right' ? 'right' : 'left';
     const signature = JSON.stringify([
-      layout,sidebarSide,s.theme,s.color_theme,s.accent,s.custom_accent,s.blur,s.animations,s.lite_mode,s.ui_scale,
+      layout,sidebarSide,s.theme,s.color_theme,s.accent,s.custom_accent,s.blur,s.glass_blur,s.glass_opacity,s.animations,s.lite_mode,s.ui_scale,s.language,
       s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
       s.heatmap_palette,s.activity_collapsed,s.sidebar_collapsed,s.view,
       s.image_dashboard,s.image_avatar,
@@ -403,6 +466,7 @@
     if (app.dataset.layout !== layout) app.dataset.layout = layout;
     if (app.dataset.sidebarSide !== sidebarSide) app.dataset.sidebarSide = sidebarSide;
     window.NOSTheme.apply(app,s,true);
+    window.NOSI18n?.set(s.language || 'vi');
     const background = mediaUrl('image_dashboard', s);
     app.dataset.customBackground = background ? 'true' : 'false';
     // One actual <img> layer; the browser fits the full image once, with
@@ -487,7 +551,7 @@
     const now = new Date(), hour = now.getHours();
     const salutation = hour < 11 ? 'Chào buổi sáng' : hour < 14 ? 'Chào buổi trưa' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
     $('greeting-title').innerHTML = `${salutation}, ${escape(data.profile)} <span class="greeting-spark">✦</span>`;
-    $('today-label').textContent = new Intl.DateTimeFormat('vi-VN', {weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(now).toUpperCase();
+    $('today-label').textContent = window.NOSI18n.dateFormat({weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(now).toUpperCase();
     $('greeting-caption').textContent = data.due ? `${n(data.due)} thẻ đang chờ bạn. Bắt đầu một chút, nhớ thêm thật nhiều.` : 'Một khoảng lặng để học, một bước nhỏ để tiến xa.';
     $('goal-ring').style.setProperty('--progress', `${Math.min(100, percent)}%`);
     $('goal-percent').textContent = `${percent}%`;
@@ -570,7 +634,7 @@
     const data=chartSeries.get(svg.id);
     if (!data) return;
     const point=data.series[index], tip=$('chart-tooltip'), rect=svg.getBoundingClientRect();
-    tip.textContent = `${new Intl.DateTimeFormat('vi-VN',{day:'numeric',month:'numeric'}).format(parseDate(point.date))} · ${point.value == null ? 'Chưa có lượt đo' : `${n(Math.round(point.value*10)/10)} ${data.unit}`}`;
+    tip.textContent = `${window.NOSI18n.dateFormat({day:'numeric',month:'numeric'}).format(parseDate(point.date))} · ${point.value == null ? 'Chưa có lượt đo' : `${n(Math.round(point.value*10)/10)} ${data.unit}`}`;
     tip.hidden=false;
     tip.style.left=`${Math.max(8,Math.min(rect.left+rect.width*index/(data.series.length-1),innerWidth-tip.offsetWidth-8))}px`;
     tip.style.top=`${Math.max(8,rect.top-tip.offsetHeight-9)}px`;
@@ -682,7 +746,7 @@
       end = addDays(start,6);
       from=iso(start);
       $('heatmap-year').textContent = year;
-      $('heatmap-caption').textContent=`${start.toLocaleDateString('vi-VN')} – ${end.toLocaleDateString('vi-VN')}`;
+      $('heatmap-caption').textContent=`${start.toLocaleDateString(window.NOSI18n.locale())} – ${end.toLocaleDateString(window.NOSI18n.locale())}`;
       const values = Array.from({length:7}, (_,i) => data.days[iso(addDays(start,i))]?.reviews || 0);
       const max = Math.max(...values,1);
       html = '<div class="week-chart">' + values.map((count,i) => {
@@ -757,15 +821,19 @@
     const favorite = (state.settings.favorites || []).includes(deck.id);
     const buttonId = escape(deck.id);
     const hasChildren = children.length > 0;
+    const gathered = deck.gathered ?? (deck.new + deck.learn + deck.review);
+    const countCopy = deck.filtered
+      ? `${n(gathered)} thẻ đang gom`
+      : `${n(deck.total)} thẻ${deck.children.length?` · ${n(deck.children.length)} bộ con`:''}`;
     return `<div class="deck-group ${deck.children.length?'deck-parent':'deck-leaf'}" data-deck-id="${buttonId}" data-parent-id="${escape(deck.parent_id||'')}">
       <div class="deck-row">
         ${hasChildren ? `<button class="deck-expand" data-action="expand" data-id="${buttonId}" aria-label="${expanded?'Thu gọn':'Mở rộng'} ${escape(deck.name)}" aria-expanded="${!!expanded}" aria-controls="children-${buttonId}">${icon('chevron')}</button>` : '<span class="deck-expand-spacer"></span>'}
         <span class="folder ${deckColor(deck)}" aria-hidden="true"></span>
-        <div class="deck-info"><button class="deck-name" data-action="study" data-id="${buttonId}" title="${escape(deck.full_name)}">${escape(deck.name)}</button>
-          <div class="deck-meta"><span>${n(deck.total)} thẻ${deck.children.length?` · ${n(deck.children.length)} bộ con`:''}</span>${deck.retention==null?'':`<span class="retention-chip" title="Ghi nhớ trong 30 ngày">${icon('chart')}${n(deck.retention)}%</span>`}${deck.filtered?'<span>Bộ lọc</span>':''}</div>
+        <div class="deck-info"><button class="deck-name" data-action="study" data-id="${buttonId}" title="${escape(deck.full_name)}" data-i18n-skip>${escape(deck.name)}</button>
+          <div class="deck-meta"><span>${countCopy}</span>${deck.retention==null?'':`<span class="retention-chip" title="Ghi nhớ trong 30 ngày">${icon('chart')}${n(deck.retention)}%</span>`}${deck.filtered?'<span>Bộ lọc</span>':''}</div>
           ${deck.children.length?`<button class="subdecks-button" data-action="${expanded?'expand':'show_children'}" data-id="${buttonId}" aria-expanded="${!!expanded}" aria-controls="children-${buttonId}">${icon(expanded?'down':'layers','small')}${expanded?'Thu gọn deck con':`Xem ${n(deck.children.length)} deck con`}</button>`:''}
         </div>
-        <div class="deck-counts" aria-label="${deck.new} mới, ${deck.learn} đang học, ${deck.review} cần ôn"><span class="new-count" title="Thẻ mới">${n(deck.new)}</span><span class="learn-count" title="Đang học">${n(deck.learn)}</span><span class="review-count" title="Cần ôn">${n(deck.review)}</span></div>
+        <div class="deck-counts" aria-label="${deck.new} mới, ${deck.learn} đang học, ${deck.review} cần ôn"><span class="deck-count-badge new-count${deck.new?'':' is-zero'}" title="Thẻ mới"><i aria-hidden="true"></i>${n(deck.new)}</span><span class="deck-count-badge learn-count${deck.learn?'':' is-zero'}" title="Đang học"><i aria-hidden="true"></i>${n(deck.learn)}</span><span class="deck-count-badge review-count${deck.review?'':' is-zero'}" title="Cần ôn"><i aria-hidden="true"></i>${n(deck.review)}</span></div>
         <button class="study-button" data-action="study" data-id="${buttonId}" aria-label="Học ${escape(deck.name)}">${icon('play')}Học</button>
         <button class="favorite-button ${favorite?'is-favorite':''}" data-action="favorite" data-id="${buttonId}" aria-label="${favorite?'Bỏ sao':'Gắn sao'} ${escape(deck.name)}" aria-pressed="${favorite}">${icon('star')}</button>
         <button class="delete-deck-button" data-action="delete_deck" data-id="${buttonId}" title="Xóa bộ thẻ" aria-label="Xóa ${escape(deck.full_name)}">${icon('trash')}</button>
@@ -825,14 +893,15 @@
     const matches = resources.filter(r => searchText(r.name).includes(searchText(state.query.trim())));
     $('resources-section').hidden = !showResources || (!matches.length && !!state.query);
     $('resource-result-count').textContent = n(matches.length);
-    $('resource-list').innerHTML = matches.length ? matches.map(resource => `<div class="resource-card"><button class="resource-open" data-action="open_resource" data-id="${escape(resource.id)}" title="${escape(resource.path)}"><span class="file-icon ${resource.kind === 'pdf' ? 'pdf' : resource.kind === 'link' ? 'link' : ''}">${icon(resource.kind === 'link' ? 'link' : 'file')}</span><span class="resource-info"><span class="resource-name">${escape(resource.name)}</span><span class="resource-detail">${escape(resource.kind.toUpperCase())} · ${escape(resource.detail)}</span></span></button><button class="more-button" data-action="resource_menu" data-id="${escape(resource.id)}" aria-label="Tùy chọn ${escape(resource.name)}">${icon('more')}</button></div>`).join('') : `<div class="resource-empty">${icon('file')}<span>Gắn PDF, tài liệu hoặc liên kết để học cùng bộ thẻ.</span><button class="text-button" data-action="add_file">Thêm file ${icon('plus','small')}</button></div>`;
+    $('resource-list').innerHTML = matches.length ? matches.map(resource => `<div class="resource-card"><button class="resource-open" data-action="open_resource" data-id="${escape(resource.id)}" title="${escape(resource.path)}"><span class="file-icon ${resource.kind === 'pdf' ? 'pdf' : resource.kind === 'link' ? 'link' : ''}">${icon(resource.kind === 'link' ? 'link' : 'file')}</span><span class="resource-info"><span class="resource-name" data-i18n-skip>${escape(resource.name)}</span><span class="resource-detail">${escape(resource.kind.toUpperCase())} · ${escape(resource.detail)}</span></span></button><button class="more-button" data-action="resource_menu" data-id="${escape(resource.id)}" aria-label="Tùy chọn ${escape(resource.name)}">${icon('more')}</button></div>`).join('') : `<div class="resource-empty">${icon('file')}<span>Gắn PDF, tài liệu hoặc liên kết để học cùng bộ thẻ.</span><button class="text-button" data-action="add_file">Thêm file ${icon('plus','small')}</button></div>`;
     $('empty-state').hidden = decks.length > 0 || (showResources && (matches.length > 0 || !state.query));
     $('library-footer-copy').textContent = `${n(all.length)} bộ thẻ · ${n(resources.length)} tài nguyên · ${n(state.snapshot.total_cards)} thẻ`;
     if (!all.length && state.filter !== 'resources' && !state.query && !state.color) {
       $('deck-section').hidden = false;
       $('deck-list').innerHTML = `<div class="resource-empty">${icon('folder')}<span>Bộ sưu tập chưa có bộ thẻ.</span><button class="subtle-button" data-action="create_deck">Tạo bộ thẻ</button></div>`;
     }
-    libraryRenderedOnce = true;
+    // Only treat the hidden library as hydrated once a non-partial snapshot has rendered.
+    libraryRenderedOnce = !state.snapshot.partial;
   }
   function flattenFiltered(nodes) {
     return nodes.flatMap(node=>[node,...flattenFiltered(node.visibleChildren||[])]);
@@ -879,8 +948,12 @@
     let dialog=$('command-preview-dialog');
     if(!dialog){
       dialog=document.createElement('dialog');dialog.id='command-preview-dialog';dialog.className='command-preview-dialog';dialog.setAttribute('aria-label','Lệnh nhanh AnkiNOS');
-      const frame=document.createElement('iframe');frame.src='ankios-tools.html?tool=palette';frame.title='Lệnh nhanh';dialog.append(frame);app.append(dialog);
+      const frame=document.createElement('iframe');frame.src='ankios-tools.html?tool=palette&lang='+encodeURIComponent(window.NOSI18n?.language()||'vi');frame.title='Lệnh nhanh';dialog.append(frame);app.append(dialog);
       window.addEventListener('message',event=>{if(event.source===frame.contentWindow&&event.data?.nosToolClose===true)dialog.close();});
+    } else {
+      const frame=dialog.querySelector('iframe');
+      const targetSrc='ankios-tools.html?tool=palette&lang='+encodeURIComponent(window.NOSI18n?.language()||'vi');
+      if(frame&&frame.getAttribute('src')!==targetSrc)frame.src=targetSrc;
     }
     dialog.showModal();
   }
@@ -999,6 +1072,8 @@
   app.addEventListener('click', event => {
     const navBtn = event.target.closest('.settings-nav-btn[data-settings-tab]');
     if (navBtn) { switchSettingsTab(navBtn.dataset.settingsTab); return; }
+    const languageBtn = event.target.closest('.language-card[data-set-language]');
+    if (languageBtn) { saveUI({language: languageBtn.dataset.setLanguage}); return; }
     const themeBtn = event.target.closest('.theme-pill-btn[data-set-theme]');
     if (themeBtn) { saveUI({theme: themeBtn.dataset.setTheme}); return; }
     const accentBtn = event.target.closest('.accent-dot-btn[data-set-accent]');
@@ -1159,6 +1234,16 @@
     });
   }
   $('set-blur')?.addEventListener('change', e => saveUI({blur: e.target.checked}));
+  $('set-glass-blur')?.addEventListener('input', e => {
+    const val = Number(e.target.value);
+    if ($('glass-blur-val')) $('glass-blur-val').textContent = `${val} px`;
+    saveUI({glass_blur: val});
+  });
+  $('set-glass-opacity')?.addEventListener('input', e => {
+    const val = Number(e.target.value);
+    if ($('glass-opacity-val')) $('glass-opacity-val').textContent = `${val}%`;
+    saveUI({glass_opacity: val});
+  });
   $('set-animations')?.addEventListener('change', e => saveUI({animations: e.target.checked}));
   $('set-stat-retention')?.addEventListener('change', e => saveUI({stat_retention: e.target.checked}));
   $('set-stat-pace')?.addEventListener('change', e => saveUI({stat_pace: e.target.checked}));
@@ -1202,7 +1287,7 @@
     const cell = event.target.closest('[data-tooltip]');
     if (!cell) return;
     const tip = $('heat-tooltip');
-    tip.textContent = cell.dataset.tooltip;
+    tip.textContent = window.NOSI18n ? window.NOSI18n.t(cell.dataset.tooltip) : cell.dataset.tooltip;
     tip.hidden = false;
     const rect = cell.getBoundingClientRect();
     tip.style.left = `${Math.max(8,Math.min(rect.left,window.innerWidth - tip.offsetWidth - 8))}px`;
@@ -1229,7 +1314,7 @@
       trends:{retention:trend(92.4,89.9,'30 ngày trước'),pace:trend(109,Math.round(yesterday.reviews/yesterday.milliseconds*3600000),'cùng giờ hôm qua'),milliseconds:trend(6120000,yesterday.milliseconds,'cùng giờ hôm qua'),reviews:trend(186,yesterday.reviews,'cùng giờ hôm qua')},
       stats:{retention:92.4,pace:109,milliseconds:6120000,reviews:186,streak:27,tested:3248},
       decks:[deck('101','Tiếng Anh — Từ vựng',4872,'blue',[deck('111','Từ vựng theo chủ đề',1520,'blue'),deck('112','Collocations & Phrasal Verbs',2180,'purple'),deck('113','Idioms',1172,'purple')]),deck('102','Tiếng Nhật — N5',1986,'pink'),deck('103','Y học cơ sở',1204,'green'),deck('104','Lịch sử Việt Nam',642,'amber')],
-      settings:{goal:200,layout:state.settings.layout || defaultLayout,theme:'dusk',view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
+      settings:{goal:200,layout:state.settings.layout || defaultLayout,theme:'dusk',language:new URLSearchParams(location.search).get('lang')||'vi',view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
   }
   // Paint immediately from inline bootstrap when hosted in Anki so startup
   // feels instantaneous, then pull the prefetched full revlog snapshot if partial.

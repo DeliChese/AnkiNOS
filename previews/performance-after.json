@@ -1,20 +1,20 @@
 {
   "decks": 12300,
-  "initial_js_ms": 28,
+  "initial_js_ms": 33,
   "settings_js_ms": 1,
   "unchanged_rows_retained": true,
   "unchanged_chart_retained": true,
-  "first_popup_frame_ms": 177,
-  "reopen_median_ms": 57,
-  "expand_frame_ms": 88,
+  "first_popup_frame_ms": 156,
+  "reopen_median_ms": 66,
+  "expand_frame_ms": 83,
   "sibling_retained": true,
   "child_buttons": 40,
   "media_studio": {
     "photos": 100,
     "prepared_before_open": 100,
-    "first_open_js_ms": 38,
-    "first_frame_ms": 89,
-    "reopen_median_ms": 53,
+    "first_open_js_ms": 35,
+    "first_frame_ms": 75,
+    "reopen_median_ms": 50,
     "thumbnail_nodes_retained": true
   }
 }

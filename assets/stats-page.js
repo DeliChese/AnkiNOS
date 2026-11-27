@@ -12,10 +12,10 @@
   if (!app || window.NOSStats) return;
 
   const $ = id => document.getElementById(id);
-  const fmtInt = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
-  const fmt1 = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
-  const fmt2 = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const fmtPct1 = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const fmtInt = window.NOSI18n.numberFormat({ maximumFractionDigits: 0 });
+  const fmt1 = window.NOSI18n.numberFormat({ maximumFractionDigits: 1 });
+  const fmt2 = window.NOSI18n.numberFormat({ minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtPct1 = window.NOSI18n.numberFormat({ minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const fmt = n => fmt1.format(Number(n) || 0);
   const fmtWhole = n => fmtInt.format(Math.round(Number(n) || 0));
   const num = value => {
@@ -684,7 +684,7 @@
       });
     }
     const totalVal = sum(rows.map(r => totals(r.values, typeKeys)));
-    const studiedPct = rangeLen ? fmt2.format((daysStudied / rangeLen) * 100) : '0,00';
+    const studiedPct = rangeLen ? fmt2.format((daysStudied / rangeLen) * 100) : fmt2.format(0);
     const avgIfDaily = rangeLen ? totalVal / rangeLen : 0;
     const avgStudiedDays = daysStudied ? totalVal / daysStudied : 0;
 
@@ -693,12 +693,15 @@
       checkToggle('reviews', 'time', 'Thời gian', isTime) +
       radioGroup('reviews', 'range', rangeOptions, state.range);
 
+    const isEn = window.NOSI18n?.language() === 'en';
+    const minTick = isEn ? 'm' : 'p';
+    const hrTick = isEn ? 'h' : 'g';
     const plot = stackPlot(rows, REVIEW_TYPES, {
       maxBars: 64,
       cumulative: true,
       aria: isTime ? 'Thời gian ôn tập theo ngày' : 'Số câu hỏi đã trả lời theo ngày',
-      tick: isTime ? v => fmt(v) + 'p' : undefined,
-      cumTick: isTime ? v => (v >= 60 ? fmt(v / 60) + 'g' : fmtWhole(v) + 'p') : undefined,
+      tick: isTime ? v => fmt(v) + minTick : undefined,
+      cumTick: isTime ? v => (v >= 60 ? fmt(v / 60) + hrTick : fmtWhole(v) + minTick) : undefined,
       tooltip: isTime ? v => fmt(v) + ' phút' : v => fmtWhole(v) + ' thẻ',
     });
 
@@ -1193,6 +1196,9 @@
     }
     const deckLabel = $('stats-deck-name');
     if (deckLabel) {
+      const isCustom = !!(selectedDeckName && selectedDeckName !== 'Bộ thẻ hiện tại');
+      if (isCustom) deckLabel.setAttribute('data-i18n-skip', '');
+      else deckLabel.removeAttribute('data-i18n-skip');
       deckLabel.textContent = selectedDeckName || 'Bộ thẻ hiện tại';
     }
   }
@@ -1518,7 +1524,7 @@
       const selected = d.id === deckDraftId;
       const depth = Math.max(0, d.name.split('::').length - 1);
       return `<button type="button" class="stats-deck-option${selected ? ' active' : ''}" role="option" aria-selected="${selected}" data-deck-id="${esc(d.id)}" style="--depth:${depth}">` +
-        `<span class="stats-deck-option-name">${esc(d.name)}</span>` +
+        `<span class="stats-deck-option-name" data-i18n-skip>${esc(d.name)}</span>` +
         `</button>`;
     }).join('');
   }
@@ -1636,7 +1642,8 @@
     }
     const text = target.getAttribute('data-tip');
     if (!text) { tipEl.hidden = true; return; }
-    if (tipEl.textContent !== text) tipEl.textContent = text;
+    const translated = window.NOSI18n ? window.NOSI18n.t(text) : text;
+    if (tipEl.textContent !== translated) tipEl.textContent = translated;
     tipEl.hidden = false;
     positionTip(event);
   });
@@ -1772,6 +1779,10 @@
     if (typeof window.pycmd === 'function') {
       window.pycmd('nos:' + JSON.stringify({ action: 'stats_pdf' }));
     }
+  });
+
+  document.addEventListener('nos:language', () => {
+    if (activePayload) render(activePayload);
   });
 
   window.NOSStats = { open, reload, receive, refreshMetrics };

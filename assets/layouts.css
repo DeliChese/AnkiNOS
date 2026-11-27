@@ -653,12 +653,12 @@
     transition: opacity 380ms ease, transform 420ms cubic-bezier(.22,1,.36,1);
   }
   #nos-app[data-layout="edges"]:not(.lite-mode):not(.no-blur) :is(.study-launchpad,.daily-goal) {
-    background: color-mix(in srgb, var(--surface) 66%, transparent) !important;
-    backdrop-filter: blur(18px) saturate(1.28) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(1.28) !important;
+    background: color-mix(in srgb, var(--surface) var(--glass-alpha, 74%), transparent) !important;
+    backdrop-filter: blur(var(--glass-blur, 16px)) saturate(1.28) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur, 16px)) saturate(1.28) !important;
   }
   #nos-app[data-layout="edges"] .activity-panel {
-    background: color-mix(in srgb, var(--surface) 68%, transparent) !important;
+    background: color-mix(in srgb, var(--surface) var(--glass-card-alpha, 82%), transparent) !important;
     border-radius: 22px;
   }
   #nos-app[data-layout="edges"] .study-launchpad { border-radius: 22px; }

@@ -342,14 +342,17 @@ class DailySchedulerTests(unittest.TestCase):
                 future.set_exception(error)
             done(future)
 
-        mw = types.SimpleNamespace(col=col, taskman=types.SimpleNamespace(with_progress=run_operation),
+        deck_browser = object()
+        mw = types.SimpleNamespace(col=col, deckBrowser=deck_browser,
+                                   taskman=types.SimpleNamespace(with_progress=run_operation),
                                    _increase_background_ops=lambda: None, _decrease_background_ops=lambda: None,
                                    update_undo_actions=lambda: None)
-        reported, replies, launched = [], [], []
+        reported, initiators, replies, launched = [], [], [], []
 
-        def collect_changes(changes, _initiator):
+        def collect_changes(changes, initiator):
             self.assertIsInstance(changes, OpChanges)
             reported.append(changes)
+            initiators.append(initiator)
 
         def dispatch(method, **fields):
             bridge_mod.handle({"method": method, **fields}, root=self.root, profile="Alice",
@@ -363,6 +366,7 @@ class DailySchedulerTests(unittest.TestCase):
             dispatch("apply_plan")
             batch_id = replies[-1]["data"]["apply_result"]["batch"]["id"]
             self.assertTrue(reported[-1].card)
+            self.assertIs(initiators[-1], deck_browser)
             self.assertEqual(col.get_card(card.id).due, today)
             dispatch("apply_plan")
             self.assertEqual(replies[-1]["data"]["apply_result"]["applied"], 0)
@@ -370,17 +374,75 @@ class DailySchedulerTests(unittest.TestCase):
             dispatch("rollback_batch", batch_id=batch_id)
             self.assertEqual(replies[-1]["data"]["rollback_result"]["restored"], 1)
             self.assertTrue(reported[-1].card)
+            self.assertIs(initiators[-1], deck_browser)
             self.assertEqual(col.get_card(card.id).due, today - 1)
             dispatch("apply_plan")
             dispatch("study_today", minutes=15)
             filtered = col.decks.id_for_name(bridge_mod.FILTERED_DECK_NAME)
             self.assertIsNotNone(filtered)
             self.assertEqual(launched[-1], (filtered, 15))
+            self.assertEqual(replies[-1]["data"], {"started": True, "deck_id": str(filtered), "count": 1})
             self.assertTrue(reported[-1].card and reported[-1].deck)
+            self.assertIs(initiators[-1], deck_browser)
             self.assertEqual(col.get_card(card.id).odid, did)
             dispatch("study_today")
             self.assertEqual(launched[-1], (filtered, None))
+            self.assertEqual(replies[-1]["data"], {"started": True, "deck_id": str(filtered), "count": 1})
             self.assertTrue(reported[-1].card)
+            self.assertIs(initiators[-1], deck_browser)
+
+    @unittest.skipUnless(importlib.util.find_spec("aqt"), "requires Anki's Qt operations")
+    def test_live_update_guard_blocks_deckbrowser_reload_during_navigation(self) -> None:
+        from anki.collection import OpChanges
+        from anki.lang import set_lang
+        import aqt.deckbrowser as deckbrowser_mod
+
+        set_lang("en_US")
+        spec = importlib.util.spec_from_file_location(f"{PKG}.integration", ROOT / "integration.py")
+        integ = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = integ
+        for dep in ("data", "theme_settings"):
+            if f"{PKG}.{dep}" not in sys.modules:
+                dspec = importlib.util.spec_from_file_location(f"{PKG}.{dep}", ROOT / f"{dep}.py")
+                dmod = importlib.util.module_from_spec(dspec)
+                sys.modules[dspec.name] = dmod
+                dspec.loader.exec_module(dmod)
+        spec.loader.exec_module(integ)
+
+        orig_op = deckbrowser_mod.DeckBrowser.op_executed
+        orig_refresh = deckbrowser_mod.DeckBrowser.refresh
+        reloads = []
+
+        class _DummyDeckBrowser(deckbrowser_mod.DeckBrowser):
+            def __init__(self):
+                self._refresh_needed = False
+
+        def fake_op(view, changes, handler, focused):
+            reloads.append(("op", handler, focused))
+            return True
+
+        def fake_refresh(view):
+            reloads.append(("refresh",))
+
+        self.addCleanup(setattr, deckbrowser_mod.DeckBrowser, "op_executed", orig_op)
+        self.addCleanup(setattr, deckbrowser_mod.DeckBrowser, "refresh", orig_refresh)
+        deckbrowser_mod.DeckBrowser.op_executed = fake_op
+        deckbrowser_mod.DeckBrowser.refresh = fake_refresh
+        integ._guard_live_updates()
+
+        view = _DummyDeckBrowser()
+        fake_mw = types.SimpleNamespace(col=object(), state="deckBrowser")
+        with (
+            patch.object(integ, "mw", fake_mw),
+            patch.object(integ, "enabled", lambda: True),
+            patch.object(integ, "_live_context", view),
+            patch.object(integ, "_navigating", True),
+        ):
+            changes = OpChanges(study_queues=True, card=True, deck=True)
+            dirty = deckbrowser_mod.DeckBrowser.op_executed(view, changes, None, True)
+            self.assertFalse(dirty)
+            deckbrowser_mod.DeckBrowser.refresh(view)
+            self.assertEqual(reloads, [])
 
 
 if __name__ == "__main__":

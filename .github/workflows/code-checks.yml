@@ -18,13 +18,17 @@ jobs:
         with:
           node-version: '22'
       - name: Python syntax
-        run: python -m compileall -q integration.py reviewer_ui.py media_store.py data.py graphs_data.py
+        run: python -m compileall -q integration.py i18n.py reviewer_ui.py study_tools_ui.py study_tools_data.py media_store.py data.py graphs_data.py daily_scheduler.py daily_store.py daily_bridge.py backup_store.py focus_store.py study_data.py theme_settings.py workspace_store.py
       - name: Local image library tests
         run: python -m unittest discover -s tests -p 'test_media.py'
-      - name: Theme preferences and archive tests
+      - name: Theme, i18n, and archive tests
         run: |
           python -m unittest discover -s tests -p 'test_theme.py'
+          python -m unittest discover -s tests -p 'test_i18n.py'
           python -m unittest discover -s tests -p 'test_backup.py'
+          python -m unittest discover -s tests -p 'test_daily_scheduler.py'
+          python -m unittest discover -s tests -p 'test_focus.py'
+          python -m unittest discover -s tests -p 'test_workspace.py'
       - name: Install Anki backend
         run: python -m pip install "anki>=25.02,<27"
       - name: Native statistics backend tests
@@ -32,11 +36,24 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check assets/dashboard.js
+          node --check assets/i18n.js
+          node --check assets/i18n-en.js
           node --check assets/theme.js
+          node --check assets/layouts.js
           node --check assets/media-studio.js
           node --check assets/stats-page.js
+          node --check assets/focus-dashboard.js
+          node --check assets/study-dashboard.js
+          node --check assets/daily-schedule.js
           node --check assets/overview.js
           node --check assets/reviewer.js
+          node --check assets/reviewer-bottom.js
+          node --check assets/tools.js
+          node --check assets/commands.js
+          node --check assets/notebook.js
+          node --check assets/runtime-guard.js
+      - name: Interface language checks
+        run: node tests/i18n-check.mjs
       - name: Dashboard preview browser smoke test
         env:
           NOS_CHROME: /usr/bin/google-chrome

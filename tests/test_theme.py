@@ -36,6 +36,22 @@ class ThemeTests(unittest.TestCase):
         for invalid in ("top", "bottom", "", None, 123, True):
             self.assertEqual(theme.clean_theme_settings({"sidebar_side": invalid}), {})
 
+    def test_glassmorphism_sliders_are_validated(self):
+        self.assertEqual(theme.clean_theme_settings({"glass_blur": 24, "glass_opacity": 60}), {"glass_blur": 24, "glass_opacity": 60})
+        self.assertEqual(theme.clean_theme_settings({"glass_blur": 0, "glass_opacity": 30}), {"glass_blur": 0, "glass_opacity": 30})
+        self.assertEqual(theme.clean_theme_settings({"glass_blur": 32, "glass_opacity": 100}), {"glass_blur": 32, "glass_opacity": 100})
+        for bad in (-1, 33, "16", True, None, 16.5):
+            self.assertEqual(theme.clean_theme_settings({"glass_blur": bad}), {})
+        for bad in (29, 101, "74", False, None, 74.5):
+            self.assertEqual(theme.clean_theme_settings({"glass_opacity": bad}), {})
+
+    def test_language_is_validated(self):
+        for code in ("vi", "en"):
+            self.assertEqual(theme.clean_theme_settings({"language": code}), {"language": code})
+        for invalid in ("fr", "EN", "", None, 1, True, ["en"]):
+            self.assertEqual(theme.clean_theme_settings({"language": invalid}), {})
+        self.assertIn(theme.DEFAULT_LANGUAGE, theme.LANGUAGES)
+
 
 if __name__ == "__main__":
     unittest.main()

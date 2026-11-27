@@ -8,20 +8,23 @@ html[data-nos-theme="true"], html[data-nos-theme="true"] body { background:var(-
 #nos-app[data-color-theme] .glass { background:var(--glass) !important; color:var(--text) !important; border-color:var(--edge) !important; }
 #nos-app[data-color-theme] :is(.rail,.nos-edge-dock,.settings-panel,.library-panel,.profile-panel,.launcher,.info-panel,.heat-tooltip,.chart-tooltip,.toast,.overview-menu,.study-launchpad,.study-insight,.command-preview-dialog) { background:var(--surface) !important; color:var(--text); border-color:var(--edge); }
 /* Real frosted glass blur on floating chrome & overview surfaces when Blur is enabled. */
-#nos-app[data-color-theme]:not(.lite-mode):not(.no-blur) :is(.rail.glass,.nos-edge-dock.glass,.profile-panel.glass,.launcher.glass,.nos-layout-menu.glass,.overview-hero.glass,.overview-today.glass,.overview-menu.glass) {
-  background:color-mix(in srgb, var(--surface) 74%, transparent) !important;
-  backdrop-filter:blur(16px) saturate(1.28) !important;
-  -webkit-backdrop-filter:blur(16px) saturate(1.28) !important;
+#nos-app[data-color-theme]:not(.lite-mode):not(.no-blur) :is(.rail.glass,.nos-edge-dock.glass,.profile-panel.glass,.launcher.glass,.nos-layout-menu.glass,.overview-hero.glass,.overview-today.glass,.overview-menu.glass,.study-launchpad,.daily-goal) {
+  background:color-mix(in srgb, var(--surface) var(--glass-alpha, 74%), transparent) !important;
+  backdrop-filter:blur(var(--glass-blur, 16px)) saturate(1.28) !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur, 16px)) saturate(1.28) !important;
 }
-#nos-app[data-color-theme]:is(.lite-mode,.no-blur) :is(.rail.glass,.nos-edge-dock.glass,.profile-panel.glass,.launcher.glass,.nos-layout-menu.glass,.overview-hero.glass,.overview-today.glass,.overview-menu.glass) {
+#nos-app[data-color-theme]:not(.lite-mode):not(.no-blur) .activity-panel {
+  background:color-mix(in srgb, var(--surface) var(--glass-card-alpha, 82%), transparent) !important;
+}
+#nos-app[data-color-theme]:is(.lite-mode,.no-blur) :is(.rail.glass,.nos-edge-dock.glass,.profile-panel.glass,.launcher.glass,.nos-layout-menu.glass,.overview-hero.glass,.overview-today.glass,.overview-menu.glass,.study-launchpad,.daily-goal) {
   background:var(--surface) !important;
   backdrop-filter:none !important;
   -webkit-backdrop-filter:none !important;
 }
 /* High-contrast semantic colors across Light, Dusk, Night, and OLED modes. */
-#nos-app[data-color-theme] .new-count { color:var(--blue); }
-#nos-app[data-color-theme] .learn-count { color:var(--danger); }
-#nos-app[data-color-theme] .review-count, #nos-app[data-color-theme] .retention-chip { color:var(--success); }
+#nos-app[data-color-theme] .new-count { --badge-color:var(--blue); color:var(--blue); }
+#nos-app[data-color-theme] .learn-count { --badge-color:var(--danger); color:var(--danger); }
+#nos-app[data-color-theme] .review-count, #nos-app[data-color-theme] .retention-chip { --badge-color:var(--success); color:var(--success); }
 #nos-app[data-color-theme] .delete-deck-button { color:var(--danger); }
 #nos-app[data-color-theme] :is(.empty-state h3,.week-count,.deck-expand,.deck-row .favorite-button,.deck-row .more-button,.search-box .icon,.popup-menu .icon,.section-icon,.section-icon.layers-icon .icon) { color:var(--text); }
 #nos-app[data-color-theme] .daily-overdue { border-color:color-mix(in srgb, var(--warning) 55%, var(--edge)); }
@@ -80,10 +83,10 @@ html[data-nos-theme="true"], html[data-nos-theme="true"] body { background:var(-
 #nos-app .accent-dot-btn[data-set-accent="auto"] { width:auto; min-width:44px; padding:5px 10px; font-size:11px; border-radius:8px; background:var(--inner); color:var(--text); }
 #nos-app .custom-accent-label { display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:11px; margin:4px 0 0; flex-wrap:wrap; }
 #nos-app #set-custom-accent { width:34px; height:26px; padding:2px; background:var(--inner); border:1px solid var(--edge); border-radius:7px; cursor:pointer; }
-#nos-app .theme-preview { position:sticky; top:0; z-index:4; background:var(--theme-bg); color:var(--text); border:1px solid var(--edge); border-radius:15px; padding:11px 14px; margin:0 0 12px; box-shadow:0 10px 28px rgba(0,0,0,.22); }
+#nos-app .theme-preview { position:sticky; top:0; z-index:4; background:radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 52%), radial-gradient(circle at 86% 82%, color-mix(in srgb, var(--success) 26%, transparent), transparent 54%), var(--theme-bg); color:var(--text); border:1px solid var(--edge); border-radius:15px; padding:11px 14px; margin:0 0 12px; box-shadow:0 10px 28px rgba(0,0,0,.22); }
 #nos-app .theme-preview-head { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; font-size:12px; margin-bottom:8px; }
 #nos-app .theme-preview-head small { color:var(--muted); font-size:10px; }
-#nos-app .theme-preview-panel { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center; padding:9px 12px; background:color-mix(in srgb, var(--surface) 82%, transparent); border:1px solid var(--edge); border-radius:10px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+#nos-app .theme-preview-panel { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center; padding:9px 12px; background:color-mix(in srgb, var(--surface) var(--glass-alpha, 74%), transparent); border:1px solid var(--edge); border-radius:10px; backdrop-filter:blur(var(--glass-blur, 16px)) saturate(1.25); -webkit-backdrop-filter:blur(var(--glass-blur, 16px)) saturate(1.25); }
 #nos-app .theme-preview.no-blur .theme-preview-panel { background:var(--surface); backdrop-filter:none; -webkit-backdrop-filter:none; }
 #nos-app .theme-preview-panel p { font-size:11px; color:var(--muted); }
 #nos-app .theme-preview-cta { background:var(--primary); color:var(--on-primary); padding:6px 12px; border-radius:8px; font-size:11px; font-weight:650; }
@@ -96,6 +99,10 @@ html[data-nos-theme="true"], html[data-nos-theme="true"] body { background:var(-
 #nos-app .settings-card { background:var(--inner); border:1px solid var(--edge); border-radius:15px; padding:12px 14px; margin-bottom:12px; }
 #nos-app .settings-card .settings-group-title { margin-top:0; border-bottom-color:var(--edge); }
 #nos-app .settings-card .nos-layout-grid { margin:10px 0 8px; }
+#nos-app .settings-slider-row { flex-direction:column; align-items:stretch; gap:6px; }
+#nos-app .settings-slider-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+#nos-app .settings-slider-head output { font-size:11.5px; font-weight:650; color:var(--blue); padding:2px 8px; border-radius:999px; background:var(--accent-soft); border:1px solid var(--edge); font-variant-numeric:tabular-nums; }
+#nos-app .settings-slider-row .nos-range { margin:4px 0 2px; }
 #nos-app .settings-lite-hint { margin:6px 0 0; padding:8px 10px; border-radius:9px; font-size:11px; background:var(--accent-soft); border:1px solid var(--edge); color:var(--text); }
 #nos-app .settings-row.is-overridden { opacity:.55; }
 #nos-app .theme-swatch.system { background:linear-gradient(135deg, #1b2842 0 50%, #eef3fc 50% 100%); }
@@ -109,9 +116,9 @@ html[data-nos-theme="true"], html[data-nos-theme="true"] body { background:var(-
 #nos-review-shell[data-color-theme][data-custom-background="true"] .nos-review-wallpaper::after { background:rgba(0,0,0,var(--wall-dim,.28)); }
 #nos-review-shell[data-color-theme] #nos-review-header { background:var(--surface); color:var(--text); border-color:var(--edge); }
 #nos-review-shell[data-color-theme]:not(.lite-mode):not(.no-blur) #nos-review-header {
-  background:color-mix(in srgb, var(--surface) 80%, transparent);
-  backdrop-filter:blur(14px) saturate(1.2);
-  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  background:color-mix(in srgb, var(--surface) var(--glass-alpha, 74%), transparent);
+  backdrop-filter:blur(var(--glass-blur, 16px)) saturate(1.22);
+  -webkit-backdrop-filter:blur(var(--glass-blur, 16px)) saturate(1.22);
 }
 #nos-review-shell[data-color-theme] :is(#nos-review-header button,#nos-review-tools select,#nos-review-side,#nos-focus-summary,#nos-focus-summary button) { background:var(--surface); color:var(--text); border-color:var(--edge); }
 #nos-review-shell[data-color-theme] #nos-review-progress { color:var(--muted); }
@@ -130,17 +137,20 @@ html[data-nos-ratings="true"] #middle button[data-ease="4"] { --rating:var(--suc
 html[data-nos-ratings="true"] #time { color:var(--muted); }
 
 /* Separate command/notebook WebViews share the profile palette. */
-#nos-tool[data-color-theme] { background:var(--theme-bg); color:var(--text); }
+#nos-tool[data-color-theme] { background:var(--theme-bg); color:var(--text); border-color:var(--edge); }
 #nos-tool[data-color-theme] .tool-header,
 #nos-tool[data-color-theme] .tool-footer,
 #nos-tool[data-color-theme] .note-editor-footer { border-color:var(--edge); }
 #nos-tool[data-color-theme] .tool-brand { color:var(--blue); }
 #nos-tool[data-color-theme] .tool-emblem { background:var(--accent-soft); border-color:var(--edge); color:var(--blue); }
-#nos-tool[data-color-theme] :is(.panel,.notice,.command-result) { background:var(--surface); color:var(--text); border-color:var(--edge); box-shadow:var(--panel-shadow); }
-#nos-tool[data-color-theme]:not(.no-blur) .panel { background:color-mix(in srgb, var(--surface) 84%, transparent); }
-#nos-tool[data-color-theme] :is(button,input,textarea,select,.tool-context-pill,.note-context-badge,.note-count-pill,.note-item,.note-utility-bar,.note-empty) { background:var(--inner); color:var(--text); border-color:var(--edge); }
-#nos-tool[data-color-theme] .note-field > span { color:var(--muted); }
-#nos-tool[data-color-theme] :is(.muted,small,label,.tool-header p,.tool-footer,.tool-status,.command-result small,.tool-context-pill,.note-context-badge,.note-utility-bar > span,.note-empty p) { color:var(--muted); }
+#nos-tool[data-color-theme] :is(.panel,.notice,.command-result,.tool-mini-dock) { background:var(--surface); color:var(--text); border-color:var(--edge); box-shadow:var(--panel-shadow); }
+#nos-tool[data-color-theme]:not(.no-blur) .panel { background:color-mix(in srgb, var(--surface) var(--glass-card-alpha, 82%), transparent); }
+#nos-tool[data-color-theme]:not(.no-blur) .tool-mini-dock { background:color-mix(in srgb, var(--surface) var(--glass-alpha, 74%), transparent); backdrop-filter:blur(var(--glass-blur, 16px)); -webkit-backdrop-filter:blur(var(--glass-blur, 16px)); }
+#nos-tool[data-color-theme] :is(button,input,textarea,select,.tool-context-pill,.note-context-badge,.note-count-pill,.note-item,.note-utility-bar,.note-empty,.note-format-bar,.note-md-preview,.tool-win-btn) { background:var(--inner); color:var(--text); border-color:var(--edge); }
+#nos-tool[data-color-theme] .note-format-bar button { background:transparent; border-color:transparent; }
+#nos-tool[data-color-theme] .note-format-bar button:hover { background:var(--hover); border-color:var(--edge); }
+#nos-tool[data-color-theme] .note-field > span, #nos-tool[data-color-theme] .note-body-head label { color:var(--muted); }
+#nos-tool[data-color-theme] :is(.muted,small,label,.tool-header p,.tool-footer,.tool-status,.command-result small,.tool-context-pill,.note-context-badge,.note-utility-bar > span,.note-empty p,.note-word-count,.tool-mini-copy small) { color:var(--muted); }
 #nos-tool[data-color-theme] input::placeholder, #nos-tool[data-color-theme] textarea::placeholder { color:var(--muted); opacity:.85; }
 #nos-tool[data-color-theme] button:hover { background:var(--hover); }
 #nos-tool[data-color-theme] .note-new-btn { background:var(--accent-soft); border-color:color-mix(in srgb, var(--blue) 45%, var(--edge)); color:var(--blue); }

@@ -213,6 +213,10 @@ try {
     'Disabling blur must remove backdrop-filter');
   await updateLayoutSettings({blur: true, lite_mode: false});
   await click('.rail-bottom [data-action="preferences"]');
+  await evaluate(`(()=>{const b=document.getElementById('set-glass-blur'),o=document.getElementById('set-glass-opacity');b.value='24';b.dispatchEvent(new Event('input',{bubbles:true}));o.value='56';o.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  await click('#btn-apply-settings');
+  assert.equal(await evaluate(`getComputedStyle(document.getElementById('nos-app')).getPropertyValue('--glass-blur').trim()`), '24px', 'Glass blur slider must update --glass-blur token');
+  assert.equal(await evaluate(`getComputedStyle(document.getElementById('nos-app')).getPropertyValue('--glass-alpha').trim()`), '56%', 'Glass opacity slider must update --glass-alpha token');
   await click('.settings-nav-btn[data-settings-tab="performance"]');
   await click('#set-lite-mode');
   await click('#btn-apply-settings');
@@ -656,6 +660,9 @@ try {
   assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth && document.getElementById('nos-app').scrollWidth <= innerWidth`),true,'Overview overflows on mobile');
   await evaluate(`window.AnkiNOS.receive({event:'overview_snapshot',payload:{id:'1',name:'<img src=x onerror="window.nosInjected=true">',full_name:'Test',description:'<script>test</script>',filtered:true,new:0,learn:0,review:0,available:0,total:0,children:0,has_buried:false,today_reviews:0,today_milliseconds:0,retention:null,settings:{}}})`);
   assert.equal(await evaluate(`document.getElementById('study').disabled`),true,'Do not invent a study session for an empty queue');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.overviewState`),'completed','Empty queue must render AnkiNOS celebratory completion state');
+  assert.equal(await evaluate(`!document.getElementById('overview-complete-banner').hidden && !document.getElementById('overview-complete-actions').hidden && !document.getElementById('overview-done-rebuild').hidden && !document.getElementById('overview-done-empty').hidden`),true,'Filtered deck completion screen must show Rebuild/Empty/Options actions');
+  await shot('overview-completed.png');
   assert.equal(await evaluate(`document.querySelectorAll('#overview-name img').length`),0);
   assert.equal(await evaluate(`document.getElementById('overview-custom-study').hidden`),true);
   assert.equal(await evaluate(`document.getElementById('overview-rebuild').hidden`),false);

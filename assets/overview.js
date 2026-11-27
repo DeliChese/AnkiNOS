@@ -8,7 +8,7 @@
   if (!app || window.AnkiNOS) return;
   const $=id=>document.getElementById(id);
   const native=app.dataset.native==='true' || typeof window.pycmd==='function';
-  const number=new Intl.NumberFormat('vi-VN');
+  const number=window.NOSI18n.numberFormat();
   const n=value=>number.format(value??0);
   const state={snapshot:null,settings:{},started:false};
   const loadedAt=performance.now();
@@ -65,6 +65,7 @@
   function theme() {
     const st = state.settings;
     window.NOSTheme.apply(app,st,true);
+    window.NOSI18n?.set(st.language || 'vi');
     app.classList.toggle('lite-mode', !!st.lite_mode);
     app.classList.toggle('no-blur', st.blur === false);
     app.classList.toggle('reduce-motion', st.animations === false);
@@ -98,17 +99,38 @@
   function render() {
     const data=state.snapshot;
     if (!data) return;
+    $('overview-name').setAttribute('data-i18n-skip','');
     $('overview-name').textContent=data.name;
-    $('overview-parent').textContent=data.full_name.includes('::')?data.full_name.split('::').slice(0,-1).join(' / '):'Chuẩn bị học';
+    const hasParent=data.full_name.includes('::');
+    if(hasParent)$('overview-parent').setAttribute('data-i18n-skip','');
+    else $('overview-parent').removeAttribute('data-i18n-skip');
+    $('overview-parent').textContent=hasParent?data.full_name.split('::').slice(0,-1).join(' / '):'Chuẩn bị học';
     $('overview-type').textContent=data.filtered?'BỘ THẺ LỌC':'BỘ THẺ CỦA BẠN';
     $('overview-description-wrap').hidden=!data.description;
     $('overview-intro').hidden=!!data.description;
+    $('overview-description').setAttribute('data-i18n-skip','');
     $('overview-description').textContent=data.description||'';
     $('overview-description-toggle').hidden=(data.description||'').length<220;
     for (const key of ['new','learn','review']) $(`overview-${key}`).textContent=n(data[key]);
-    $('overview-available').textContent=data.available?`${n(data.available)} thẻ sẵn sàng cho phiên học`:'Chưa có thẻ đến hạn lúc này';
+    const completed = !data.available;
+    app.dataset.overviewState = completed ? 'completed' : 'ready';
+    if ($('overview-ready-label')) $('overview-ready-label').textContent = completed ? 'Đã hoàn thành' : 'Sẵn sàng học';
+    if ($('overview-complete-banner')) $('overview-complete-banner').hidden = !completed;
+    if ($('overview-complete-copy')) {
+      $('overview-complete-copy').textContent = data.filtered
+        ? 'Bộ thẻ lọc này đã hết thẻ. Nhấn Tái tạo để gom thẻ mới hoặc Làm trống để trả thẻ về bộ gốc.'
+        : 'Mọi thẻ đến hạn hôm nay đã hoàn tất. Bạn có thể quay về chọn bộ khác hoặc dùng Học tùy biến để ôn thêm.';
+    }
+    $('overview-available').textContent=data.available?`${n(data.available)} thẻ sẵn sàng cho phiên học`:'Đã hoàn thành phiên học hôm nay';
+    if ($('overview-available-hint')) $('overview-available-hint').textContent = completed ? 'Không còn thẻ đến hạn trong bộ thẻ này.' : 'Số thẻ theo giới hạn học hôm nay.';
     const start=$('study');
     start.disabled=!data.available;
+    start.hidden=completed;
+    if ($('overview-complete-actions')) $('overview-complete-actions').hidden = !completed;
+    if ($('overview-done-custom')) $('overview-done-custom').hidden = !!data.filtered;
+    if ($('overview-done-rebuild')) $('overview-done-rebuild').hidden = !data.filtered;
+    if ($('overview-done-empty')) $('overview-done-empty').hidden = !data.filtered;
+    if ($('overview-done-unbury')) $('overview-done-unbury').hidden = !data.has_buried;
     state.started=false;
     $('overview-today-reviews').textContent=data.today_reviews==null?'—':n(data.today_reviews);
     $('overview-today-message').textContent=data.partial?'Bạn có thể bắt đầu ngay. Thống kê đang cập nhật.':data.today_reviews?'Những điều đã học đang dần trở nên quen thuộc.':'Chưa có lượt ôn hôm nay. Bắt đầu từ một thẻ nhé.';
@@ -234,8 +256,9 @@
     return {id:'101',name:'Chinese Vocabulary in Chunks',full_name:'Ngoại ngữ::Chinese Vocabulary in Chunks',
       description:'Beginner Mandarin vocabulary grouped into practical chunks and sentence patterns. Vietnamese explanations and pinyin included.',
       filtered:false,new:20,learn:4,review:0,available:24,total:1480,children:0,has_buried:false,
-      today_reviews:4,today_milliseconds:76000,retention:88.5,settings:{theme:'dusk'}};
+      today_reviews:4,today_milliseconds:76000,retention:88.5,settings:{theme:'dusk',language:new URLSearchParams(location.search).get('lang')||'vi'}};
   }
+  document.addEventListener('nos:language',()=>{if(state.snapshot)render();});
   const bootstrap=$('nos-overview-bootstrap');
   if (native && bootstrap) {
     try {receive({event:'overview_snapshot',payload:JSON.parse(bootstrap.textContent)});}

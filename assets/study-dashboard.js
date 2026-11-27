@@ -6,7 +6,7 @@
   }
   const root=document.getElementById('study-launchpad');
   if(!root||window.NOSStudy)return;
-  const $=id=>document.getElementById(id), fmt=new Intl.NumberFormat('vi-VN');
+  const $=id=>document.getElementById(id), fmt=window.NOSI18n.numberFormat();
   const n=value=>fmt.format(value||0);
   let snapshot=null, support=null, selected='', budget=30, pending=false, requestAt=-Infinity, revision='';
   const command=(action,args={})=>window.AnkiNOS?.studioCommand(action,args);
@@ -39,7 +39,7 @@
     const unique=[...new Map(choices.filter(Boolean).map(x=>[String(x.id),x])).values()].slice(0,12);
     const key=JSON.stringify(unique.map(x=>[x.id,title(x)]));
     if($('study-deck').dataset.key!==key){
-      $('study-deck').replaceChildren(...unique.map(deck=>{const option=document.createElement('option');option.value=deck.id;option.textContent=title(deck);return option;}));
+      $('study-deck').replaceChildren(...unique.map(deck=>{const option=document.createElement('option');option.value=deck.id;option.textContent=title(deck);option.setAttribute('data-i18n-skip','');return option;}));
       $('study-deck').dataset.key=key;
     }
     $('study-deck').value=selected;
@@ -106,7 +106,7 @@
       list.replaceChildren();list.dataset.key=key;
       for(const {id,v,kind} of chosen){
         const article=document.createElement('article');article.className='study-insight';
-        const heading=document.createElement('h3');heading.textContent=v.name;
+        const heading=document.createElement('h3');heading.textContent=v.name;heading.setAttribute('data-i18n-skip','');
         const text=document.createElement('p');
         text.textContent=kind==='retention_drop'?`Tỷ lệ trả lời đúng giảm ${n(-v.change_points)} điểm phần trăm: ${n(v.previous_retention)}% → ${n(v.retention)}%.`:`${n(v.repeated_lapses)} thẻ được trả lời Quên ít nhất 3 lần trong 30 ngày.`;
         const detail=document.createElement('small');
@@ -142,10 +142,11 @@
   $('study-budget').addEventListener('change',e=>{budget=Number(e.target.value);command('save_ui',{values:{study_budget:budget}});render();});
   $('study-now').addEventListener('click',()=>command('quick_study',{id:selected}));
   $('study-focus').addEventListener('click',()=>command('quick_study',{id:selected,minutes:budget}));
-  $('study-notebook').addEventListener('click',()=>command('notebook',{id:selected}));
+  $('study-notebook').addEventListener('click',()=>command('notebook',{}));
   $('study-insight-scope').addEventListener('change',renderInsights);
   $('study-insights-refresh').addEventListener('click',()=>request(true));
   $('stats-refresh')?.addEventListener('click',()=>request(true));
+  document.addEventListener('nos:language',()=>{if(snapshot){const list=$('study-insights-list');if(list)list.dataset.key='';render();}});
   window.NOSStudy={sync,receive,refresh:request,error(message){pending=false;$('study-insights-status').textContent=message;$('study-insights-list').replaceChildren();$('study-insights-list').dataset.key='';$('study-estimate').textContent='Không thể tải ước lượng. Bạn vẫn có thể học bình thường.';}};
   const initialSnapshot=window.AnkiNOS?.getSnapshot?.();
   if(initialSnapshot)window.NOSStudy.sync(initialSnapshot);

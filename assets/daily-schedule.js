@@ -10,7 +10,7 @@
   const app = document.getElementById('nos-app');
   const native = app?.dataset.native === 'true' || typeof window.pycmd === 'function';
   const $ = id => document.getElementById('daily-' + id);
-  const fmt = new Intl.NumberFormat('vi-VN');
+  const fmt = window.NOSI18n ? window.NOSI18n.numberFormat() : new Intl.NumberFormat('vi-VN');
   const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -26,6 +26,7 @@
   let scopeDraft = {scope_mode: 'all', deck_names: [], include_children: true, daily_cap: 40};
   let scopeQuery = '';
   let busy = false;
+  let statusRaw = '';
   let previewMock = null;
   let loadedRevision = null;
   const currentRevision = () => window.AnkiNOS?.getSnapshot?.()?.support_revision ?? null;
@@ -72,6 +73,7 @@
   }
 
   function setStatus(msg = '', isError = false) {
+    statusRaw = msg;
     const box = $('status');
     if (!box) return;
     box.textContent = msg;
@@ -308,10 +310,20 @@
     else resolve(payload.data);
   }
 
+  function syncActionButtons() {
+    const planCount = state?.schedule?.plan?.total_movable || 0;
+    const todayCount = state?.schedule?.today_bucket?.count || 0;
+    if ($('apply-plan')) $('apply-plan').disabled = busy || planCount === 0;
+    if ($('study-today')) $('study-today').disabled = busy || todayCount === 0;
+    if ($('focus-today')) $('focus-today').disabled = busy || todayCount === 0;
+    if ($('refresh')) $('refresh').disabled = busy;
+  }
+
   async function runAction(label, task) {
     if (busy) return;
     busy = true;
-    setStatus(label);
+    syncActionButtons();
+    if (label) setStatus(label);
     try {
       const data = await task();
       if (data && data.schedule) {
@@ -326,27 +338,31 @@
         if (data.apply_result?.batch) {
           lastAppliedBatchId = data.apply_result.batch.id;
           setStatus(`Đã dời ${fmt.format(data.apply_result.applied)} thẻ quá hạn sang ngày tối ưu (due thật).`);
+        } else if (data.apply_result) {
+          setStatus('Không có thẻ quá hạn nào cần dời.');
         } else if (data.rollback_result) {
           if (lastAppliedBatchId === data.rollback_result.batch_id) lastAppliedBatchId = '';
           const r = data.rollback_result;
           const extra = r.skipped_reviewed ? ` (bỏ qua ${r.skipped_reviewed} thẻ bạn đã ôn)` : '';
           setStatus(`Đã hoàn tác ${fmt.format(r.restored)} thẻ về ngày cũ${extra}.`);
-        } else if ($('status').textContent === label) {
+        } else if (label && statusRaw === label) {
           setStatus('');
         }
         render();
-      } else if ($('status').textContent === label) {
+      } else if (!data?.started && label && statusRaw === label) {
         setStatus('');
       }
     } catch (error) {
       setStatus(error.message || 'Không thể tải Lịch ôn.', true);
     } finally {
       busy = false;
+      syncActionButtons();
     }
   }
 
   /* ---------- Rendering ---------- */
   function renderScopeControls() {
+    if (!state?.config) return;
     const cfg = state.config;
     $('scope-label').textContent = state.scope_label || 'Toàn bộ bộ sưu tập';
     $('scope-toggle').setAttribute('aria-expanded', String(scopeOpen));
@@ -380,6 +396,7 @@
   }
 
   function renderScopeTree() {
+    if (!state?.schedule) return;
     $('scope-mode-all').checked = scopeDraft.scope_mode !== 'decks';
     $('scope-mode-decks').checked = scopeDraft.scope_mode === 'decks';
     $('scope-children').checked = scopeDraft.include_children !== false;
@@ -403,6 +420,7 @@
       box.dataset.dailyDeck = deck.name;
       const label = el('span', deck.name.split('::').pop(), 'daily-tree-name');
       label.title = deck.name;
+      label.setAttribute('data-i18n-skip', '');
       row.append(box, label);
       list.append(row);
       rendered++;
@@ -495,6 +513,7 @@
   }
 
   function renderOverdue() {
+    if (!state?.schedule) return;
     const overdue = state.schedule.overdue;
     const plan = state.schedule.plan;
     const panel = $('overdue-panel');
@@ -520,9 +539,13 @@
     tbody.replaceChildren();
     for (const move of (plan.moves || []).slice(0, 120)) {
       const tr = document.createElement('tr');
+      const cardTd = el('td', move.preview || `Thẻ #${move.card_id}`);
+      if (native && move.preview) cardTd.setAttribute('data-i18n-skip', '');
+      const deckTd = el('td', move.deck_name);
+      deckTd.setAttribute('data-i18n-skip', '');
       tr.append(
-        el('td', move.preview || `Thẻ #${move.card_id}`),
-        el('td', move.deck_name),
+        cardTd,
+        deckTd,
         el('td', `${formatShortDate(move.old_date)} → ${move.target_offset === 0 ? 'Hôm nay' : formatShortDate(move.new_date)}`),
         el('td', `${move.r_before}% → ${move.r_target}%`),
         el('td', move.reason)
@@ -539,6 +562,7 @@
   }
 
   function renderToday() {
+    if (!state?.schedule) return;
     const today = state.schedule.today_bucket;
     $('today-date').textContent = `Hôm nay · ${formatFullDate(today.date)}`;
     $('today-count').textContent = fmt.format(today.count);
@@ -564,7 +588,9 @@
       if (!today.decks?.length) list.append(el('li', 'Chưa có thẻ đến hạn hôm nay.'));
       for (const item of today.decks || []) {
         const li = el('li');
-        li.append(el('span', item.name, 'daily-mini-main'), el('strong', `${fmt.format(item.count)} thẻ`));
+        const nameEl = el('span', item.name, 'daily-mini-main');
+        nameEl.setAttribute('data-i18n-skip', '');
+        li.append(nameEl, el('strong', `${fmt.format(item.count)} thẻ`));
         list.append(li);
       }
     } else if (todayTab === 'cohorts') {
@@ -587,6 +613,7 @@
   }
 
   function renderFuture() {
+    if (!state?.schedule) return;
     const future = state.schedule.future;
     const cap = state.schedule.daily_cap || 40;
     const days = (future.days || []).slice(0, horizonLimit);
@@ -616,7 +643,9 @@
       fill.style.width = `${day.count ? Math.max(6, ratio) : 0}%`;
       bar.append(fill);
 
-      const foot = el('span', day.decks?.[0]?.name.split('::').pop() || 'Trống', 'daily-muted');
+      const hasDeck = !!day.decks?.[0]?.name;
+      const foot = el('span', hasDeck ? day.decks[0].name.split('::').pop() : 'Trống', 'daily-muted');
+      if (hasDeck) foot.setAttribute('data-i18n-skip', '');
       tile.append(top, dateLbl, count, bar, foot);
       grid.append(tile);
     }
@@ -625,6 +654,7 @@
   }
 
   function renderInspector() {
+    if (!state?.schedule) return;
     const box = $('day-inspector');
     const day = (state.schedule.future?.days || []).find(d => d.offset === inspectedOffset);
     box.hidden = !day;
@@ -849,6 +879,10 @@
     const rev = currentRevision();
     if (!page.hidden && !busy && (!state || loadedRevision !== rev)) open();
   }
+
+  document.addEventListener('nos:language', () => {
+    if (state?.schedule) render();
+  });
 
   window.NOSDaily = {open, sync, receive};
 })();

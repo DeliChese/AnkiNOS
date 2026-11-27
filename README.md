@@ -1,5 +1,23 @@
 # AnkiNOS
 
+## Đa ngôn ngữ (Tiếng Việt / English)
+
+Chuyển đổi ngay giữa **Tiếng Việt** và **English** trong **Cài đặt AnkiNOS → Ngôn ngữ** (*AnkiNOS settings → Language*), áp dụng tức thì cho toàn bộ WebView (Dashboard, Thư viện, Lịch ôn, Thống kê, Studio ảnh, Màn hình chuẩn bị học, Thanh ôn tập, Lệnh nhanh `Ctrl+K`, Sổ tay) và các hộp thoại/menu Qt gốc của Anki mà không làm thay đổi nội dung thẻ (`#qa`) hay tên bộ thẻ/ghi chú của người dùng. Bản xem trước HTML độc lập hỗ trợ thêm `?lang=en`.
+
+## Tài liệu kỹ thuật & AI Workflow
+
+Dự án đi kèm bộ tài liệu ngắn gọn, tách lớp theo chủ đề để developer và AI agent (Antigravity, Claude Code, Codex) tìm đúng mã nguồn, sửa đổi an toàn và tiết kiệm tối đa token:
+
+- Quy tắc cốt lõi cho AI: [AGENTS.md](AGENTS.md) (Antigravity / Codex / dùng chung) và [CLAUDE.md](CLAUDE.md) (Claude Code).
+- Tài liệu tham chiếu chuyên sâu trong `docs/`:
+  - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — kiến trúc hooks, luồng nền, cache và cơ chế fallback.
+  - [docs/FILE-MAP.md](docs/FILE-MAP.md) — bản đồ file và khoảng dòng chính xác theo từng module.
+  - [docs/BRIDGE-AND-DATA.md](docs/BRIDGE-AND-DATA.md) — giao thức `pycmd`, schema cài đặt 4 lớp, SQLite và gói `.nosbackup`.
+  - [docs/UI-THEMES-LAYOUTS.md](docs/UI-THEMES-LAYOUTS.md) — 6 bố cục, 8 bảng màu WCAG, hiệu ứng kính và cách ly `#qa`.
+  - [docs/I18N-GUIDE.md](docs/I18N-GUIDE.md) — kiến trúc song ngữ JS + Python, `data-i18n-skip` và hướng dẫn thêm ngôn ngữ mới.
+  - [docs/TESTING-AND-CI.md](docs/TESTING-AND-CI.md) — ma trận chọn bài kiểm thử theo thay đổi và CI.
+- Skills chuyên tác vụ (tự kích hoạt theo ngữ cảnh): `.agents/skills/` (Antigravity) và `.claude/skills/` (Claude Code) gồm `anos-add-setting`, `anos-i18n`, `anos-bridge-feature`, `anos-ui-layout-theme`, `anos-verify`.
+
 ## Lịch ôn theo ngày thông minh
 
 Mở **Lịch ôn** trên thanh điều hướng (hoặc qua lệnh nhanh **Ctrl+K**) để quản lý lịch ôn tập theo từng ngày chính xác thay vì nhìn dồn toàn bộ thẻ đến hạn.
@@ -161,15 +179,21 @@ Ngày học theo giờ chuyển ngày của Anki, không mặc định đổi ng
 ## Các tệp
 
 - `__init__.py`, `integration.py`: hooks Anki, cầu nối WebView, các thao tác gốc và cấu hình.
-- `data.py`: truy vấn chỉ đọc chạy trên luồng nền qua `QueryOp`.
+- `i18n.py`, `assets/i18n.js`, `assets/i18n-en.js`: hệ thống đa ngôn ngữ Việt/Anh cho cả hộp thoại Qt và toàn bộ WebView.
+- `data.py`, `graphs_data.py`: truy vấn chỉ đọc và dữ liệu đồ thị gốc Anki chạy trên luồng nền qua `QueryOp`.
+- `daily_scheduler.py`, `daily_store.py`, `daily_bridge.py`, `assets/daily-schedule.*`: lịch ôn theo ngày, bộ giải điều phối `due` và sổ hoàn tác SQLite.
 - `study_data.py`, `assets/study-dashboard.*`: lối vào học nhanh, ước lượng thời gian và nhận xét có hành động.
-- `backup_store.py`: bản kê, kiểm tra gói dữ liệu, sao lưu trước khôi phục và quay lại dữ liệu cũ khi lỗi ghi.
+- `focus_store.py`, `assets/focus-dashboard.js`: lưu phiên Focus Mode và báo cáo lịch sử tập trung.
+- `media_store.py`, `assets/media-studio.js`: quản lý album, thumbnail và ảnh nền cục bộ.
+- `theme_settings.py`, `assets/theme.js`, `assets/theme.css`: 8 bảng màu, 5 chế độ sáng/tối, kiểm tra tương phản và 6 bố cục dashboard.
+- `backup_store.py`: bản kê, kiểm tra gói dữ liệu `.nosbackup`, sao lưu trước khôi phục và quay lại dữ liệu cũ khi lỗi ghi.
 - `study_tools_ui.py`, `study_tools_data.py`: lệnh nhanh, sổ tay và cửa sổ lịch sử chỉ đọc.
 - `workspace_store.py`: ghi chú theo collection/bộ thẻ/note, thùng rác và liên kết tài nguyên.
-- `ankios-tools.html`, `assets/tools.css`, `assets/tools.js`, `assets/commands.js`, `assets/notebook.js`: công cụ và bản xem trước bằng `?tool=palette`, `?tool=workspace` hoặc `?tool=workspace` (lịch sử).
-- `ankios-ui.html`, `assets/dashboard.css`, `assets/dashboard.js`: giao diện không phụ thuộc CDN hoặc Tailwind.
+- `ankios-tools.html`, `assets/tools.css`, `assets/tools.js`, `assets/commands.js`, `assets/notebook.js`: công cụ và bản xem trước bằng `?tool=palette`, `?tool=workspace`.
+- `ankios-ui.html`, `assets/dashboard.css`, `assets/dashboard.js`, `assets/stats-page.js`: giao diện không phụ thuộc CDN hoặc Tailwind.
 - `ankios-overview.html`, `assets/overview.css`, `assets/overview.js`: màn hình chuẩn bị học bộ thẻ.
-- `reviewer_ui.py`, `assets/reviewer*.css`, `assets/reviewer*.js`: giao diện phiên học và nút đánh giá; `ankios-review.html` là bản xem trước.
+- `reviewer_ui.py`, `assets/reviewer*.css`, `assets/reviewer*.js`: giao diện phiên học và nút đánh giá; `ankios-review.html` và `assets/reviewer-controls-preview.html` là bản xem trước.
+- `AGENTS.md`, `CLAUDE.md`, `docs/*.md`, `.agents/skills/`, `.claude/skills/`: tài liệu kỹ thuật và quy trình làm việc tối ưu token cho AI/developer.
 - `ankios-ui.original.html`: bản HTML ban đầu được giữ lại.
 - `assets/sunset-lake.png`: nền cục bộ được tạo bằng công cụ imagegen tích hợp. Prompt cuối được lưu trong [assets/background-prompt.txt](assets/background-prompt.txt).
 - `previews/`: ảnh xem trước. Mở `ankios-ui.html` ngoài Anki sẽ dùng dữ liệu minh họa có nhãn rõ ràng; phiên bản trong Anki chỉ dùng dữ liệu thật, kể cả khi cầu nối đang tải.
@@ -178,11 +202,18 @@ Ngày học theo giờ chuyển ngày của Anki, không mặc định đổi ng
 
 
 ```powershell
-# Chạy bằng Python đi kèm Anki, có package anki/aqt.
+# Kiểm tra nhanh (i18n, cú pháp và unit test thuần Python/Anki)
+node tests/i18n-check.mjs
+& 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' -m compileall -q .
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/run-unit.py
+
+# Kiểm tra dữ liệu và smoke test Anki thật (offscreen)
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/test_data.py
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/anki-smoke.py
+
+# Kiểm tra giao diện & tương phản bằng Chromium CDP
 node tests/ui-check.mjs
+node tests/theme-check.mjs
 node tests/tools-ui.mjs
 node tests/perf-check.mjs
 & 'C:/Users/nguye/AppData/Local/Programs/Anki/.venv/Scripts/python.exe' tests/data-perf.py

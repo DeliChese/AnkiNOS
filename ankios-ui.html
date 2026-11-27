@@ -53,6 +53,7 @@
       <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8Z"/></symbol>
       <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></symbol>
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3.4 3.2 14.6 0 18M12 3c-3.2 3.4-3.2 14.6 0 18"/></symbol>
     </defs></svg>
 
     <div class="nos-edge-handle" data-edge="top" aria-hidden="true" hidden><span></span></div>
@@ -430,6 +431,7 @@
         <div class="settings-body" id="settings-body">
           <nav class="settings-sidebar" id="settings-sidebar" aria-label="Danh mục cài đặt">
             <button class="settings-nav-btn active" data-settings-tab="appearance"><svg class="icon small"><use href="#i-moon"/></svg>Giao diện</button>
+            <button class="settings-nav-btn" data-settings-tab="language"><svg class="icon small"><use href="#i-globe"/></svg>Ngôn ngữ</button>
             <button class="settings-nav-btn" data-settings-tab="dashboard"><svg class="icon small"><use href="#i-chart"/></svg>Dashboard</button>
             <button class="settings-nav-btn" data-settings-tab="goals"><svg class="icon small"><use href="#i-target"/></svg>Mục tiêu</button>
             <button class="settings-nav-btn" data-settings-tab="performance"><svg class="icon small"><use href="#i-bolt"/></svg>Hiệu năng</button>
@@ -438,6 +440,20 @@
           </nav>
 
           <div class="settings-content" id="settings-content">
+            <!-- TAB: Ngôn ngữ -->
+            <div class="settings-tab-pane" id="stab-language" hidden>
+              <div class="settings-card">
+                <div class="settings-group-title">Ngôn ngữ giao diện</div>
+                <p class="theme-help">Chọn ngôn ngữ hiển thị của AnkiNOS. Bản xem trước bên dưới đổi ngay, nhưng chỉ được lưu khi bạn nhấn Áp dụng.</p>
+                <div class="language-grid" id="language-grid" role="radiogroup" aria-label="Ngôn ngữ giao diện" data-i18n-skip>
+                  <button type="button" class="language-card" data-set-language="vi" role="radio" aria-checked="true"><span class="language-code">VI</span><div><strong>Tiếng Việt</strong><small>Vietnamese</small></div></button>
+                  <button type="button" class="language-card" data-set-language="en" role="radio" aria-checked="false"><span class="language-code">EN</span><div><strong>English</strong><small>Tiếng Anh</small></div></button>
+                </div>
+                <p class="theme-help">Menu gốc của Anki, hộp thoại hệ thống và các phần chưa được dịch vẫn giữ nguyên ngôn ngữ hiện tại.</p>
+              </div>
+              <section class="settings-card language-preview" id="language-preview" data-i18n-skip aria-live="polite"></section>
+            </div>
+
             <!-- TAB 1: Giao diện -->
             <div class="settings-tab-pane" id="stab-appearance">
               <section id="theme-preview" class="theme-preview" aria-label="Xem trước giao diện đang chọn">
@@ -515,6 +531,22 @@
                     <input type="checkbox" id="set-blur" checked>
                     <span class="nos-slider"></span>
                   </label>
+                </div>
+                <div class="settings-row settings-slider-row" id="row-glass-blur">
+                  <div class="settings-slider-head">
+                    <strong>Độ mờ kính (Glass Blur)</strong>
+                    <output id="glass-blur-val" for="set-glass-blur">16 px</output>
+                  </div>
+                  <input type="range" class="nos-range" id="set-glass-blur" min="0" max="32" step="1" value="16" aria-label="Độ mờ kính Glassmorphism">
+                  <div class="range-markers"><span>0 px (Trong)</span><span>16 px</span><span>32 px (Mờ sâu)</span></div>
+                </div>
+                <div class="settings-row settings-slider-row" id="row-glass-opacity">
+                  <div class="settings-slider-head">
+                    <strong>Độ đậm / trong suốt kính (Opacity)</strong>
+                    <output id="glass-opacity-val" for="set-glass-opacity">74%</output>
+                  </div>
+                  <input type="range" class="nos-range" id="set-glass-opacity" min="30" max="100" step="2" value="74" aria-label="Độ trong suốt nền kính Glassmorphism">
+                  <div class="range-markers"><span>30% (Trong suốt rõ nền)</span><span>74%</span><span>100% (Đặc)</span></div>
                 </div>
                 <div class="settings-row" id="row-set-animations">
                   <div>
@@ -746,6 +778,8 @@
     <div class="chart-tooltip" id="chart-tooltip" role="tooltip" hidden></div>
     <div class="heat-tooltip" id="heat-tooltip" role="tooltip" hidden></div>
   </div>
+  <script src="assets/i18n.js"></script>
+  <script src="assets/i18n-en.js"></script>
   <script src="assets/theme.js"></script>
   <script src="assets/layouts.js"></script>
   <script src="assets/dashboard.js"></script>

@@ -36,3 +36,14 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(self.store.bindings('a','1'),{'resource'})
         self.store.bind('a','1','resource',True);self.assertEqual(self.store.bindings('a','1'),set())
 
+    def test_general_deckless_notes_and_optional_deck_reassignment(self):
+        gid=self.store.save('a','','Ghi chú chung','Ý tưởng chung','Không gắn deck nào',allow_deck_change=True)
+        self.assertEqual(len(self.store.list('a',None)),1)
+        self.assertEqual(len(self.store.list('a','')),1)
+        self.store.save('a','deck1','Tiếng Anh','Ý tưởng chung','Gắn deck tùy chọn',identifier=gid,allow_deck_change=True)
+        self.assertEqual(self.store.get('a',gid)['deck_id'],'deck1')
+        self.assertEqual(self.store.list('a',''),[])
+        self.assertEqual(len(self.store.list('a','deck1')),1)
+        with self.assertRaises(ValueError):
+            self.store.save('b','deck1','Other','bad','cross-collection blocked',identifier=gid,allow_deck_change=True)
+

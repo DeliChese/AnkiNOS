@@ -33,17 +33,20 @@ def quick_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = Non
 
     tree = due_tree if due_tree is not None else col.sched.deck_due_tree()
     names = {int(entry.id): entry.name for entry in col.decks.all_names_and_ids()}
+    filtered_counts = dict(col.db.all("SELECT did, count(*) FROM cards WHERE odid != 0 GROUP BY 1"))
     records: dict[int, dict[str, Any]] = {}
 
     def gather(node: Any) -> None:
         if node.deck_id:
             full_name = names.get(int(node.deck_id), node.name)
+            is_filtered = bool(node.filtered)
             records[int(node.deck_id)] = {
                 "id": str(node.deck_id), "name": full_name.split("::")[-1], "full_name": full_name,
                 "new": int(node.new_count), "learn": int(node.learn_count),
-                "review": int(node.review_count), "filtered": bool(node.filtered), "children": [],
+                "review": int(node.review_count), "filtered": is_filtered, "children": [],
                 "depth": full_name.count("::"), "parent_id": None,
-                "total": 0, "tested": 0, "passed": 0, "retention": None,
+                "total": 0, "gathered": int(filtered_counts.get(int(node.deck_id), 0)) if is_filtered else 0,
+                "tested": 0, "passed": 0, "retention": None,
             }
         for child in node.children:
             gather(child)
@@ -153,6 +156,9 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
     counts = cached['counts'] if unchanged or incremental else dict(col.db.all(
         "SELECT CASE WHEN odid != 0 THEN odid ELSE did END, count(*) FROM cards GROUP BY 1"
     ))
+    filtered_counts = cached['filtered_counts'] if unchanged else dict(col.db.all(
+        "SELECT did, count(*) FROM cards WHERE odid != 0 GROUP BY 1"
+    ))
     since = int(datetime.combine(start_30, datetime.min.time()).replace(hour=rollover).timestamp() * 1000)
     deck_retention = cached['retention'] if unchanged else {
         int(did): (int(total), int(passed))
@@ -200,6 +206,7 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
         total_passed = own_passed + sum(c["passed"] for c in children)
         record.update({
             "total": int(counts.get(int(record["id"]), 0)) + sum(c["total"] for c in children),
+            "gathered": int(filtered_counts.get(int(record["id"]), 0)) if record["filtered"] else 0,
             "tested": total_tested, "passed": total_passed,
             "retention": round(total_passed * 100 / total_tested, 1) if total_tested else None,
         })
@@ -245,7 +252,7 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
     # payload and live scheduler counts are returned even on a cache hit.
     stamp = (revision, int(col.db.scalar('SELECT total_changes()')))
     _AGGREGATES = {'col':col, 'stamp':stamp, 'revision':revision, 'cutoff':cutoff, 'today':today.isoformat(),
-                   'days':days, 'counts':counts, 'retention':deck_retention, 'names':names,
+                   'days':days, 'counts':counts, 'filtered_counts':filtered_counts, 'retention':deck_retention, 'names':names,
                    'loaded_years':loaded_years, 'first_day':first_day, 'streak':streak}
     return result
 

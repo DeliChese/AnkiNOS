@@ -60,7 +60,7 @@ def main():
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "legacy_brainexer_backup.py", "daily_scheduler.py", "daily_store.py", "daily_bridge.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
+    for file in ("__init__.py", "integration.py", "i18n.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "legacy_brainexer_backup.py", "daily_scheduler.py", "daily_store.py", "daily_bridge.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
     set_lang("en_US")
@@ -439,11 +439,10 @@ def main():
     empty_id=col.decks.id("NOS Test::Empty")
     integration.bridge((False,None),'nos:'+json.dumps({"action":"study","id":str(empty_id)}),aqt.mw.deckBrowser)
     end=time.monotonic()+10
-    while (aqt.mw.state!="overview" or integration._overview_rendered) and time.monotonic()<end:
+    while (aqt.mw.state!="overview" or not integration._overview_rendered) and time.monotonic()<end:
         wait()
-    wait(400)
-    assert not integration._overview_rendered
-    assert not aqt.mw.toolbarWeb.isHidden() and not aqt.mw.bottomWeb.isHidden(), "Keep native completion-page controls available"
+    until("document.getElementById('nos-app')?.dataset.overviewState === 'completed' && !document.getElementById('overview-complete-banner')?.hidden && !document.getElementById('overview-complete-actions')?.hidden")
+    assert integration._overview_rendered, "Completed deck must render AnkiNOS celebratory overview"
     aqt.mw.moveToState("deckBrowser")
     until("!!window.AnkiNOS && !!document.getElementById('library-panel')")
     # Exercise both cancellation and confirmed removal, then Anki Undo, only
@@ -563,8 +562,14 @@ def main():
         assert "sao lưu" in info.call_args.args[0]
     integration._toggle(True)
     until("!!window.AnkiNOS && document.getElementById('connection')?.textContent.includes('Bộ sưu tập Anki')")
-    integration.save_settings({"theme":"dusk", "layout":"aurora", "activity_collapsed":False})
-    integration.send("settings",integration.settings())
+    # Live bilingual switch (vi -> en -> vi) across WebView and native Qt helper.
+    integration.save_settings({"language": "en"})
+    integration.send("settings", integration.public_settings())
+    until("document.documentElement.lang === 'en' && document.getElementById('connection')?.textContent.includes('Anki collection')")
+    assert integration._t("AnkiNOS — Lệnh nhanh") == "AnkiNOS — Quick Commands"
+    integration.save_settings({"theme":"dusk", "layout":"aurora", "language":"vi", "activity_collapsed":False})
+    integration.send("settings",integration.public_settings())
+    until("document.documentElement.lang === 'vi'")
     aqt.mw.setGeometry(0,0,1440,1000)
     aqt.mw.layout().activate()
     wait(1500)

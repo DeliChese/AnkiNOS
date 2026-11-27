@@ -79,14 +79,16 @@ class SnapshotTests(unittest.TestCase):
 
     def test_filtered_cards_count_toward_original_deck(self):
         cid, original_id = self.card("Original")
-        filtered_id = self.col.decks.id("Temporary")
+        filtered_id = self.col.decks.new_filtered("Temporary")
         self.col.db.execute("UPDATE cards SET odid=?, did=? WHERE id=?", original_id, filtered_id, cid)
         out = data.collect_snapshot(self.col)
         self.assertEqual(out["total_cards"], 1)
         original = next(d for d in out["decks"] if d["name"] == "Original")
         temporary = next(d for d in out["decks"] if d["name"] == "Temporary")
         self.assertEqual(original["total"], 1)
+        self.assertEqual(original["gathered"], 0)
         self.assertEqual(temporary["total"], 0)
+        self.assertEqual(temporary["gathered"], 1)
 
     def test_yesterday_streak_before_first_review_today(self):
         cid, _ = self.card("Daily")

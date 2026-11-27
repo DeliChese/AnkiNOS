@@ -9,6 +9,7 @@
   const dialog = document.getElementById('studio-dialog');
   if (!root || !dialog || window.NOSStudio) return;
   const $ = id => document.getElementById(id);
+  const tr = s => window.NOSI18n ? window.NOSI18n.t(s) : s;
   const native = root.dataset.native === 'true';
   const ORIGINAL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/;
   const PREVIEW = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}-thumb\.png$/;
@@ -76,8 +77,11 @@
       const button = create('button', item.id === album ? 'active' : '');
       button.type = 'button';
       button.dataset.studioAlbum = item.id;
-      button.append(create('span','',item.name),create('small','',String(item.count)));
+      const nameSpan = create('span','',item.name);
+      if (UUID.test(item.id)) nameSpan.setAttribute('data-i18n-skip','');
+      button.append(nameSpan,create('small','',String(item.count)));
       button.title = item.name;
+      if (UUID.test(item.id)) button.setAttribute('data-i18n-skip','');
       nav.append(button);
     }
     $('studio-album-tools').hidden = !UUID.test(album);
@@ -112,7 +116,9 @@
       if (PREVIEW.test(photo.thumb_url || '')) img.src = photo.thumb_url;
       else img.classList.add('preview-pending');
       const caption = create('span','nos-studio-tile-caption');
-      caption.append(create('strong','',photo.name));
+      const photoTitle = create('strong','',photo.name);
+      photoTitle.setAttribute('data-i18n-skip','');
+      caption.append(photoTitle);
       caption.append(create('small','',photo.width && photo.height ?
         photo.width + ' × ' + photo.height + ' px' : 'Ảnh gốc'));
       tile.append(img,caption);
@@ -173,7 +179,7 @@
     const optionsKey = JSON.stringify(albums());
     if (select.dataset.optionsKey !== optionsKey) {
       select.replaceChildren(new Option('Chưa phân loại',''));
-      for(const a of albums()) select.append(new Option(a.name,a.id));
+      for(const a of albums()) { const opt = new Option(a.name,a.id); opt.setAttribute('data-i18n-skip',''); select.append(opt); }
       select.dataset.optionsKey = optionsKey;
     }
     if (select.value !== (image.album_id || '')) select.value = image.album_id || '';
@@ -301,7 +307,7 @@
     if (button.id === 'studio-album-cancel') {stopEditing();return;}
     if (button.id === 'studio-album-confirm') {saveAlbum();return;}
     if (button.id === 'studio-album-delete' && UUID.test(album)) {
-      if(!window.confirm('Xóa album này? Ảnh sẽ chuyển sang Chưa phân loại và không bị xóa.'))return;
+      if(!window.confirm(tr('Xóa album này? Ảnh sẽ chuyển sang Chưa phân loại và không bị xóa.')))return;
       const target=album;
       album='unfiled';
       stopEditing();
@@ -389,7 +395,7 @@
     const photo=photos().find(p=>p.id===selected);
     if (!photo) return;
     // Real Anki also confirms in the native dialog. Preview checks here.
-    if (!native && !window.confirm('Xóa ảnh khỏi thư viện?')) return;
+    if (!native && !window.confirm(tr('Xóa ảnh khỏi thư viện?'))) return;
     command('image_delete',{id:photo.id},()=>{
       const changed={images:photos().filter(p=>p.id!==photo.id)};
       for(const key of Object.keys(TARGETS))if(getData()[key]===photo.id)changed[key]=null;
@@ -424,6 +430,12 @@
   });
   $('studio-album-title').addEventListener('keydown',event=>{
     if(event.key==='Enter'){event.preventDefault();saveAlbum();}
+  });
+  document.addEventListener('nos:language', () => {
+    albumsSignature = '';
+    gallerySignature = '';
+    if ($('studio-image-album')) $('studio-image-album').dataset.optionsKey = '';
+    if (dialog.open) render();
   });
   window.NOSStudio={open,close,sync,notice:message=>{if(dialog.open)status(message);}};
   $('studio-close').autofocus=true;

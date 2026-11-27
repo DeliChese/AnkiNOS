@@ -66,10 +66,16 @@
     const success=visible(light?'#25754c':'#a2dfb0',surface);
     const warning=visible(light?'#895c13':'#f1cc87',surface);
     const danger=visible(light?'#b63e55':'#f2a2b0',surface);
+    const clampInt=(v,lo,hi,d)=>Number.isInteger(v)?Math.min(hi,Math.max(lo,v)):d;
+    const blurOn=settings.blur!==false&&!settings.lite_mode;
+    const glassBlur=blurOn?clampInt(settings.glass_blur,0,32,16):0;
+    const glassAlpha=blurOn?clampInt(settings.glass_opacity,30,100,74):100;
+    const glassCardAlpha=blurOn?Math.min(100,glassAlpha+8):100;
     const tokens={
       '--theme-bg':bg,'--surface':surface,'--text':fg,'--muted':visible(muted,surface),
       '--faint':visible(muted,surface),'--edge':edge,'--inner':mix(surface,fg,.055),'--hover':soft,
-      '--glass':surface+(light?'f2':'e8'),'--blue':link,'--accent':accent,'--accent-soft':soft,
+      '--glass':surface+(light?'f2':'e8'),'--glass-blur':glassBlur+'px','--glass-alpha':glassAlpha+'%','--glass-card-alpha':glassCardAlpha+'%',
+      '--blue':link,'--accent':accent,'--accent-soft':soft,
       '--primary':primary,'--on-primary':readable(primary),'--mint':success,'--success':success,
       '--warning':warning,'--danger':danger,'--focus':link,
       '--on-danger':readable(danger),'--on-warning':readable(warning),'--on-blue':readable(link),'--on-success':readable(success),
@@ -142,7 +148,9 @@
         const layoutNames={aurora:'Cực quang',bento:'Bento',dock:'Dock nổi',sidebar:'Sidebar',zen:'Zen',edges:'4 Cạnh'};
         const layoutId=settings.layout||'aurora';
         const sideNote=(layoutId==='aurora'||layoutId==='sidebar')?(' · '+(settings.sidebar_side==='right'?'Phải':'Trái')):'';
-        const fx=settings.lite_mode?'Lite Mode':((settings.blur===false?'Nền đặc':'Kính mờ')+' · '+(settings.animations===false?'Tắt hiệu ứng':'Hiệu ứng mượt'));
+        const gBlur=Number.isInteger(settings.glass_blur)?settings.glass_blur:16;
+        const gAlpha=Number.isInteger(settings.glass_opacity)?settings.glass_opacity:74;
+        const fx=settings.lite_mode?'Lite Mode':((settings.blur===false?'Nền đặc':`Kính mờ ${gBlur}px · ${gAlpha}%`)+' · '+(settings.animations===false?'Tắt hiệu ứng':'Hiệu ứng mượt'));
         meta.textContent=(modeNames[settings.theme||'dusk']||'Hoàng hôn')+' · '+(layoutNames[layoutId]||layoutId)+sideNote+' · '+fx;
       }
     }

@@ -8,7 +8,13 @@ DEFAULT_LAYOUT = "aurora"
 DASHBOARD_LAYOUTS = {DEFAULT_LAYOUT, "bento", "dock", "sidebar", "zen", "edges"}
 DEFAULT_SIDEBAR_SIDE = "left"
 SIDEBAR_SIDES = {DEFAULT_SIDEBAR_SIDE, "right"}
+DEFAULT_GLASS_BLUR = 16
+DEFAULT_GLASS_OPACITY = 74
 THEME_DEFAULTS = {"theme": "dusk", "color_theme": "nos", "accent": "blue", "custom_accent": "#83b8ff"}
+# Interface languages. Vietnamese is the source language; every other code
+# needs a pack in assets/i18n-<code>.js. Add new codes here.
+DEFAULT_LANGUAGE = "vi"
+LANGUAGES = {DEFAULT_LANGUAGE, "en"}
 
 
 def clean_theme_settings(raw: object) -> dict:
@@ -17,11 +23,17 @@ def clean_theme_settings(raw: object) -> dict:
     result = {}
     for key, choices in (("theme", THEME_MODES), ("color_theme", COLOR_THEMES),
                          ("accent", ACCENTS), ("layout", DASHBOARD_LAYOUTS),
-                         ("sidebar_side", SIDEBAR_SIDES)):
+                         ("sidebar_side", SIDEBAR_SIDES), ("language", LANGUAGES)):
         value = raw.get(key)
         if isinstance(value, str) and value in choices:
             result[key] = value
     custom = raw.get("custom_accent")
     if isinstance(custom, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", custom):
         result["custom_accent"] = custom.lower()
+    glass_blur = raw.get("glass_blur")
+    if type(glass_blur) is int and 0 <= glass_blur <= 32:
+        result["glass_blur"] = glass_blur
+    glass_opacity = raw.get("glass_opacity")
+    if type(glass_opacity) is int and 30 <= glass_opacity <= 100:
+        result["glass_opacity"] = glass_opacity
     return result

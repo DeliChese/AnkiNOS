@@ -7,6 +7,8 @@
   const $=id=>document.getElementById(id);
   const initial=JSON.parse($('nos-review-bootstrap')?.textContent||'{}');
   window.NOSTheme.watch(shell,()=>initial,true);
+  const initLang=initial.language||(typeof window.pycmd!=='function'?new URLSearchParams(location.search).get('lang'):'')||'vi';
+  window.NOSI18n?.set(initLang);
   const background = typeof initial.background === 'string' &&
     /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}(?:-wall)?\.(?:png|jpg|webp)$/.test(initial.background) ? initial.background : '';
   shell.dataset.customBackground = background ? 'true' : 'false';
@@ -42,10 +44,12 @@
   $('nos-focus-duration').add(new Option('30 phút','30'),$('nos-focus-duration').querySelector('[value="45"]'));
   const notebookButton=document.createElement('button');notebookButton.type='button';notebookButton.textContent='Ghi chú';notebookButton.dataset.nosReview='notebook';notebookButton.title='Ghi chú cho note đang học';
   $('nos-review-tools').append(notebookButton);
+  if(initial.deck)$('nos-review-deck').setAttribute('data-i18n-skip','');
   $('nos-review-deck').textContent=initial.deck||'Phiên ôn tập';
   $('nos-review-deck').title=initial.deck||'Phiên ôn tập';
-  const format=new Intl.NumberFormat('vi-VN');
+  const format=window.NOSI18n?window.NOSI18n.numberFormat():new Intl.NumberFormat('vi-VN');
   const card=$('nos-review-card');
+  let lastState={side:'question',answered:initial.answered||0};
   let frame=0,lastBackground='',lastImage='';
   // Use Anki's own no-fade path, also used by its software renderer.
   // Card replacement and the answer controls remain entirely native.
@@ -62,6 +66,7 @@
   }
   let sideTimer=0;
   function setState(value){
+    lastState=value;
     const changed=shell.dataset.side!==value.side;
     shell.dataset.side=value.side;
     const sidePill=$('nos-review-side');
@@ -127,6 +132,7 @@
   window.NOSReview={setState,setFocus};
   setFocus(focusState);
   setState({side:'question',answered:initial.answered||0});
+  document.addEventListener('nos:language',()=>{setState(lastState);updateFocusClock();});
   // Watch only card replacements / body theme changes. MathJax, typing and
   // template scripts can mutate thousands of descendants without NOS work.
   const observer=new MutationObserver(preserveCardStyle);

@@ -9,7 +9,9 @@
     function render(data){if(Number(data.seq)<sequence)return;items=data.items||[];active=0;
       $('command-results').replaceChildren(...items.map((item,i)=>{
         const button=el('button',undefined,'command-result');button.type='button';button.role='option';button.id='command-result-'+i;
-        button.append(el('span',item.title),el('small',item.detail));button.addEventListener('click',()=>execute(item));return button;
+        const titleEl=el('span',item.title);
+        if(item.kind!=='action')titleEl.setAttribute('data-i18n-skip','');
+        button.append(titleEl,el('small',item.detail));button.addEventListener('click',()=>execute(item));return button;
       }));highlight();T.notice(items.length?`${items.length} kết quả · ↑ ↓ để chọn · Enter để mở`:'Chưa tìm thấy. Thử tên bộ thẻ, ghi chú hoặc lệnh như “thêm thẻ”.');
     }
     window.NOSCommands={init(){
@@ -23,8 +25,9 @@
     },receive(event,data){if(event==='results')render(data);},preview(action,data){
       if(action==='boot'||action==='search'){
         const fold=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d');
+        const tr=s=>window.NOSI18n?window.NOSI18n.t(s):s;
         const sample=[{kind:'action',id:'study',title:'Học bộ thẻ hiện tại',detail:'Lệnh'},{kind:'action',id:'notebook',title:'Sổ tay',detail:'Lệnh'},{kind:'action',id:'add',title:'Thêm thẻ Anki',detail:'Lệnh'},{kind:'deck',id:'1',title:'Ngoại ngữ::Tiếng Anh',detail:'Bộ thẻ'}];
-        render({seq:data.seq||0,items:sample.filter(x=>fold(x.title).includes(fold(data.query||'')))});
+        render({seq:data.seq||0,items:sample.filter(x=>fold(x.title+' '+tr(x.title)).includes(fold(data.query||'')))});
       }else T.notice('Bản xem trước · mở Anki để chạy lệnh.');
     }};
   };

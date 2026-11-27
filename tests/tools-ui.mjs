@@ -78,6 +78,18 @@ try{
   await receive('note_context',{note_id:'456'});await click('#note-new');
   assert((await evaluate(`document.getElementById('note-context').textContent`)).includes('456'));
   await click('.note-item');
+  // Test mini text formatting toolbar, safe Markdown preview, optional deck, and pocket corner minimize/restore.
+  await click('#note-new');
+  await click('.note-format-bar [data-fmt="bold"]');
+  assert((await evaluate(`document.getElementById('note-body').value`)).includes('**'));
+  await click('#note-preview-toggle');
+  assert.equal(await evaluate(`!document.getElementById('note-md-preview').hidden && !!document.querySelector('#note-md-preview strong')`),true);
+  await click('#note-preview-toggle');
+  assert.equal(await evaluate(`document.getElementById('note-deck').value`),'', 'New general note should not force a deck');
+  await click('#tool-minimize');
+  assert.equal(await evaluate(`document.getElementById('nos-tool').classList.contains('is-minimized') && !document.getElementById('tool-mini-dock').hidden`),true,'Minimize button must collapse notebook into corner pocket dock');
+  await click('#tool-mini-dock');
+  assert.equal(await evaluate(`!document.getElementById('nos-tool').classList.contains('is-minimized') && document.getElementById('tool-mini-dock').hidden`),true,'Clicking corner pocket dock must restore notebook');
   for(const width of [320,390,768,1024]){await size(width);await fit();}
   await size(390);await screenshot('notebook-mobile');
 

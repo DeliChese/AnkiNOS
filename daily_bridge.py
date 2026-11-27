@@ -13,6 +13,7 @@ from .daily_scheduler import (
     resolve_scope_deck_ids,
 )
 from .daily_store import DailyStore, clean_daily_config
+from .i18n import translate as _tr_text
 
 if TYPE_CHECKING:
     from anki.collection import OpChanges
@@ -67,6 +68,7 @@ def apply_redistribution_in_col(
     scope_label: str,
     *,
     changes: OpChanges | None = None,
+    lang: str = "vi",
 ) -> dict[str, Any]:
     """Safely apply real card.due shifts inside an Anki CollectionOp, preserving ivl and FSRS state."""
     planned_moves = plan.get("moves") or []
@@ -97,7 +99,7 @@ def apply_redistribution_in_col(
     if not updated_cards:
         return {"applied": 0, "skipped": skipped, "batch": None}
 
-    _update_cards_with_undo(col, updated_cards, "AnkiNOS: Điều phối lịch ôn", changes)
+    _update_cards_with_undo(col, updated_cards, _tr_text("AnkiNOS: Điều phối lịch ôn", lang), changes)
 
     batch = store.record_batch(
         scope_label=scope_label,
@@ -116,6 +118,7 @@ def rollback_batch_in_col(
     store: DailyStore,
     *,
     changes: OpChanges | None = None,
+    lang: str = "vi",
 ) -> dict[str, Any]:
     """Restore old_due for cards in a batch that have not been reviewed since the batch ran."""
     batch = store.get_batch(batch_id)
@@ -157,7 +160,7 @@ def rollback_batch_in_col(
         restored_cards.append(card)
 
     if restored_cards:
-        _update_cards_with_undo(col, restored_cards, "AnkiNOS: Hoàn tác điều phối lịch ôn", changes)
+        _update_cards_with_undo(col, restored_cards, _tr_text("AnkiNOS: Hoàn tác điều phối lịch ôn", lang), changes)
 
     rolled_at = store.mark_rolled_back(batch_id)
     return {
@@ -234,9 +237,13 @@ def prepare_today_filtered_deck(
     deck["resched"] = True
     deck["delays"] = None
     _merge_changes(changes, col.decks.update_dict(deck))
-    _merge_changes(changes, col.sched.rebuild_filtered_deck(did).changes)
+    rebuilt = col.sched.rebuild_filtered_deck(did)
+    _merge_changes(changes, rebuilt.changes)
+    gathered = int(getattr(rebuilt, "count", len(verified)))
+    if gathered <= 0:
+        raise ValueError("Hôm nay không còn thẻ đến hạn sẵn sàng để mở phiên ôn.")
     _merge_changes(changes, col.decks.set_current(did))
-    return int(did), len(verified)
+    return int(did), gathered
 
 
 def build_daily_payload(col: Any, root: Path, profile: str) -> dict[str, Any]:
@@ -269,6 +276,7 @@ def handle(
     reply: Callable[[str, Any], None],
     on_mutated: Callable[[], None],
     on_start_review: Callable[[int, int | None], None],
+    lang: str = "vi",
 ) -> None:
     """Dispatch dashboard daily_* commands onto Anki's QueryOp / CollectionOp executors."""
     from anki.collection import OpChanges
@@ -277,6 +285,7 @@ def handle(
 
     method = command.get("method")
     request_id = command.get("request_id")
+    initiator = getattr(mw, "deckBrowser", None)
 
     def respond(data: Any = None, error: str = "") -> None:
         if current():
@@ -352,7 +361,7 @@ def handle(
                 horizon_days=HORIZON_DISPLAY_DAYS,
             )
             changes = OpChanges()
-            result = apply_redistribution_in_col(col, schedule["plan"], store, scope_label_for(cfg), changes=changes)
+            result = apply_redistribution_in_col(col, schedule["plan"], store, scope_label_for(cfg), changes=changes, lang=lang)
             payload = build_daily_payload(col, root, profile)
             payload["apply_result"] = result
             return _CollectionResult(changes, payload)
@@ -361,7 +370,7 @@ def handle(
             on_mutated()
             respond(data=result.data)
 
-        CollectionOp(parent=mw, op=op_apply).success(done_apply).failure(fail).run_in_background()
+        CollectionOp(parent=mw, op=op_apply).success(done_apply).failure(fail).run_in_background(initiator=initiator)
         return
 
     if method == "rollback_batch":
@@ -373,7 +382,7 @@ def handle(
         def op_rollback(col: Any) -> _CollectionResult[dict[str, Any]]:
             store = DailyStore(root, profile)
             changes = OpChanges()
-            result = rollback_batch_in_col(col, batch_id, store, changes=changes)
+            result = rollback_batch_in_col(col, batch_id, store, changes=changes, lang=lang)
             payload = build_daily_payload(col, root, profile)
             payload["rollback_result"] = result
             return _CollectionResult(changes, payload)
@@ -382,7 +391,7 @@ def handle(
             on_mutated()
             respond(data=result.data)
 
-        CollectionOp(parent=mw, op=op_rollback).success(done_rollback).failure(fail).run_in_background()
+        CollectionOp(parent=mw, op=op_rollback).success(done_rollback).failure(fail).run_in_background(initiator=initiator)
         return
 
     if method == "batch_detail":
@@ -413,11 +422,12 @@ def handle(
             return _CollectionResult(changes, result)
 
         def done_study(result: _CollectionResult[tuple[int, int]]) -> None:
-            did, _count = result.data
+            did, count = result.data
             on_mutated()
+            respond(data={"started": True, "deck_id": str(did), "count": count})
             on_start_review(did, minutes)
 
-        CollectionOp(parent=mw, op=op_study).success(done_study).failure(fail).run_in_background()
+        CollectionOp(parent=mw, op=op_study).success(done_study).failure(fail).run_in_background(initiator=initiator)
         return
 
     respond(error="Lệnh Lịch ôn không được hỗ trợ.")

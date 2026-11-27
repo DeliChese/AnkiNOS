@@ -52,7 +52,7 @@ class WorkspaceStore:
             with db:
                 yield db
 
-    def save(self, collection: str, deck: str, deck_name: str, title: str, body: str, *, note_id: str | None = None, identifier: str | None = None) -> str:
+    def save(self, collection: str, deck: str, deck_name: str, title: str, body: str, *, note_id: str | None = None, identifier: str | None = None, allow_deck_change: bool = False) -> str:
         if not isinstance(title,str) or not isinstance(body,str) or not body.strip() or len(body)>20000 or len(title)>160:
             raise ValueError("Ghi chú cần nội dung, tối đa 20.000 ký tự; tiêu đề tối đa 160 ký tự.")
         timestamp = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
@@ -60,11 +60,15 @@ class WorkspaceStore:
         with self.db() as db:
             old = db.execute("SELECT collection_key,deck_id,note_id FROM notes WHERE id=?",(identifier,)).fetchone()
             if old:
-                if old[0] != collection or old[1] != deck:
+                if old[0] != collection or (not allow_deck_change and old[1] != deck):
                     raise ValueError("Ghi chú thuộc ngữ cảnh khác.")
                 # Editing a contextual note never silently rebinds its Anki note.
-                db.execute("UPDATE notes SET title=?,body=?,search=?,updated_at=? WHERE id=?",
-                    (title.strip(),body,folded(title+" "+body),timestamp,identifier))
+                if allow_deck_change:
+                    db.execute("UPDATE notes SET deck_id=?,deck_name=?,title=?,body=?,search=?,updated_at=? WHERE id=?",
+                        (deck,deck_name,title.strip(),body,folded(title+" "+body),timestamp,identifier))
+                else:
+                    db.execute("UPDATE notes SET title=?,body=?,search=?,updated_at=? WHERE id=?",
+                        (title.strip(),body,folded(title+" "+body),timestamp,identifier))
             else:
                 db.execute("INSERT INTO notes VALUES (?,?,?,?,?,?,?,?,?,?,NULL)",
                     (identifier,collection,deck,deck_name,note_id,title.strip(),body,folded(title+" "+body),timestamp,timestamp))

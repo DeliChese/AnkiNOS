@@ -10,8 +10,18 @@ from aqt.reviewer import Reviewer, ReviewerBottomBar
 from aqt.qt import QTimer, QObject, QEvent
 from pathlib import Path
 
+from .i18n import translate as _tr_text
+
 _enabled: Callable[[], bool]
 _settings: Callable[[], dict[str, Any]]
+
+
+def _t(text: str) -> str:
+    try:
+        lang = _settings().get("language", "vi") if callable(_settings) else "vi"
+    except Exception:
+        lang = "vi"
+    return _tr_text(text, lang)
 _answered = 0
 _focus: Any = None
 _focus_profile: str | None = None
@@ -71,7 +81,10 @@ def _review_content(content: Any, context: Any) -> None:
     package = mw.addonManager.addonFromModule(__package__)
     base = f"/_addons/{package}/assets"
     current_settings = _settings()
-    appearance = {key: current_settings[key] for key in ("theme", "color_theme", "accent", "custom_accent") if key in current_settings}
+    appearance = {key: current_settings[key] for key in ("theme", "color_theme", "accent", "custom_accent", "glass_blur", "glass_opacity", "language") if key in current_settings}
+    if isinstance(context, Reviewer):
+        content.js.append(f"{base}/i18n.js")
+        content.js.append(f"{base}/i18n-en.js")
     content.js.append(f"{base}/theme.js")
     if isinstance(context, Reviewer):
         deck = mw.col.decks.current()
@@ -90,10 +103,11 @@ def _review_content(content: Any, context: Any) -> None:
                    "blur": current_settings.get("blur", True),
                    "lite_mode": bool(current_settings.get("lite_mode", False)),
                    "animations": current_settings.get("animations", True)}
+        card_label = html.escape(_t("Nội dung thẻ"), quote=True)
         content.body = (
             '<div id="nos-review-shell"><div class="nos-review-wallpaper" aria-hidden="true"><img class="nos-review-wallpaper-image" alt="" hidden><div class="nos-review-aurora"><i></i><i></i></div></div>'
             '<header id="nos-review-header"></header><main id="nos-review-stage">'
-            '<section id="nos-review-card" aria-label="Nội dung thẻ">' + content.body + '</section></main></div>'
+            f'<section id="nos-review-card" data-i18n-skip aria-label="{card_label}">' + content.body + '</section></main></div>'
             '<textarea id="nos-review-bootstrap" hidden>' + html.escape(json.dumps(initial,ensure_ascii=True)) + '</textarea>'
         )
         content.css.append(f"{base}/reviewer.css")
@@ -172,7 +186,7 @@ def _bridge(handled: tuple[bool,Any], message: str, context: Any) -> tuple[bool,
         open_notebook()
     elif action == "native":
         from .integration import _fallback
-        _fallback(RuntimeError("Không thể nạp giao diện phiên học."))
+        _fallback(RuntimeError(_t("Không thể nạp giao diện phiên học.")))
     elif action.startswith("focus:"):
         part = action.split(":")
         operation = part[1] if len(part) > 1 else ""
@@ -191,7 +205,7 @@ def _bridge(handled: tuple[bool,Any], message: str, context: Any) -> tuple[bool,
             _emit_focus()
         except (ValueError, OSError) as error:
             from aqt.utils import showWarning
-            showWarning("Focus Mode: " + str(error))
+            showWarning("Focus Mode: " + _t(str(error)))
     return (True,None)
 
 

@@ -3,24 +3,41 @@
 <body>
   <main id="nos-tool" class="tool-shell">
     <div class="tool-backdrop" aria-hidden="true"><i></i><i></i></div>
-    <header class="tool-header">
-      <div class="tool-heading">
-        <span class="tool-emblem" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 3 14.3 9.7 21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3Z"/></svg>
-        </span>
-        <div class="tool-title-block">
-          <span class="tool-brand">ANKINOS</span>
-          <div class="tool-title-row">
-            <h1 id="tool-title">Công cụ học</h1>
-            <span id="tool-context" class="tool-context-pill"></span>
+    <button type="button" id="tool-mini-dock" class="tool-mini-dock" hidden aria-label="Mở rộng Sổ tay">
+      <span class="tool-mini-spine" aria-hidden="true"></span>
+      <span class="tool-mini-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3V4Z"/><path d="M8 8h7M8 12h6"/></svg>
+      </span>
+      <span class="tool-mini-copy"><strong>Sổ tay</strong><small id="tool-mini-count">Nhấn để mở</small></span>
+    </button>
+    <div class="tool-window">
+      <header class="tool-header" id="tool-drag-bar">
+        <div class="tool-heading">
+          <span class="tool-emblem" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3 14.3 9.7 21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3Z"/></svg>
+          </span>
+          <div class="tool-title-block">
+            <span class="tool-brand">ANKINOS</span>
+            <div class="tool-title-row">
+              <h1 id="tool-title">Công cụ học</h1>
+              <span id="tool-context" class="tool-context-pill"></span>
+            </div>
           </div>
         </div>
-      </div>
-    </header>
-    <p id="tool-preview" class="notice" hidden>Bản xem trước giao diện · không ghi dữ liệu học. Mở Anki để sử dụng với bộ sưu tập thật.</p>
-    <p id="tool-status" class="tool-status" role="status" aria-live="polite"></p>
-    <section id="tool-content" aria-label="Nội dung công cụ"></section>
-    <footer class="tool-footer">Dữ liệu sổ tay lưu trên máy theo hồ sơ · Có trong gói sao lưu AnkiNOS.</footer>
+        <div class="tool-win-actions">
+          <button type="button" id="tool-minimize" class="tool-win-btn" title="Thu nhỏ vào góc như cuốn sổ" aria-label="Thu nhỏ vào góc" hidden>
+            <svg viewBox="0 0 24 24"><path d="M6 15h12"/></svg>
+          </button>
+          <button type="button" id="tool-close" class="tool-win-btn tool-win-close" title="Đóng" aria-label="Đóng">
+            <svg viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></svg>
+          </button>
+        </div>
+      </header>
+      <p id="tool-preview" class="notice" hidden>Bản xem trước giao diện · không ghi dữ liệu học. Mở Anki để sử dụng với bộ sưu tập thật.</p>
+      <p id="tool-status" class="tool-status" role="status" aria-live="polite"></p>
+      <section id="tool-content" aria-label="Nội dung công cụ"></section>
+      <footer class="tool-footer">Dữ liệu sổ tay lưu trên máy theo hồ sơ · Có trong gói sao lưu AnkiNOS.</footer>
+    </div>
   </main>
-  <script src="assets/theme.js"></script><script src="assets/tools.js"></script><script src="assets/commands.js"></script><script src="assets/notebook.js"></script>
+  <script src="assets/i18n.js"></script><script src="assets/i18n-en.js"></script><script src="assets/theme.js"></script><script src="assets/tools.js"></script><script src="assets/commands.js"></script><script src="assets/notebook.js"></script>
 </body></html>

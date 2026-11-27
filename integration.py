@@ -21,7 +21,8 @@ from aqt.qt import QAction, QComboBox, QDesktopServices, QDialog, QDialogButtonB
 from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, quick_snapshot, clear_snapshot_cache
-from .theme_settings import DEFAULT_LAYOUT, DEFAULT_SIDEBAR_SIDE, THEME_DEFAULTS, clean_theme_settings
+from .i18n import format_restore_preview, translate as _translate_text
+from .theme_settings import DEFAULT_GLASS_BLUR, DEFAULT_GLASS_OPACITY, DEFAULT_LANGUAGE, DEFAULT_LAYOUT, DEFAULT_SIDEBAR_SIDE, THEME_DEFAULTS, clean_theme_settings
 from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, WALLPAPER_SUFFIX, WALLPAPER_MAX_SIDE,
                           WALLPAPER_DIM_MAX, WALLPAPER_BLUR_MAX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
@@ -38,6 +39,7 @@ _chrome_visibility: list[tuple[Any, bool]] = []
 _chrome_guard: QObject | None = None
 _overview_rendered = False
 _overview_pending = False
+_rendering_congrats = False
 _config_cache: dict[str, Any] | None = None
 _navigating = False
 _library_focus: str | None = None
@@ -68,6 +70,19 @@ def enabled() -> bool:
     return _integration_ready and not _session_error and bool(config().get("enabled", True))
 
 
+def _lang() -> str:
+    try:
+        if getattr(mw, "pm", None) and mw.pm.name:
+            return str(settings().get("language", DEFAULT_LANGUAGE))
+    except Exception:
+        pass
+    return DEFAULT_LANGUAGE
+
+
+def _t(text: str) -> str:
+    return _translate_text(text, _lang())
+
+
 def _fallback(error: Exception) -> None:
     """A failed skin must never strand the user on an empty deck browser."""
     global _session_error, _navigating
@@ -79,8 +94,8 @@ def _fallback(error: Exception) -> None:
     def recover() -> None:
         if mw.col:
             mw.moveToState("deckBrowser")
-        showWarning("AnkiNOS đã chuyển về giao diện Anki gốc để bạn tiếp tục học.\n"
-                    "Hãy kiểm tra cấu hình add-on và khởi động lại Anki.\n\n" + _session_error, parent=mw)
+        showWarning(_t("AnkiNOS đã chuyển về giao diện Anki gốc để bạn tiếp tục học.\n"
+                       "Hãy kiểm tra cấu hình add-on và khởi động lại Anki.\n\n") + _t(_session_error), parent=mw)
     QTimer.singleShot(0, recover)
 
 
@@ -89,17 +104,17 @@ def _compatibility() -> None:
     try:
         anki_version = version("anki")
     except PackageNotFoundError:
-        anki_version = "không xác định"
+        anki_version = _t("không xác định")
     checks = [("Danh sách bộ thẻ", callable(getattr(DeckBrowser, "_renderDeckTree", None))),
         ("Chuyển bộ thẻ", callable(getattr(DeckBrowser, "set_current_deck", None))),
         ("Bắt đầu học", callable(getattr(Overview, "_linkHandler", None))),
         ("Thống kê gốc", bool(mw.col and callable(getattr(mw.col._backend, "graphs", None))))]
     text = "Anki " + anki_version + "\n\n" + "\n".join(
-        ("Có: " if okay else "Chưa hỗ trợ: ") + name for name, okay in checks)
+        _t(("Có: " if okay else "Chưa hỗ trợ: ") + name) for name, okay in checks)
     if _session_error:
-        text += "\n\nLần lỗi gần nhất: " + _session_error
+        text += "\n\n" + _t("Lần lỗi gần nhất: " + _session_error)
     from aqt.utils import showInfo
-    showInfo(text + "\n\nĐây là kiểm tra khả năng API, không phải chứng nhận mọi add-on đều tương thích.", parent=mw)
+    showInfo(text + "\n\n" + _t("Đây là kiểm tra khả năng API, không phải chứng nhận mọi add-on đều tương thích."), parent=mw)
 
 
 def _dashboard_active() -> bool:
@@ -141,10 +156,27 @@ def _state_changing(new: str, _old: str) -> None:
         _restore_chrome()
 
 
-def _overview_refreshed(_overview: Any) -> None:
-    global _overview_rendered, _overview_pending
-    # Anki's completion page uses Svelte, bypassing the legacy HTML hook. Keep
-    # its own controls visible instead of hiding them behind an absent NOS menu.
+def _overview_refreshed(overview: Any) -> None:
+    global _overview_rendered, _overview_pending, _rendering_congrats
+    # Anki's completion page ("Congratulations! You have finished this deck")
+    # uses Svelte and bypasses webview_will_set_content. Take over cleanly with
+    # AnkiNOS's celebratory overview screen instead of falling back to native UI.
+    if enabled() and mw.col and mw.state == "overview" and not _overview_pending and not _rendering_congrats:
+        _rendering_congrats = True
+        try:
+            overview.web.stdHtml("", context=overview, default_css=False)
+            _overview_rendered = True
+            _overview_pending = False
+            _sync_chrome()
+            QTimer.singleShot(0, refresh)
+            return
+        except Exception:
+            _overview_rendered = False
+            _overview_pending = False
+            _sync_chrome()
+            return
+        finally:
+            _rendering_congrats = False
     _overview_rendered = _overview_pending
     _overview_pending = False
     _sync_chrome()
@@ -178,7 +210,10 @@ def _config_updated(values: dict[str, Any]) -> None:
         if previous_enabled != values.get("enabled", True):
             mw.moveToState(mw.state)
         elif values.get("enabled", True):
-            send("settings", public_settings())
+            current_public = public_settings()
+            send("settings", current_public)
+            from .study_tools_ui import sync_settings
+            sync_settings(current_public)
 
 
 @lru_cache(maxsize=3)
@@ -250,6 +285,12 @@ def _guard_live_updates() -> None:
                 # has focus. Returning dirty would fade and later reload HTML.
                 view._refresh_needed = False
                 return False
+            if view is _live_context and _navigating and mw.col and enabled():
+                # An operation finishing mid-navigation (such as rebuilding the
+                # Daily Schedule filtered deck right before entering review)
+                # must not reload DeckBrowser HTML and abort the transition.
+                view._refresh_needed = False
+                return False
             return original_op(view, changes, handler, focused)
 
         @wraps(original_refresh)
@@ -258,6 +299,9 @@ def _guard_live_updates() -> None:
                 view._refresh_needed = False
                 if _refresh_timer:
                     _refresh_timer.start(0)
+                return
+            if view is _live_context and _navigating and mw.col and enabled():
+                view._refresh_needed = False
                 return
             return original_refresh(view)
 
@@ -295,7 +339,10 @@ def settings() -> dict[str, Any]:
             "image_position_review": "center", "image_position_avatar": "center",
             **profile,
             "layout": cleaned.get("layout", DEFAULT_LAYOUT),
-            "sidebar_side": cleaned.get("sidebar_side", DEFAULT_SIDEBAR_SIDE)}
+            "sidebar_side": cleaned.get("sidebar_side", DEFAULT_SIDEBAR_SIDE),
+            "glass_blur": cleaned.get("glass_blur", DEFAULT_GLASS_BLUR),
+            "glass_opacity": cleaned.get("glass_opacity", DEFAULT_GLASS_OPACITY),
+            "language": cleaned.get("language", DEFAULT_LANGUAGE)}
 
 
 def public_settings() -> dict[str, Any]:
@@ -313,8 +360,8 @@ def public_settings() -> dict[str, Any]:
 
 def _image_add(album_id: str = "") -> None:
     paths, _ = QFileDialog.getOpenFileNames(
-        mw, "Thêm ảnh vào thư viện AnkiNOS", "",
-        "Ảnh (*.png *.jpg *.jpeg *.webp)")
+        mw, _t("Thêm ảnh vào thư viện AnkiNOS"), "",
+        _t("Ảnh (*.png *.jpg *.jpeg *.webp)"))
     if not paths:
         return
     images = valid_images(settings().get("images"))
@@ -372,13 +419,13 @@ def _image_add(album_id: str = "") -> None:
             images.append(entry)
             added += 1
         except (OSError, ValueError) as error:
-            errors.append(f"{Path(path).name}: {error}")
+            errors.append(f"{Path(path).name}: {_t(str(error))}")
     if added:
         save_settings({"images": images})
         send("settings", public_settings())
         _prepare_image_previews()  # wallpaper-sized copies are built off the UI thread
-    send("image_library", {"message": f"Đã thêm {added} ảnh." if added else "Không có ảnh nào được thêm.",
-                           "errors": errors[:5]})
+    send("image_library", {"message": _t(f"Đã thêm {added} ảnh." if added else "Không có ảnh nào được thêm."),
+                           "errors": [_t(err) for err in errors[:5]]})
 
 
 def _write_derivative(source: Path, target: Path, max_side: int, fmt: str, quality: int = -1) -> None:
@@ -462,7 +509,7 @@ def _image_delete(identifier: str) -> None:
     item = next((entry for entry in images if entry["id"] == identifier), None)
     if not item:
         return
-    if not askUser(f"Xóa ảnh '{item['name']}' khỏi thư viện AnkiNOS?"):
+    if not askUser(_t(f"Xóa ảnh '{item['name']}' khỏi thư viện AnkiNOS?")):
         return
     remaining = delete_image(ROOT, mw.pm.name, images, identifier)
     patch: dict[str, Any] = {"images": remaining}
@@ -692,6 +739,8 @@ def _quick_study(did: int, minutes: Any = None) -> None:
         global _navigating, _quick_plan
         if not mw.col or mw.pm.name != profile or generation != _generation or mw.state != "deckBrowser" or not enabled():
             _navigating = False
+            if mw.col and mw.pm.name == profile and mw.state == "deckBrowser" and enabled():
+                refresh()
             return
         _quick_plan = (profile, str(did), minutes)
         # Start from the loaded overview's bridge. An immediate second setHtml
@@ -742,17 +791,17 @@ def _backup_job(task: Any, done: Any) -> None:
         try:
             done(future.result())
         except Exception as error:
-            message = "Không thể xử lý gói sao lưu: " + str(error)
+            message = _t("Không thể xử lý gói sao lưu: " + str(error))
             send("backup_status", {"busy": False, "message": message})
             showWarning(message, parent=mw)
-    mw.taskman.with_progress(task, finished, label="Đang xử lý sao lưu AnkiNOS…", immediate=True, uses_collection=False)
+    mw.taskman.with_progress(task, finished, label=_t("Đang xử lý sao lưu AnkiNOS…"), immediate=True, uses_collection=False)
 
 
 def _backup_export() -> None:
     if _backup_busy:
         return
     from .backup_store import export_archive
-    path, _ = QFileDialog.getSaveFileName(mw, "Sao lưu đầy đủ AnkiNOS", "AnkiNOS-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".nosbackup", "Gói AnkiNOS (*.nosbackup)")
+    path, _ = QFileDialog.getSaveFileName(mw, _t("Sao lưu đầy đủ AnkiNOS"), "AnkiNOS-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".nosbackup", _t("Gói AnkiNOS (*.nosbackup)"))
     if not path:
         return
     from .reviewer_ui import checkpoint_focus
@@ -760,10 +809,11 @@ def _backup_export() -> None:
     profile, values = mw.pm.name, settings()
     names = {str(d.id): d.name for d in mw.col.decks.all_names_and_ids()}
     def done(destination: Path) -> None:
-        send("backup_status", {"busy": False, "message": "Đã sao lưu đầy đủ tại " + str(destination)})
+        msg = _t("Đã sao lưu đầy đủ tại " + str(destination))
+        send("backup_status", {"busy": False, "message": msg})
         if not enabled():
             from aqt.utils import showInfo
-            showInfo("Đã sao lưu đầy đủ tại " + str(destination), parent=mw)
+            showInfo(msg, parent=mw)
     _backup_job(lambda: export_archive(ROOT, profile, values, Path(path).with_suffix(".nosbackup"),
                                       deck_names=names), done)
 
@@ -772,7 +822,7 @@ def _backup_restore() -> None:
     if _backup_busy:
         return
     from .backup_store import inspect_archive, restore_archive
-    path, _ = QFileDialog.getOpenFileName(mw, "Chọn gói AnkiNOS để xem trước", "", "Gói AnkiNOS (*.nosbackup)")
+    path, _ = QFileDialog.getOpenFileName(mw, _t("Chọn gói AnkiNOS để xem trước"), "", _t("Gói AnkiNOS (*.nosbackup)"))
     if not path:
         return
     profile = mw.pm.name
@@ -780,18 +830,20 @@ def _backup_restore() -> None:
         if not mw.col or mw.pm.name != profile:
             return
         values = manifest["settings"]
-        text = ("<b>Xem trước khôi phục AnkiNOS</b><br><br>Hồ sơ nguồn: " + html.escape(str(manifest.get("profile", "")))
-            + "<br>Tạo lúc: " + html.escape(str(manifest.get("created_at", "")))
-            + f"<br>Ảnh: {len(values['images'])} · Album: {len(values['image_albums'])} · Phiên Focus: {manifest['focus_sessions']}"
-            + f"<br>Tham chiếu tài nguyên: {len(values['resources'])}"
-            + f"<br>Ghi chú: {manifest.get('workspace',{}).get('notes',0)}"
-            + "<br><br>Hồ sơ nhận: <b>" + html.escape(profile) + "</b>"
-            + "<br>Cấu hình giao diện, ảnh, Focus và sổ tay sẽ được thay thế. Bản dự phòng hiện tại được lưu vào user_files/backups trước khi thay thế."
-            + "<br>Thẻ Anki không nằm trong gói này. Tài nguyên ngoài add-on chỉ lưu đường dẫn, có thể cần gắn lại khi đổi máy."
-            + "<br><br>Khôi phục vào hồ sơ này?")
-        send("backup_status", {"busy": False, "message": "Đã kiểm tra toàn vẹn gói. Đang chờ xác nhận khôi phục."})
+        text = format_restore_preview(
+            source_profile=html.escape(str(manifest.get("profile", ""))),
+            created_at=html.escape(str(manifest.get("created_at", ""))),
+            images_count=len(values["images"]),
+            albums_count=len(values["image_albums"]),
+            focus_sessions=manifest["focus_sessions"],
+            resources_count=len(values["resources"]),
+            notes_count=manifest.get("workspace", {}).get("notes", 0),
+            target_profile=html.escape(profile),
+            lang=_lang(),
+        )
+        send("backup_status", {"busy": False, "message": _t("Đã kiểm tra toàn vẹn gói. Đang chờ xác nhận khôi phục.")})
         if not askUser(text, parent=mw, defaultno=True):
-            send("backup_status", {"busy": False, "message": "Đã hủy khôi phục. Dữ liệu hiện tại được giữ nguyên."})
+            send("backup_status", {"busy": False, "message": _t("Đã hủy khôi phục. Dữ liệu hiện tại được giữ nguyên.")})
             return
         if mw.state == "review":
             mw.moveToState("deckBrowser")
@@ -824,10 +876,10 @@ def _backup_restore() -> None:
             _clear_support_cache()
             send("settings", public_settings())
             refresh()
-            send("backup_status", {"busy": False, "message": "Đã khôi phục đầy đủ. Bản trước khôi phục: " + str(backup)})
+            send("backup_status", {"busy": False, "message": _t("Đã khôi phục đầy đủ. Bản trước khôi phục: " + str(backup))})
             if not enabled():
                 from aqt.utils import showInfo
-                showInfo("Đã khôi phục dữ liệu AnkiNOS. Bản trước khôi phục: " + str(backup), parent=mw)
+                showInfo(_t("Đã khôi phục dữ liệu AnkiNOS. Bản trước khôi phục: " + str(backup)), parent=mw)
         _backup_job(lambda: restore_archive(
             ROOT, profile, Path(path), manifest["archive_sha256"], original, persist,
             deck_names=names), restored)
@@ -853,8 +905,8 @@ def _stats_pdf() -> None:
         getSaveFile = None
         tooltip = None
         stats_word = "stats"
-        title = "Lưu PDF"
-        saved_msg = "Đã lưu."
+        title = _t("Lưu PDF")
+        saved_msg = _t("Đã lưu.")
     stamp = datetime.now().strftime("-%Y-%m-%d@%H-%M-%S.pdf")
     suggested = f"anki-{stats_word}{stamp}"
     if callable(getSaveFile):
@@ -1093,6 +1145,9 @@ def _replace_content(content: Any, context: Any) -> None:
     content.css = [p for p in content.css if p != "css/deckbrowser.css"]
     content.js = [p for p in content.js if p != "js/deckbrowser.js"]
     content.css.append(f"{base}/dashboard.css")
+    # Language support loads first so every page script can translate/format.
+    content.js.append(f"{base}/i18n.js")
+    content.js.append(f"{base}/i18n-en.js")
     if overview:
         content.css = [p for p in content.css if p != "css/overview.css"]
         content.css.append(f"{base}/overview.css")
@@ -1146,19 +1201,19 @@ def _browse(did: int | None = None) -> None:
 def _add_resource(link: bool = False) -> None:
     resources = list(settings()["resources"])
     if link:
-        url = getOnlyText("Đường dẫn tài nguyên (https://…)", parent=mw, title="Thêm liên kết").strip()
+        url = getOnlyText(_t("Đường dẫn tài nguyên (https://…)"), parent=mw, title=_t("Thêm liên kết")).strip()
         if not url:
             return
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            showWarning("Hãy nhập một liên kết http hoặc https hợp lệ.", parent=mw)
+            showWarning(_t("Hãy nhập một liên kết http hoặc https hợp lệ."), parent=mw)
             return
-        name = getOnlyText("Tên tài nguyên", default=parsed.netloc, parent=mw).strip()
+        name = getOnlyText(_t("Tên tài nguyên"), default=parsed.netloc, parent=mw).strip()
         if not name:
             return
         resources.append({"id": uuid.uuid4().hex, "name": name[:240], "path": url, "kind": "link", "detail": parsed.netloc})
     else:
-        paths, _ = QFileDialog.getOpenFileNames(mw, "Gắn tài nguyên học tập", "", "Tài nguyên (*.pdf *.epub *.txt *.md *.csv *.xlsx *.docx *.pptx *.mp3 *.wav *.mp4 *.webm *.png *.jpg *.jpeg *.webp)")
+        paths, _ = QFileDialog.getOpenFileNames(mw, _t("Gắn tài nguyên học tập"), "", _t("Tài nguyên (*.pdf *.epub *.txt *.md *.csv *.xlsx *.docx *.pptx *.mp3 *.wav *.mp4 *.webm *.png *.jpg *.jpeg *.webp)"))
         for raw in paths:
             path = Path(raw)
             if path.suffix.lower() not in ALLOWED_FILES or not path.is_file():
@@ -1183,7 +1238,7 @@ def _open_resource(resource_id: str) -> None:
     else:
         path = Path(resource["path"])
         if not path.is_file() or path.suffix.lower() not in ALLOWED_FILES:
-            showWarning("Không tìm thấy file tài nguyên. File có thể đã được di chuyển hoặc đổi tên.", parent=mw)
+            showWarning(_t("Không tìm thấy file tài nguyên. File có thể đã được di chuyển hoặc đổi tên."), parent=mw)
             return
         url = QUrl.fromLocalFile(str(path))
     QDesktopServices.openUrl(url)
@@ -1196,15 +1251,15 @@ def _menu_action(menu: QMenu, text: str, action: Any) -> None:
 
 def _create_deck(parent_id: int | None = None) -> None:
     dialog = QDialog(mw)
-    dialog.setWindowTitle("Tạo bộ thẻ")
+    dialog.setWindowTitle(_t("Tạo bộ thẻ"))
     dialog.setMinimumWidth(420)
     layout = QFormLayout(dialog)
     name = QLineEdit(dialog)
     name.setObjectName("nos-deck-name")
-    name.setPlaceholderText("Tên bộ thẻ mới")
+    name.setPlaceholderText(_t("Tên bộ thẻ mới"))
     parent = QComboBox(dialog)
     parent.setObjectName("nos-deck-parent")
-    parent.addItem("Không có — tạo bộ thẻ cấp cao nhất", 0)
+    parent.addItem(_t("Không có — tạo bộ thẻ cấp cao nhất"), 0)
     for deck in mw.col.decks.all_names_and_ids(include_filtered=False):
         parent.addItem(deck.name, deck.id)
     if parent_id is not None:
@@ -1212,11 +1267,11 @@ def _create_deck(parent_id: int | None = None) -> None:
         if selected < 0:
             raise ValueError("Không thể tạo deck con trong bộ thẻ lọc.")
         parent.setCurrentIndex(selected)
-    layout.addRow("Tên bộ thẻ:", name)
-    layout.addRow("Bộ thẻ cha:", parent)
+    layout.addRow(_t("Tên bộ thẻ:"), name)
+    layout.addRow(_t("Bộ thẻ cha:"), parent)
     buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-    buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Tạo")
-    buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Đóng")
+    buttons.button(QDialogButtonBox.StandardButton.Ok).setText(_t("Tạo"))
+    buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(_t("Đóng"))
     layout.addRow(buttons)
     status = QLabel(dialog)
     status.setObjectName("nos-deck-status")
@@ -1237,36 +1292,36 @@ def _create_deck(parent_id: int | None = None) -> None:
             return
         parts = [part.strip() for part in name.text().split("::")]
         if not all(parts):
-            showWarning("Nhập tên bộ thẻ; tên từng cấp không được để trống.", parent=dialog)
+            showWarning(_t("Nhập tên bộ thẻ; tên từng cấp không được để trống."), parent=dialog)
             return
         full_name = "::".join(parts)
         if selected_id := parent.currentData():
             deck = mw.col.decks.get(_deck_id(selected_id), default=False)
             full_name = deck["name"] + "::" + full_name
         if mw.col.decks.by_name(full_name):
-            showWarning("Bộ thẻ này đã tồn tại. Hãy chọn tên khác.", parent=dialog)
+            showWarning(_t("Bộ thẻ này đã tồn tại. Hãy chọn tên khác."), parent=dialog)
             return
         busy(True)
-        status.setText("Đang tạo bộ thẻ…")
+        status.setText(_t("Đang tạo bộ thẻ…"))
 
         def created(_result: Any) -> None:
             if not dialog.isVisible():
                 return
             selected_id = parent.currentData()
             parent.clear()
-            parent.addItem("Không có — tạo bộ thẻ cấp cao nhất", 0)
+            parent.addItem(_t("Không có — tạo bộ thẻ cấp cao nhất"), 0)
             for deck in mw.col.decks.all_names_and_ids(include_filtered=False):
                 parent.addItem(deck.name, deck.id)
             parent.setCurrentIndex(max(0, parent.findData(selected_id)))
             busy(False)
             name.clear()
-            status.setText("Đã tạo: " + full_name)
+            status.setText(_t("Đã tạo: " + full_name))
             name.setFocus()
 
         def failed(error: Exception) -> None:
             if dialog.isVisible():
                 busy(False)
-                status.setText("Không thể tạo bộ thẻ: " + str(error))
+                status.setText(_t("Không thể tạo bộ thẻ: " + str(error)))
                 name.setFocus()
 
         add_deck(parent=mw, name=full_name).success(created).failure(failed).run_in_background()
@@ -1280,26 +1335,26 @@ def _create_deck(parent_id: int | None = None) -> None:
 def _deck_menu(did: int) -> None:
     menu = QMenu(mw)
     from .study_tools_ui import open_notebook
-    _menu_action(menu, "Sổ tay…", lambda: open_notebook(did))
+    _menu_action(menu, _t("Sổ tay…"), lambda: open_notebook(did))
     menu.addSeparator()
     starred = str(did) in settings()["favorites"]
-    _menu_action(menu, "Bỏ gắn sao" if starred else "Gắn sao bộ thẻ", lambda: _favorite(str(did)))
-    _menu_action(menu, "Duyệt thẻ", lambda: _browse(did))
+    _menu_action(menu, _t("Bỏ gắn sao" if starred else "Gắn sao bộ thẻ"), lambda: _favorite(str(did)))
+    _menu_action(menu, _t("Duyệt thẻ"), lambda: _browse(did))
     if not mw.col.decks.get(did)["dyn"]:
-        _menu_action(menu, "Tạo deck con…", lambda: _create_deck(did))
-    _menu_action(menu, "Đổi tên bộ thẻ…", lambda: mw.deckBrowser._rename(did))
-    _menu_action(menu, "Tùy chọn bộ thẻ…", lambda: mw.deckBrowser._options(did))
-    _menu_action(menu, "Xuất bộ thẻ…", lambda: mw.onExport(did=did))
+        _menu_action(menu, _t("Tạo deck con…"), lambda: _create_deck(did))
+    _menu_action(menu, _t("Đổi tên bộ thẻ…"), lambda: mw.deckBrowser._rename(did))
+    _menu_action(menu, _t("Tùy chọn bộ thẻ…"), lambda: mw.deckBrowser._options(did))
+    _menu_action(menu, _t("Xuất bộ thẻ…"), lambda: mw.onExport(did=did))
     menu.addSeparator()
-    _menu_action(menu, "Xóa bộ thẻ…", lambda: _delete_deck(did))
-    colors = menu.addMenu("Màu thư mục")
+    _menu_action(menu, _t("Xóa bộ thẻ…"), lambda: _delete_deck(did))
+    colors = menu.addMenu(_t("Màu thư mục"))
     for name, color in [("Xanh dương", "blue"), ("Tím", "purple"), ("Hồng", "pink"), ("Xanh lá", "green"), ("Vàng", "amber")]:
         def set_color(color: str = color) -> None:
             mapping = dict(settings()["colors"])
             mapping[str(did)] = color
             save_settings({"colors": mapping})
             send("settings", public_settings())
-        _menu_action(colors, name, set_color)
+        _menu_action(colors, _t(name), set_color)
     menu.exec(QCursor.pos())
 
 
@@ -1316,10 +1371,10 @@ def _delete_deck(did: int) -> None:
     def confirm(info: dict[str, Any]) -> None:
         name = html.escape(info["name"])
         if info["filtered"]:
-            message = f"Xóa bộ thẻ lọc <b>{name}</b>?<br>Thẻ sẽ được trả về bộ thẻ gốc."
+            message = _t(f"Xóa bộ thẻ lọc <b>{name}</b>?<br>Thẻ sẽ được trả về bộ thẻ gốc.")
         else:
-            message = f"Xóa bộ thẻ <b>{name}</b>, {info['children']} bộ con và {info['count']} thẻ?<br>Bạn có thể dùng Hoàn tác của Anki sau khi xóa."
-        if not askUser(message, parent=mw, defaultno=True, title="Xóa bộ thẻ"):
+            message = _t(f"Xóa bộ thẻ <b>{name}</b>, {info['children']} bộ con và {info['count']} thẻ?<br>Bạn có thể dùng Hoàn tác của Anki sau khi xóa.")
+        if not askUser(message, parent=mw, defaultno=True, title=_t("Xóa bộ thẻ")):
             return
         def removed(_result: Any) -> None:
             # Keep the library open; only leave an overview whose deck vanished.
@@ -1327,7 +1382,7 @@ def _delete_deck(did: int) -> None:
                 QTimer.singleShot(0, lambda: mw.moveToState("deckBrowser"))
         remove_decks(parent=mw, deck_ids=[did], deck_name=info["name"]).success(removed).run_in_background()
 
-    QueryOp(parent=mw, op=prepare, success=confirm).failure(lambda error: showWarning(str(error), parent=mw)).run_in_background()
+    QueryOp(parent=mw, op=prepare, success=confirm).failure(lambda error: showWarning(_t(str(error)), parent=mw)).run_in_background()
 
 
 def _favorite(did: str) -> None:
@@ -1404,42 +1459,51 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             return (True, None)
         action = command.get("action")
         if action == "daily":
-            if context is _live_context and isinstance(context, DeckBrowser) and not _navigating:
-                from .daily_bridge import handle as handle_daily
+            if context is _live_context and isinstance(context, DeckBrowser):
+                if _navigating:
+                    send("daily", {
+                        "request_id": command.get("request_id"),
+                        "method": command.get("method"),
+                        "data": None,
+                        "error": "Đang mở phiên học, vui lòng chờ giây lát.",
+                    })
+                else:
+                    from .daily_bridge import handle as handle_daily
 
-                profile, generation = mw.pm.name, _generation
+                    profile, generation = mw.pm.name, _generation
 
-                def current() -> bool:
-                    return (
-                        context is _live_context
-                        and generation == _generation
-                        and mw.col is not None
-                        and mw.pm.name == profile
-                        and not _navigating
+                    def current() -> bool:
+                        return (
+                            context is _live_context
+                            and generation == _generation
+                            and mw.col is not None
+                            and mw.pm.name == profile
+                            and not _navigating
+                        )
+
+                    def mutated() -> None:
+                        global _data_revision, _review_changes_only, _dashboard_tree, _prefetched_snapshot
+                        _dashboard_tree = None
+                        _prefetched_snapshot = None
+                        _data_revision += 1
+                        _review_changes_only = False
+                        clear_snapshot_cache()
+                        _clear_support_cache()
+
+                    def launch_review(did: int, minutes: int | None) -> None:
+                        if current():
+                            _quick_study(did, minutes)
+
+                    handle_daily(
+                        command,
+                        root=ROOT,
+                        profile=profile,
+                        current=current,
+                        reply=send,
+                        on_mutated=mutated,
+                        on_start_review=launch_review,
+                        lang=_lang(),
                     )
-
-                def mutated() -> None:
-                    global _data_revision, _review_changes_only, _dashboard_tree, _prefetched_snapshot
-                    _dashboard_tree = None
-                    _prefetched_snapshot = None
-                    _data_revision += 1
-                    _review_changes_only = False
-                    clear_snapshot_cache()
-                    _clear_support_cache()
-
-                def launch_review(did: int, minutes: int | None) -> None:
-                    if current():
-                        _quick_study(did, minutes)
-
-                handle_daily(
-                    command,
-                    root=ROOT,
-                    profile=profile,
-                    current=current,
-                    reply=send,
-                    on_mutated=mutated,
-                    on_start_review=launch_review,
-                )
         elif action == "show_children":
             _library_focus = str(_deck_id(command.get("id")))
             mw.moveToState("deckBrowser")
@@ -1469,7 +1533,7 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             open_commands()
         elif action == "notebook":
             from .study_tools_ui import open_notebook
-            did = _deck_id(command["id"]) if command.get("id") else mw.col.decks.selected()
+            did = _deck_id(command["id"]) if command.get("id") else None
             open_notebook(did)
         elif action == "quick_study":
             _quick_study(_deck_id(command.get("id")), command.get("minutes"))
@@ -1552,7 +1616,7 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             did = str(_deck_id(command.get("id")))
             _favorite(did)
         elif action == "set_goal":
-            goal, ok = QInputDialog.getInt(mw, "Mục tiêu học mỗi ngày", "Số lượt ôn tập mỗi ngày:", int(settings()["goal"]), 1, 100_000)
+            goal, ok = QInputDialog.getInt(mw, _t("Mục tiêu học mỗi ngày"), _t("Số lượt ôn tập mỗi ngày:"), int(settings()["goal"]), 1, 100_000)
             if ok:
                 save_settings({"goal": goal})
                 send("settings", public_settings())
@@ -1563,17 +1627,20 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         elif action == "resource_menu":
             rid = str(command.get("id"))
             menu = QMenu(mw)
-            _menu_action(menu, "Mở tài nguyên", lambda: _open_resource(rid))
+            _menu_action(menu, _t("Mở tài nguyên"), lambda: _open_resource(rid))
             def remove_reference() -> None:
                 save_settings({"resources": [r for r in settings()["resources"] if r["id"] != rid]})
                 send("settings", public_settings())
-            _menu_action(menu, "Gỡ khỏi dashboard (giữ nguyên file)", remove_reference)
+            _menu_action(menu, _t("Gỡ khỏi dashboard (giữ nguyên file)"), remove_reference)
             menu.exec(QCursor.pos())
         elif action == "save_ui":
             _save_ui(command.get("values"))
         elif action == "apply_settings":
             _save_ui(command.get("values"))
-            send("settings", public_settings())
+            current_public = public_settings()
+            send("settings", current_public)
+            from .study_tools_ui import sync_settings
+            sync_settings(current_public)
         elif action == "image_previews":
             _prepare_image_previews()
         elif action == "image_add":
@@ -1646,7 +1713,7 @@ def _sync_finished(*_args: Any) -> None:
 def _toggle(active: bool) -> None:
     global _session_error
     if active and not _integration_ready:
-        showWarning("AnkiNOS chưa khởi tạo đầy đủ. Hãy kiểm tra phiên bản Anki và khởi động lại trước khi bật lại.", parent=mw)
+        showWarning(_t("AnkiNOS chưa khởi tạo đầy đủ. Hãy kiểm tra phiên bản Anki và khởi động lại trước khi bật lại."), parent=mw)
         return
     _session_error = ""
     conf = config()
