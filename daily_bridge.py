@@ -1,21 +1,51 @@
 """Anki collection bridge for the Smart Daily Memory Scheduler (Lịch ôn)."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import time
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 from .daily_scheduler import (
     DEFAULT_DAILY_CAP,
     HORIZON_DISPLAY_DAYS,
     collect_daily_schedule,
-    plan_redistribution,
     resolve_scope_deck_ids,
 )
 from .daily_store import DailyStore, clean_daily_config
 
+if TYPE_CHECKING:
+    from anki.collection import OpChanges
+
 FILTERED_DECK_NAME = "AnkiNOS::Lịch hôm nay"
 MAX_SESSION_CARDS = 1500
+T = TypeVar("T")
+
+
+@dataclass
+class _CollectionResult(Generic[T]):
+    changes: OpChanges
+    data: T
+
+
+def _merge_changes(changes: OpChanges | None, result: OpChanges | None) -> None:
+    if changes is not None and result is not None:
+        changes.MergeFrom(result)
+
+
+def _update_cards_with_undo(col: Any, cards: list[Any], label: str, changes: OpChanges | None) -> None:
+    undo_entry = None
+    if callable(getattr(col, "add_custom_undo_entry", None)):
+        undo_entry = col.add_custom_undo_entry(label)
+
+    if callable(getattr(col, "update_cards", None)):
+        _merge_changes(changes, col.update_cards(cards))
+    else:
+        for card in cards:
+            _merge_changes(changes, col.update_card(card))
+
+    if undo_entry is not None and callable(getattr(col, "merge_undo_entries", None)):
+        _merge_changes(changes, col.merge_undo_entries(undo_entry))
 
 
 def scope_label_for(config: dict[str, Any]) -> str:
@@ -35,6 +65,8 @@ def apply_redistribution_in_col(
     plan: dict[str, Any],
     store: DailyStore,
     scope_label: str,
+    *,
+    changes: OpChanges | None = None,
 ) -> dict[str, Any]:
     """Safely apply real card.due shifts inside an Anki CollectionOp, preserving ivl and FSRS state."""
     planned_moves = plan.get("moves") or []
@@ -65,18 +97,7 @@ def apply_redistribution_in_col(
     if not updated_cards:
         return {"applied": 0, "skipped": skipped, "batch": None}
 
-    undo_entry = None
-    if callable(getattr(col, "add_custom_undo_entry", None)):
-        undo_entry = col.add_custom_undo_entry("AnkiNOS: Điều phối lịch ôn")
-
-    if callable(getattr(col, "update_cards", None)):
-        col.update_cards(updated_cards)
-    else:
-        for card in updated_cards:
-            col.update_card(card)
-
-    if undo_entry is not None and callable(getattr(col, "merge_undo_entries", None)):
-        col.merge_undo_entries(undo_entry)
+    _update_cards_with_undo(col, updated_cards, "AnkiNOS: Điều phối lịch ôn", changes)
 
     batch = store.record_batch(
         scope_label=scope_label,
@@ -89,7 +110,13 @@ def apply_redistribution_in_col(
     return {"applied": len(applied_moves), "skipped": skipped, "batch": batch}
 
 
-def rollback_batch_in_col(col: Any, batch_id: str, store: DailyStore) -> dict[str, Any]:
+def rollback_batch_in_col(
+    col: Any,
+    batch_id: str,
+    store: DailyStore,
+    *,
+    changes: OpChanges | None = None,
+) -> dict[str, Any]:
     """Restore old_due for cards in a batch that have not been reviewed since the batch ran."""
     batch = store.get_batch(batch_id)
     if not batch:
@@ -130,16 +157,7 @@ def rollback_batch_in_col(col: Any, batch_id: str, store: DailyStore) -> dict[st
         restored_cards.append(card)
 
     if restored_cards:
-        undo_entry = None
-        if callable(getattr(col, "add_custom_undo_entry", None)):
-            undo_entry = col.add_custom_undo_entry("AnkiNOS: Hoàn tác điều phối lịch ôn")
-        if callable(getattr(col, "update_cards", None)):
-            col.update_cards(restored_cards)
-        else:
-            for card in restored_cards:
-                col.update_card(card)
-        if undo_entry is not None and callable(getattr(col, "merge_undo_entries", None)):
-            col.merge_undo_entries(undo_entry)
+        _update_cards_with_undo(col, restored_cards, "AnkiNOS: Hoàn tác điều phối lịch ôn", changes)
 
     rolled_at = store.mark_rolled_back(batch_id)
     return {
@@ -158,6 +176,7 @@ def prepare_today_filtered_deck(
     deck_names: list[str] | None = None,
     include_children: bool = True,
     limit: int = MAX_SESSION_CARDS,
+    changes: OpChanges | None = None,
 ) -> tuple[int, int]:
     """Build or rebuild the managed Anki filtered deck for Today's unlocked cards only."""
     sched_today = int(col.sched.today)
@@ -178,7 +197,7 @@ def prepare_today_filtered_deck(
     if existing_did:
         existing_deck = col.decks.get(existing_did)
         if existing_deck and existing_deck.get("dyn"):
-            col.sched.empty_filtered_deck(existing_did)
+            _merge_changes(changes, col.sched.empty_filtered_deck(existing_did))
         else:
             existing_did = None
 
@@ -210,13 +229,13 @@ def prepare_today_filtered_deck(
     did = existing_did if existing_did else col.decks.new_filtered(FILTERED_DECK_NAME)
     deck = col.decks.get(did)
     search = "cid:" + ",".join(str(cid) for cid in verified)
-    # order=5 (relative overdueness / oldest first); reschedule=True preserves native Anki/FSRS scheduling.
+    # Keep native Anki/FSRS rescheduling enabled in the filtered session.
     deck["terms"] = [[search, len(verified), 0]]
     deck["resched"] = True
     deck["delays"] = None
-    col.decks.save(deck)
-    col.sched.rebuild_filtered_deck(did)
-    col.decks.select(did)
+    _merge_changes(changes, col.decks.update_dict(deck))
+    _merge_changes(changes, col.sched.rebuild_filtered_deck(did).changes)
+    _merge_changes(changes, col.decks.set_current(did))
     return int(did), len(verified)
 
 
@@ -252,6 +271,7 @@ def handle(
     on_start_review: Callable[[int, int | None], None],
 ) -> None:
     """Dispatch dashboard daily_* commands onto Anki's QueryOp / CollectionOp executors."""
+    from anki.collection import OpChanges
     from aqt import mw
     from aqt.operations import CollectionOp, QueryOp
 
@@ -320,7 +340,7 @@ def handle(
         return
 
     if method == "apply_plan":
-        def op_apply(col: Any) -> dict[str, Any]:
+        def op_apply(col: Any) -> _CollectionResult[dict[str, Any]]:
             store = DailyStore(root, profile)
             cfg = store.get_config()
             schedule = collect_daily_schedule(
@@ -331,14 +351,15 @@ def handle(
                 daily_cap=cfg["daily_cap"],
                 horizon_days=HORIZON_DISPLAY_DAYS,
             )
-            result = apply_redistribution_in_col(col, schedule["plan"], store, scope_label_for(cfg))
+            changes = OpChanges()
+            result = apply_redistribution_in_col(col, schedule["plan"], store, scope_label_for(cfg), changes=changes)
             payload = build_daily_payload(col, root, profile)
             payload["apply_result"] = result
-            return payload
+            return _CollectionResult(changes, payload)
 
-        def done_apply(data: dict[str, Any]) -> None:
+        def done_apply(result: _CollectionResult[dict[str, Any]]) -> None:
             on_mutated()
-            respond(data=data)
+            respond(data=result.data)
 
         CollectionOp(parent=mw, op=op_apply).success(done_apply).failure(fail).run_in_background()
         return
@@ -349,16 +370,17 @@ def handle(
             respond(error="Thiếu mã đợt điều phối cần hoàn tác.")
             return
 
-        def op_rollback(col: Any) -> dict[str, Any]:
+        def op_rollback(col: Any) -> _CollectionResult[dict[str, Any]]:
             store = DailyStore(root, profile)
-            result = rollback_batch_in_col(col, batch_id, store)
+            changes = OpChanges()
+            result = rollback_batch_in_col(col, batch_id, store, changes=changes)
             payload = build_daily_payload(col, root, profile)
             payload["rollback_result"] = result
-            return payload
+            return _CollectionResult(changes, payload)
 
-        def done_rollback(data: dict[str, Any]) -> None:
+        def done_rollback(result: _CollectionResult[dict[str, Any]]) -> None:
             on_mutated()
-            respond(data=data)
+            respond(data=result.data)
 
         CollectionOp(parent=mw, op=op_rollback).success(done_rollback).failure(fail).run_in_background()
         return
@@ -378,17 +400,20 @@ def handle(
             respond(error="Chọn thời lượng Focus 15, 30 hoặc 60 phút.")
             return
 
-        def op_study(col: Any) -> tuple[int, int]:
+        def op_study(col: Any) -> _CollectionResult[tuple[int, int]]:
             cfg = DailyStore(root, profile).get_config()
-            return prepare_today_filtered_deck(
+            changes = OpChanges()
+            result = prepare_today_filtered_deck(
                 col,
                 scope_mode=cfg["scope_mode"],
                 deck_names=cfg["deck_names"],
                 include_children=cfg["include_children"],
+                changes=changes,
             )
+            return _CollectionResult(changes, result)
 
-        def done_study(result: tuple[int, int]) -> None:
-            did, _count = result
+        def done_study(result: _CollectionResult[tuple[int, int]]) -> None:
+            did, _count = result.data
             on_mutated()
             on_start_review(did, minutes)
 

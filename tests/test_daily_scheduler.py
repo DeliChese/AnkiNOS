@@ -1,6 +1,7 @@
 """Comprehensive unit tests for Smart Daily Memory Scheduler (no Anki runtime required)."""
 from __future__ import annotations
 
+from concurrent.futures import Future
 from datetime import date, datetime, timedelta
 import importlib.util
 import json
@@ -10,6 +11,7 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 PKG = "nos_daily_test"
@@ -143,11 +145,9 @@ class DailySchedulerTests(unittest.TestCase):
     def setUp(self) -> None:
         (ROOT / "tests/.tmp").mkdir(exist_ok=True)
         self.tmp = tempfile.TemporaryDirectory(dir=ROOT / "tests/.tmp")
+        self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.today = date(2026, 11, 26)
-
-    def tearDown(self) -> None:
-        self.tmp.cleanup()
 
     def test_retrievability_fsrs_and_sm2_fallback(self) -> None:
         # At elapsed == stability, FSRS power-law retrievability equals 0.90.
@@ -312,6 +312,75 @@ class DailySchedulerTests(unittest.TestCase):
         self.assertEqual(summary, {"presets": 1, "batches": 1})
         store.delete_preset(preset["id"])
         self.assertEqual(len(store.list_presets()), 0)
+
+    @unittest.skipUnless(importlib.util.find_spec("aqt"), "requires Anki's Qt operations")
+    def test_daily_mutations_publish_native_collection_changes(self) -> None:
+        import aqt
+        from anki.collection import Collection, OpChanges
+        from anki.lang import set_lang
+
+        set_lang("en_US")
+        col = Collection(str(self.root / "collection.anki2"))
+        self.addCleanup(col.close)
+        did = col.decks.id("Daily test")
+        note = col.new_note(col.models.current())
+        note.fields = ["Question", "Answer"]
+        col.add_note(note, did)
+        card = note.cards()[0]
+        today = col.sched.today
+        card.type = card.queue = 2
+        card.due, card.ivl, card.factor, card.reps = today - 1, 5, 2500, 1
+        col.update_card(card)
+        col.db.execute("INSERT INTO revlog VALUES (?, ?, 0, 3, 5, 1, 2500, 1000, 1)",
+                       (col.sched.day_cutoff - 2 * 86400) * 1000, card.id)
+
+        def run_operation(op, done, **_kwargs):
+            future = Future()
+            try:
+                future.set_result(op())
+            except Exception as error:
+                future.set_exception(error)
+            done(future)
+
+        mw = types.SimpleNamespace(col=col, taskman=types.SimpleNamespace(with_progress=run_operation),
+                                   _increase_background_ops=lambda: None, _decrease_background_ops=lambda: None,
+                                   update_undo_actions=lambda: None)
+        reported, replies, launched = [], [], []
+
+        def collect_changes(changes, _initiator):
+            self.assertIsInstance(changes, OpChanges)
+            reported.append(changes)
+
+        def dispatch(method, **fields):
+            bridge_mod.handle({"method": method, **fields}, root=self.root, profile="Alice",
+                              current=lambda: True, reply=lambda _channel, payload: replies.append(payload),
+                              on_mutated=lambda: None, on_start_review=lambda *args: launched.append(args))
+
+        hooks = aqt.gui_hooks.operation_did_execute
+        hooks.append(collect_changes)
+        self.addCleanup(hooks.remove, collect_changes)
+        with patch.object(aqt, "mw", mw):
+            dispatch("apply_plan")
+            batch_id = replies[-1]["data"]["apply_result"]["batch"]["id"]
+            self.assertTrue(reported[-1].card)
+            self.assertEqual(col.get_card(card.id).due, today)
+            dispatch("apply_plan")
+            self.assertEqual(replies[-1]["data"]["apply_result"]["applied"], 0)
+            self.assertFalse(col.op_made_changes(reported[-1]))
+            dispatch("rollback_batch", batch_id=batch_id)
+            self.assertEqual(replies[-1]["data"]["rollback_result"]["restored"], 1)
+            self.assertTrue(reported[-1].card)
+            self.assertEqual(col.get_card(card.id).due, today - 1)
+            dispatch("apply_plan")
+            dispatch("study_today", minutes=15)
+            filtered = col.decks.id_for_name(bridge_mod.FILTERED_DECK_NAME)
+            self.assertIsNotNone(filtered)
+            self.assertEqual(launched[-1], (filtered, 15))
+            self.assertTrue(reported[-1].card and reported[-1].deck)
+            self.assertEqual(col.get_card(card.id).odid, did)
+            dispatch("study_today")
+            self.assertEqual(launched[-1], (filtered, None))
+            self.assertTrue(reported[-1].card)
 
 
 if __name__ == "__main__":
