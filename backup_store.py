@@ -19,25 +19,33 @@ from .media_store import (IMAGE_FITS, MAX_IMAGE_BYTES, SLOTS, WALLPAPER_BLUR_MAX
                           profile_dir, valid_albums, valid_image_frames, valid_images)
 
 from .theme_settings import clean_theme_settings
+from .pomodoro_store import (
+    clean_pomodoro_settings,
+    validate_audio_bytes as _validate_pomo_audio_bytes,
+    validate_database as _validate_pomodoro_db,
+)
 
 FORMAT = "AnkiNOS-profile"
 MAX_TOTAL = 2 * 1024**3
 MAX_FILES = 10000
 MAX_CONFIG = 4 * 1024**2
-FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|(?:focus|learning|workspace|brainexer|daily_schedule)\.sqlite3)\Z")
+FILE_NAME = re.compile(r"(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|(?:focus|pomodoro|learning|workspace|brainexer|daily_schedule)\.sqlite3)\Z")
 AUDIO_NAME = re.compile(r"brainexer_audio/[0-9a-f]{64}\.mp3\Z")
-DATABASES = {"focus.sqlite3", "learning.sqlite3", "workspace.sqlite3", "brainexer.sqlite3", "daily_schedule.sqlite3"}
+POMO_AUDIO_NAME = re.compile(r"pomodoro_audio/[0-9a-f]{32}\.(?:mp3|wav|ogg)\Z")
+DATABASES = {"focus.sqlite3", "pomodoro.sqlite3", "learning.sqlite3", "workspace.sqlite3", "brainexer.sqlite3", "daily_schedule.sqlite3"}
 
 
 def _file_limit(name: str) -> int:
-    if AUDIO_NAME.fullmatch(name):
+    if AUDIO_NAME.fullmatch(name) or POMO_AUDIO_NAME.fullmatch(name):
         return 4 * 1024**2
-    return (64 if name in {"focus.sqlite3", "daily_schedule.sqlite3"} else 256)*1024**2 if name in DATABASES else MAX_IMAGE_BYTES
+    return (64 if name in {"focus.sqlite3", "pomodoro.sqlite3", "daily_schedule.sqlite3"} else 256)*1024**2 if name in DATABASES else MAX_IMAGE_BYTES
 
 
 def _check_database(name: str, path: Path) -> dict:
     if name=="focus.sqlite3":
         return {"sessions":_check_focus(path)}
+    if name=="pomodoro.sqlite3":
+        return _validate_pomodoro_db(path)
     if name=="learning.sqlite3":
         from .legacy_learning_backup import validate_database
     elif name=="brainexer.sqlite3":
@@ -91,6 +99,8 @@ def clean_settings(raw: object) -> dict:
     result["images"] = valid_images(raw.get("images"))
     result["image_albums"] = valid_albums(raw.get("image_albums"))
     result["image_frames"] = valid_image_frames(raw.get("image_frames"))
+    if isinstance(raw.get("pomodoro"), dict):
+        result["pomodoro"] = clean_pomodoro_settings(raw["pomodoro"])
     image_ids = {entry["id"] for entry in result["images"]}
     for slot in SLOTS:
         result[slot] = raw.get(slot) if isinstance(raw.get(slot), str) and raw[slot] in image_ids else None
@@ -191,6 +201,15 @@ def export_archive(root: Path, profile: str, settings: dict, destination: Path, 
                 if not AUDIO_NAME.fullmatch(name) or path.is_symlink() or not path.is_file():
                     raise ValueError("Thư viện audio BrainExer chứa tệp không hợp lệ.")
                 sources[name] = path
+        pomo_audio_dir = directory / "pomodoro_audio"
+        if pomo_audio_dir.exists():
+            if pomo_audio_dir.is_symlink() or not pomo_audio_dir.is_dir():
+                raise ValueError("Thư mục âm thanh Pomodoro không hợp lệ.")
+            for path in pomo_audio_dir.iterdir():
+                name = "pomodoro_audio/" + path.name
+                if not POMO_AUDIO_NAME.fullmatch(name) or path.is_symlink() or not path.is_file():
+                    raise ValueError("Thư mục âm thanh Pomodoro chứa tệp không hợp lệ.")
+                sources[name] = path
         if len(sources) > MAX_FILES - 1:
             raise ValueError("Gói sao lưu có quá nhiều tệp.")
         for name in DATABASES.intersection(sources):
@@ -234,7 +253,14 @@ def _read_archive(path: Path, stage: Path) -> dict:
         for entry in infos:
             if entry.flag_bits & 1 or stat.S_ISLNK(entry.external_attr >> 16):
                 raise ValueError("Không hỗ trợ tệp mã hóa hoặc liên kết.")
-            if entry.filename != "manifest.json" and not (entry.filename.startswith("profile/") and (FILE_NAME.fullmatch(entry.filename[8:]) or AUDIO_NAME.fullmatch(entry.filename[8:]))):
+            if entry.filename != "manifest.json" and not (
+                entry.filename.startswith("profile/")
+                and (
+                    FILE_NAME.fullmatch(entry.filename[8:])
+                    or AUDIO_NAME.fullmatch(entry.filename[8:])
+                    or POMO_AUDIO_NAME.fullmatch(entry.filename[8:])
+                )
+            ):
                 raise ValueError("Gói sao lưu chứa đường dẫn hoặc tệp không được hỗ trợ.")
         if archive.getinfo("manifest.json").file_size > MAX_CONFIG or sum(x.file_size for x in infos) > MAX_TOTAL:
             raise ValueError("Gói sao lưu vượt giới hạn dung lượng.")
@@ -253,7 +279,7 @@ def _read_archive(path: Path, stage: Path) -> dict:
         if any(AUDIO_NAME.fullmatch(name) for name in files) and manifest["version"] < 4:
             raise ValueError("Phiên bản gói sao lưu không hỗ trợ audio BrainExer.")
         for name, meta in files.items():
-            if not (FILE_NAME.fullmatch(name) or AUDIO_NAME.fullmatch(name)) or not isinstance(meta, dict):
+            if not (FILE_NAME.fullmatch(name) or AUDIO_NAME.fullmatch(name) or POMO_AUDIO_NAME.fullmatch(name)) or not isinstance(meta, dict):
                 raise ValueError("Bản kê tệp không hợp lệ.")
             info = archive.getinfo("profile/" + name)
             limit = _file_limit(name)
@@ -270,11 +296,14 @@ def _read_archive(path: Path, stage: Path) -> dict:
                     header = audio.read(3)
                     if not (header == b"ID3" or header[:1] == b"\xff"):
                         raise ValueError("Audio BrainExer không hợp lệ.")
+            if POMO_AUDIO_NAME.fullmatch(name):
+                if not _validate_pomo_audio_bytes(target.read_bytes(), target.suffix.lower()):
+                    raise ValueError("Âm thanh Pomodoro không hợp lệ.")
         for image in manifest["settings"]["images"]:
             if image["id"] + image["ext"] not in files:
                 raise ValueError("Gói sao lưu thiếu ảnh đã đăng ký.")
         manifest["focus_sessions"] = _check_focus(stage / "focus.sqlite3") if "focus.sqlite3" in files else 0
-        for name in ("learning.sqlite3","workspace.sqlite3","brainexer.sqlite3","daily_schedule.sqlite3"):
+        for name in ("pomodoro.sqlite3","learning.sqlite3","workspace.sqlite3","brainexer.sqlite3","daily_schedule.sqlite3"):
             manifest[name.split('.')[0]] = _check_database(name,stage/name) if name in files else {}
         if "brainexer.sqlite3" in files:
             _check_audio_references(stage / "brainexer.sqlite3", set(files))
@@ -291,7 +320,7 @@ def inspect_archive(root: Path, path: Path, *, validate_image=None) -> dict:
         manifest = _read_archive(path, stage)
         if validate_image:
             for name in manifest["files"]:
-                if name not in DATABASES and not AUDIO_NAME.fullmatch(name):
+                if name not in DATABASES and not AUDIO_NAME.fullmatch(name) and not POMO_AUDIO_NAME.fullmatch(name):
                     validate_image(stage / name)
         if _hash_file(path) != expected_hash:
             raise ValueError("Gói sao lưu đã thay đổi trong khi đọc. Hãy chọn lại.")
@@ -331,7 +360,7 @@ def restore_archive(root: Path, profile: str, path: Path, expected_hash: str, cu
         # Unknown profile files are preserved; archives never overwrite them.
         if live.exists():
             for extra in live.iterdir():
-                if extra.name == "brainexer_audio":
+                if extra.name in {"brainexer_audio", "pomodoro_audio"}:
                     continue
                 if any(extra.name==name+suffix for name in DATABASES for suffix in ("-wal","-shm","-journal")):
                     continue

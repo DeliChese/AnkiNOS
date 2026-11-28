@@ -205,24 +205,25 @@ try {
   await evaluate(`window.NOSTheme.apply(document.getElementById('nos-review-shell'),{theme:'light',color_theme:'rosepine',accent:'auto'},true)`);
   await shot('theme-review-light.png');
   for (const [lang, expected] of [
-    ['en', {back: 'Decks', side: 'Front', focus: 'Focus', note: 'Notes', opt: '25 min', progress: '8 reviews in this session'}],
-    ['zh-cn', {back: '牌组', side: '正面', focus: '专注', note: '笔记', opt: '25 分钟', progress: '本次会话已复习 8 次'}],
+    ['en', {back: 'Decks', side: 'Front', pomo: 'Pomodoro', note: 'Notes', startBtn: 'Start study', progress: '8 reviews in this session'}],
+    ['zh-cn', {back: '牌组', side: '正面', pomo: 'Pomodoro', note: '笔记', startBtn: '开始学习', progress: '本次会话已复习 8 次'}],
   ]) {
-    await navigate('ankios-review.html?lang='+lang, `!!window.NOSReview && document.documentElement.lang===${JSON.stringify(lang)}`);
+    await navigate('ankios-review.html?lang='+lang, `!!window.NOSReview && !!window.NOSPomodoro && document.documentElement.lang===${JSON.stringify(lang)}`);
+    await evaluate(`document.getElementById('nos-pomo-chip')?.click()`);
     const revI18n = await evaluate(`({
       back: document.querySelector('#nos-review-header .nos-back-label')?.textContent?.trim(),
       side: document.getElementById('nos-review-side')?.textContent?.trim(),
-      focus: document.getElementById('nos-focus-start')?.textContent?.trim(),
+      pomo: document.getElementById('nos-pomo-chip')?.textContent?.trim(),
       note: document.querySelector('[data-nos-review="notebook"]')?.textContent?.trim(),
-      opt: document.querySelector('#nos-focus-duration option[value="25"]')?.textContent?.trim(),
+      startBtn: document.getElementById('nos-pomo-start-btn')?.textContent?.trim(),
       progress: document.getElementById('nos-review-progress')?.textContent?.trim(),
       qa: document.getElementById('qa')?.textContent?.trim(),
     })`);
     assert.equal(revI18n.back, expected.back, `Reviewer back button (${lang})`);
     assert.equal(revI18n.side, expected.side, `Reviewer side pill (${lang})`);
-    assert.equal(revI18n.focus, expected.focus, `Reviewer focus button (${lang})`);
+    assert.equal(revI18n.pomo, expected.pomo, `Reviewer pomodoro chip (${lang})`);
     assert.equal(revI18n.note, expected.note, `Reviewer note button (${lang})`);
-    assert.equal(revI18n.opt, expected.opt, `Reviewer focus option (${lang})`);
+    assert.equal(revI18n.startBtn, expected.startBtn, `Reviewer pomodoro start button (${lang})`);
     assert.equal(revI18n.progress, expected.progress, `Reviewer progress (${lang})`);
     assert.ok(revI18n.qa.includes('Cụm từ này có nghĩa là gì?'), `#qa content must stay untouched (${lang})`);
   }

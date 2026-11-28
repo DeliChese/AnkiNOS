@@ -277,10 +277,14 @@ class ToolDialog(QDialog):
                     if mw.state != "deckBrowser":
                         mw.moveToState("deckBrowser")
                     host._quick_study(self.did or mw.col.decks.selected(), minutes)
+                def _open_pomo():
+                    from .pomodoro_ui import open_floating_widget
+                    open_floating_widget()
                 actions = {
                     "study": lambda: start(),
                     "daily": host.open_daily_schedule,
-                    "focus": lambda: start(host.settings().get("study_budget", 30)),
+                    "pomodoro": _open_pomo,
+                    "focus": _open_pomo,
                     "notebook": lambda: open_notebook(None),
                     "add": mw.onAddCard,
                     "browse": lambda: host._browse(),

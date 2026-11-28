@@ -8,7 +8,7 @@ COLLECTION_KEY = "ankinos_learning_collection_uuid"
 COMMANDS = [
     ("study", "Học bộ thẻ hiện tại", "học tiếp ôn tập study review learn current deck 学习 复习 当前牌组"),
     ("daily", "Lịch ôn theo ngày", "lịch ôn theo ngày thông minh due schedule daily memory 每日复习 计划 日程"),
-    ("focus", "Bắt đầu Focus", "tập trung thời gian focus timer session 专注 计时器"),
+    ("pomodoro", "Mở Pomodoro", "pomodoro tập trung đồng hồ thời gian focus timer session 番茄钟 专注 计时器"),
     ("notebook", "Sổ tay của bộ thẻ", "ghi chú sổ tay notes notebook 笔记 笔记本"),
     ("add", "Thêm thẻ Anki", "tạo thẻ note add cards 添加卡片 新建"),
     ("browse", "Duyệt thẻ", "tìm kiếm browser browse cards 浏览卡片 搜索"),

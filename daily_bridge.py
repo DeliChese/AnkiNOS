@@ -573,8 +573,9 @@ def handle(
 
     if method == "study_today":
         minutes = command.get("minutes")
-        if minutes is not None and (type(minutes) is not int or minutes not in {15, 30, 60}):
-            respond(error="Chọn thời lượng Focus 15, 30 hoặc 60 phút.")
+        pomo = command.get("pomodoro")
+        if minutes is not None and (type(minutes) is not int or not (1 <= minutes <= 180)):
+            respond(error="Chọn thời lượng học từ 1 đến 180 phút.")
             return
         session_mode = command.get("session_mode")
         if session_mode not in {"smart", "continue", "rebuild"}:
@@ -600,7 +601,10 @@ def handle(
             did, count = result.data
             on_mutated()
             respond(data={"started": True, "deck_id": str(did), "count": count})
-            on_start_review(did, minutes)
+            if pomo is not None:
+                on_start_review(did, minutes, pomo)
+            else:
+                on_start_review(did, minutes)
 
         CollectionOp(parent=mw, op=op_study).success(done_study).failure(fail).run_in_background(initiator=initiator)
         return

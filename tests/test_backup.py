@@ -277,6 +277,26 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(len(applied[0]["custom_ui_presets"]), 1)
         self.assertEqual(applied[0]["custom_ui_presets"][0]["name"], "Tối giản")
 
+    def test_pomodoro_database_and_audio_round_trip(self):
+        from nos_backup_test.pomodoro_store import PomodoroStore, save_custom_sound
+        store = PomodoroStore(self.root, "Alice")
+        store.start(mode="classic", deck_id="100", deck_name="Languages::English")
+        store.answer("100", "Languages::English")
+        store.stop("completed")
+        snd_src = self.root / "ding.mp3"
+        snd_src.write_bytes(b"ID3" + b"\x00" * 48)
+        entry = save_custom_sound(self.root, "Alice", snd_src)
+        settings = {**self.settings, "pomodoro": {"mode": "long", "ui_mode": "ring", "sound_study_end": "custom", "custom_study_sound": entry}}
+        archive = backup.export_archive(self.root, "Alice", settings, self.root / "pomo.nosbackup")
+        preview = backup.inspect_archive(self.root, archive)
+        self.assertGreaterEqual(preview["pomodoro"]["sessions"], 1)
+        restored = []
+        backup.restore_archive(self.root, "Bob", archive, preview["archive_sha256"], {}, restored.append)
+        self.assertEqual(restored[-1]["pomodoro"]["ui_mode"], "ring")
+        bob_audio = backup.profile_dir(self.root, "Bob") / "pomodoro_audio" / f"{entry['id']}.mp3"
+        self.assertTrue(bob_audio.is_file())
+        self.assertGreaterEqual(PomodoroStore(self.root, "Bob").analytics(period="week")["summary"]["total_cards"], 1)
+
     def test_size_limits_and_decoder_failure_reject_before_restore(self):
         with patch.object(backup, "MAX_IMAGE_BYTES", 2):
             with self.assertRaises(ValueError):

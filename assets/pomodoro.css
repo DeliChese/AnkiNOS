@@ -1,0 +1,847 @@
+/* AnkiNOS Pomodoro — 4 Clock UI Modes, Studio Popover, Zen Break Screen & Floating Window.
+ * Strictly consumes theme tokens (--surface, --text, --blue, --success, --warning, --border).
+ * Never targets #qa or native card content. */
+
+/* ---------- Header Micro-Chip (Dashboard topbar & Reviewer header) ---------- */
+.nos-pomo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: 600 12.5px/1 var(--font-sans, inherit);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 140ms ease, box-shadow 160ms ease;
+}
+.nos-pomo-chip:hover {
+  border-color: color-mix(in srgb, var(--blue) 52%, var(--border));
+  background: color-mix(in srgb, var(--blue) 10%, var(--surface));
+}
+.nos-pomo-chip:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.nos-pomo-chip[data-active="true"][data-phase="study"] {
+  border-color: color-mix(in srgb, var(--blue) 58%, var(--border));
+  background: color-mix(in srgb, var(--blue) 14%, var(--surface));
+}
+.nos-pomo-chip[data-active="true"][data-phase="break"] {
+  border-color: color-mix(in srgb, var(--success) 58%, var(--border));
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+}
+.nos-pomo-chip[data-paused="true"] {
+  border-color: color-mix(in srgb, var(--warning) 56%, var(--border));
+}
+.nos-pomo-chip[data-awaiting="true"] {
+  border-color: var(--warning);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 26%, transparent);
+}
+.nos-pomo-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.nos-pomo-chip[data-active="true"][data-phase="study"] .nos-pomo-chip-dot {
+  background: var(--blue);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--blue) 60%, transparent);
+}
+.nos-pomo-chip[data-active="true"][data-phase="break"] .nos-pomo-chip-dot {
+  background: var(--success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--success) 60%, transparent);
+}
+.nos-pomo-chip[data-paused="true"] .nos-pomo-chip-dot,
+.nos-pomo-chip[data-awaiting="true"] .nos-pomo-chip-dot {
+  background: var(--warning);
+}
+.nos-pomo-chip-ring {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+}
+.nos-pomo-chip-ring circle {
+  fill: none;
+  stroke-width: 2.6;
+}
+.nos-pomo-chip-ring .pomo-ring-track {
+  stroke: color-mix(in srgb, var(--text) 16%, transparent);
+}
+.nos-pomo-chip-ring .pomo-ring-fill {
+  stroke: var(--blue);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 280ms linear;
+}
+.nos-pomo-chip[data-phase="break"] .nos-pomo-chip-ring .pomo-ring-fill {
+  stroke: var(--success);
+}
+.nos-pomo-chip-time {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.nos-pomo-chip-phase {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Dashboard topbar icon button when active becomes a sleek live pill */
+#pomodoro-toggle.is-live {
+  width: auto;
+  padding: 0 10px;
+  gap: 6px;
+  border-color: color-mix(in srgb, var(--blue) 50%, var(--border));
+  background: color-mix(in srgb, var(--blue) 12%, var(--surface));
+}
+#pomodoro-toggle.is-live[data-phase="break"] {
+  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
+  background: color-mix(in srgb, var(--success) 12%, var(--surface));
+}
+#pomodoro-toggle .pomo-btn-time {
+  font: 600 12px/1 var(--font-sans, inherit);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+#nos-app[data-layout="zen"] #pomodoro-toggle.is-live {
+  width: 34px;
+  padding: 0;
+  gap: 0;
+}
+#nos-app[data-layout="zen"] #pomodoro-toggle.is-live .pomo-btn-time {
+  display: none;
+}
+
+/* ---------- Zen Ambient Bar (UI Mode 4: zero clock anxiety) ---------- */
+.nos-pomo-ambient-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  z-index: 1200;
+  background: color-mix(in srgb, var(--surface) 45%, transparent);
+  cursor: pointer;
+}
+.nos-pomo-ambient-bar[hidden] { display: none; }
+.nos-pomo-ambient-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--blue), color-mix(in srgb, var(--blue) 70%, var(--primary)));
+  transition: width 320ms linear, background 240ms ease;
+}
+.nos-pomo-ambient-bar[data-phase="break"] .nos-pomo-ambient-fill {
+  background: linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 75%, var(--blue)));
+}
+.nos-pomo-ambient-bar[data-paused="true"] .nos-pomo-ambient-fill {
+  background: var(--warning);
+}
+.nos-pomo-ambient-peek {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  opacity: 0;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(var(--glass-blur, 14px));
+  color: var(--text);
+  font: 600 12px/1 var(--font-sans, inherit);
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.nos-pomo-ambient-bar:hover .nos-pomo-ambient-peek,
+.nos-pomo-ambient-bar:focus-within .nos-pomo-ambient-peek {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+/* ---------- Non-blocking Phase Completion Banner ---------- */
+.nos-pomo-banner {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1260;
+  max-width: min(560px, calc(100vw - 24px));
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--border));
+  background: color-mix(in srgb, var(--surface) var(--glass-card-alpha, 92%), transparent);
+  backdrop-filter: blur(var(--glass-blur, 16px));
+  color: var(--text);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+.nos-pomo-banner[hidden] { display: none; }
+.nos-pomo-banner[data-kind="break_done"] {
+  border-color: color-mix(in srgb, var(--success) 52%, var(--border));
+}
+.nos-pomo-banner-text {
+  margin: 0;
+  flex: 1 1 200px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.nos-pomo-banner-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- Studio Control Popover ---------- */
+.nos-pomo-popover {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  width: min(372px, calc(100vw - 20px));
+  max-height: calc(100vh - 76px);
+  overflow-y: auto;
+  z-index: 1300;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) var(--glass-card-alpha, 94%), transparent);
+  backdrop-filter: blur(var(--glass-blur, 18px));
+  color: var(--text);
+  padding: 16px;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.34);
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.nos-pomo-popover[hidden] { display: none; }
+.nos-pomo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.nos-pomo-head-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.nos-pomo-head-title strong {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.nos-pomo-phase-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  color: var(--blue);
+}
+.nos-pomo-phase-badge[data-phase="break"] {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+}
+.nos-pomo-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nos-pomo-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.nos-pomo-icon-btn:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
+}
+.nos-pomo-icon-btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* ---------- Clock Visual Stage (Shared across Popover, In-Page Widget & Floating Window) ---------- */
+.nos-pomo-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 10px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
+}
+.nos-pomo-cycles {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.nos-pomo-cycle-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+.nos-pomo-cycle-dot.done {
+  background: var(--blue);
+}
+
+/* UI Mode 1: Pill display */
+.nos-pomo-clock-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--blue) 38%, var(--border));
+  background: color-mix(in srgb, var(--blue) 9%, var(--surface));
+}
+.nos-pomo-clock-pill[data-phase="break"] {
+  border-color: color-mix(in srgb, var(--success) 42%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+}
+.nos-pomo-clock-pill .pomo-digits {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* UI Mode 2: Radial Glass Ring */
+.nos-pomo-clock-ring {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  display: grid;
+  place-items: center;
+}
+.nos-pomo-clock-ring svg {
+  width: 148px;
+  height: 148px;
+  transform: rotate(-90deg);
+}
+.nos-pomo-clock-ring .ring-bg {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text) 12%, transparent);
+  stroke-width: 8;
+}
+.nos-pomo-clock-ring .ring-fg {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 280ms linear, stroke 200ms ease;
+}
+.nos-pomo-clock-ring[data-phase="break"] .ring-fg {
+  stroke: var(--success);
+}
+.nos-pomo-clock-ring[data-paused="true"] .ring-fg {
+  stroke: var(--warning);
+}
+.nos-pomo-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  text-align: center;
+}
+.nos-pomo-ring-center .pomo-digits {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+.nos-pomo-ring-center small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* UI Mode 3: Flip Studio Clock */
+.nos-pomo-clock-flip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.nos-pomo-flip-card {
+  position: relative;
+  min-width: 72px;
+  height: 76px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--text) 9%, var(--surface)) 0%,
+    color-mix(in srgb, var(--text) 4%, var(--surface)) 49%,
+    color-mix(in srgb, var(--surface) 92%, #000) 50%,
+    color-mix(in srgb, var(--surface) 84%, var(--text) 4%) 100%
+  );
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+.nos-pomo-flip-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: color-mix(in srgb, var(--border) 90%, transparent);
+}
+.nos-pomo-flip-card span {
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.nos-pomo-flip-sep {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.nos-pomo-clock-flip[data-phase="break"] .nos-pomo-flip-card {
+  border-color: color-mix(in srgb, var(--success) 48%, var(--border));
+}
+
+/* UI Mode 4: Ambient Bar preview inside Popover / Float */
+.nos-pomo-clock-ambient {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 4px;
+}
+.nos-pomo-ambient-track {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  overflow: hidden;
+}
+.nos-pomo-ambient-track > i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--blue);
+  transition: width 280ms linear;
+}
+.nos-pomo-clock-ambient[data-phase="break"] .nos-pomo-ambient-track > i {
+  background: var(--success);
+}
+.nos-pomo-ambient-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.nos-pomo-ambient-meta strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+/* ---------- Action Controls & Segmented Selectors ---------- */
+.nos-pomo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.nos-pomo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--text);
+  font: 600 12.5px/1 var(--font-sans, inherit);
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
+}
+.nos-pomo-btn:hover {
+  border-color: color-mix(in srgb, var(--blue) 52%, var(--border));
+  background: color-mix(in srgb, var(--blue) 12%, var(--surface));
+}
+.nos-pomo-btn.primary {
+  background: var(--primary, var(--blue));
+  border-color: transparent;
+  color: var(--on-primary, #fff);
+}
+.nos-pomo-btn.primary:hover {
+  filter: brightness(1.06);
+}
+.nos-pomo-btn.danger {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  color: var(--danger);
+}
+.nos-pomo-btn.small {
+  height: 29px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: 9px;
+}
+
+.nos-pomo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.nos-pomo-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.nos-pomo-seg {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+.nos-pomo-seg button {
+  padding: 7px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  color: var(--text);
+  font: 600 11.5px/1.2 var(--font-sans, inherit);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.nos-pomo-seg button small {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.nos-pomo-seg button[aria-pressed="true"] {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 16%, var(--surface));
+  color: var(--blue);
+}
+.nos-pomo-seg button[aria-pressed="true"] small {
+  color: color-mix(in srgb, var(--blue) 85%, var(--text));
+}
+
+.nos-pomo-custom-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.nos-pomo-custom-grid[hidden] { display: none; }
+.nos-pomo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.nos-pomo-field input,
+.nos-pomo-field select {
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  font: 600 12.5px/1 var(--font-sans, inherit);
+}
+
+.nos-pomo-sound-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 13px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+.nos-pomo-sound-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+.nos-pomo-sound-row select {
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+.nos-pomo-custom-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.nos-pomo-custom-file span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nos-pomo-vol-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.nos-pomo-vol-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--blue);
+}
+.nos-pomo-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nos-pomo-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+.nos-pomo-toggle input {
+  accent-color: var(--blue);
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------- In-Page Draggable Mini-Widget (Ring / Flip when active in WebView) ---------- */
+.nos-pomo-dock-widget {
+  position: fixed;
+  z-index: 1220;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) var(--glass-card-alpha, 90%), transparent);
+  backdrop-filter: blur(var(--glass-blur, 16px));
+  color: var(--text);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+.nos-pomo-dock-widget[hidden] { display: none; }
+.nos-pomo-dock-widget[data-corner="bottom-right"] { right: 18px; bottom: 18px; }
+.nos-pomo-dock-widget[data-corner="bottom-left"] { left: 18px; bottom: 18px; }
+.nos-pomo-dock-widget[data-corner="top-right"] { right: 18px; top: 62px; }
+.nos-pomo-dock-widget[data-corner="top-left"] { left: 18px; top: 62px; }
+.nos-pomo-dock-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  cursor: grab;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.nos-pomo-dock-bar:active { cursor: grabbing; }
+.nos-pomo-dock-widget .nos-pomo-clock-ring {
+  width: 114px;
+  height: 114px;
+}
+.nos-pomo-dock-widget .nos-pomo-clock-ring svg {
+  width: 114px;
+  height: 114px;
+}
+.nos-pomo-dock-widget .nos-pomo-ring-center .pomo-digits {
+  font-size: 22px;
+}
+.nos-pomo-dock-widget .nos-pomo-flip-card {
+  min-width: 54px;
+  height: 58px;
+}
+.nos-pomo-dock-widget .nos-pomo-flip-card span {
+  font-size: 26px;
+}
+
+/* ---------- Break Zen Fullscreen Overlay (Opt-in calm eye-rest screen) ---------- */
+.nos-pomo-zen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter: blur(22px);
+  color: var(--text);
+}
+.nos-pomo-zen-overlay[hidden] { display: none; }
+.nos-pomo-zen-card {
+  width: min(440px, 100%);
+  border-radius: 26px;
+  border: 1px solid color-mix(in srgb, var(--success) 42%, var(--border));
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  padding: 28px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.34);
+}
+.nos-pomo-zen-card h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.nos-pomo-zen-card p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.nos-pomo-zen-time {
+  font-size: 56px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: var(--success);
+  line-height: 1;
+}
+
+/* ---------- Dedicated Floating Window (ankios-pomodoro.html) ---------- */
+body.nos-pomo-float-body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--font-sans, "Segoe UI", system-ui, sans-serif);
+}
+#nos-pomo-float-root {
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) var(--glass-card-alpha, 92%), transparent);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 10px;
+  user-select: none;
+}
+#nos-pomo-float-root[data-ui-mode="pill"],
+#nos-pomo-float-root[data-minimized="true"] {
+  flex-direction: row;
+  align-items: center;
+  padding: 6px 10px;
+  gap: 8px;
+  border-radius: 16px;
+}
+#nos-pomo-float-root[data-ui-mode="ambient"]:not([data-minimized="true"]) {
+  padding: 4px 10px;
+  justify-content: center;
+  border-radius: 14px;
+}
+.nos-pomo-float-drag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  cursor: move;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.nos-pomo-float-drag .pomo-float-btns {
+  display: inline-flex;
+  gap: 4px;
+}
+
+/* ---------- Lite / No-blur / Reduced-motion compliance ---------- */
+.lite-mode .nos-pomo-popover,
+.lite-mode .nos-pomo-dock-widget,
+.lite-mode .nos-pomo-banner,
+.lite-mode .nos-pomo-ambient-peek,
+.lite-mode .nos-pomo-zen-overlay,
+.no-blur .nos-pomo-popover,
+.no-blur .nos-pomo-dock-widget,
+.no-blur .nos-pomo-banner,
+.no-blur .nos-pomo-ambient-peek,
+.no-blur .nos-pomo-zen-overlay {
+  backdrop-filter: none !important;
+  background: var(--surface) !important;
+}
+.no-motion *,
+.reduce-motion *,
+[data-animations="off"] * {
+  transition-duration: 0.01ms !important;
+}
+
+@media (max-width: 640px) {
+  .nos-pomo-popover {
+    right: 10px;
+    left: 10px;
+    width: auto;
+    top: 52px;
+  }
+  .nos-pomo-chip-phase {
+    display: none;
+  }
+  .nos-pomo-dock-widget {
+    right: 10px !important;
+    bottom: 72px !important;
+  }
+}

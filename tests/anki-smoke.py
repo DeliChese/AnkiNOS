@@ -60,7 +60,7 @@ def main():
     base.mkdir(parents=True)
     addon = base / "addons21" / "NOS"
     addon.mkdir(parents=True)
-    for file in ("__init__.py", "integration.py", "i18n.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "legacy_brainexer_backup.py", "daily_scheduler.py", "daily_store.py", "daily_bridge.py", "media_store.py", "focus_store.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html"):
+    for file in ("__init__.py", "integration.py", "i18n.py", "data.py", "graphs_data.py", "study_data.py", "backup_store.py", "theme_settings.py", "legacy_learning_backup.py", "legacy_brainexer_backup.py", "daily_scheduler.py", "daily_store.py", "daily_bridge.py", "media_store.py", "focus_store.py", "pomodoro_store.py", "pomodoro_ui.py", "reviewer_ui.py", "workspace_store.py", "study_tools_data.py", "study_tools_ui.py", "config.json", "manifest.json", "ankios-ui.html", "ankios-overview.html", "ankios-tools.html", "ankios-pomodoro.html"):
         shutil.copy2(ROOT / file, addon / file)
     shutil.copytree(ROOT / "assets", addon / "assets")
     set_lang("en_US")
@@ -440,7 +440,7 @@ def main():
     js("window.NOSReview.setLanguage('zh-cn')")
     js("window.NOSRatings.setLanguage('zh-cn')", bottom)
     assert js("document.getElementById('nos-review-side')?.textContent?.trim()") == "答案"
-    assert js("document.getElementById('nos-focus-start')?.textContent?.trim()") == "专注"
+    assert js("!!document.getElementById('nos-pomo-chip')")
     assert js("Array.from(document.querySelectorAll('button[data-ease]')).map(b=>Array.from(b.childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join(''))", bottom) == ["重来", "困难", "良好", "简单"]
     assert js("document.getElementById('qa').textContent.includes('Test answer')")
     js("window.NOSReview.setLanguage('en')")
@@ -530,24 +530,24 @@ def main():
         launch_note.fields[0] = "Launchpad question " + str(index)
         launch_note.fields[1] = "Real scheduler answer"
         col.add_note(launch_note, launch_id)
-    integration.save_settings({"last_study_deck": str(launch_id), "study_budget": 30})
+    integration.save_settings({"last_study_deck": str(launch_id), "pomodoro": {"mode": "classic", "ui_mode": "pill"}})
     aqt.mw.moveToState("deckBrowser")
     until(f"document.querySelector('#study-deck option[value=\"{launch_id}\"]') !== null")
     js(f"(()=>{{const x=document.getElementById('study-deck');x.value='{launch_id}';x.dispatchEvent(new Event('change'));document.getElementById('study-focus').click();return true}})()")
-    until("!!window.NOSReview && !!document.getElementById('qa')")
+    until("!!window.NOSReview && !!window.NOSPomodoro && !!document.getElementById('qa')")
     assert aqt.mw.state == "review"
-    from NOS import reviewer_ui
-    assert reviewer_ui.focus_store().status()["active"]
-    assert reviewer_ui.focus_store().status()["target_seconds"] == 1800
+    from NOS import pomodoro_ui
+    assert pomodoro_ui.pomodoro_store().status()["active"]
+    assert pomodoro_ui.pomodoro_store().status()["target_seconds"] == 1500
     assert integration.settings()["last_study_deck"] == str(launch_id)
-    reviewer_ui.focus_store().resume()
-    before = reviewer_ui.focus_store().cards
+    pomodoro_ui.pomodoro_store().resume()
+    before = pomodoro_ui.pomodoro_store().cards
     aqt.mw.reviewer._showAnswer()
     aqt.mw.reviewer._answerCard(3)
     end = time.monotonic() + 5
-    while reviewer_ui.focus_store().cards == before and time.monotonic() < end:
+    while pomodoro_ui.pomodoro_store().cards == before and time.monotonic() < end:
         wait(30)
-    assert reviewer_ui.focus_store().cards == before + 1
+    assert pomodoro_ui.pomodoro_store().cards == before + 1
     # Verify live reviewer bottom card counts match col.sched.counts() after answering.
     expected_counts = list(col.sched.counts())
     def bottom_js(code):
@@ -565,12 +565,12 @@ def main():
             break
         wait(40)
     assert live_counts == expected_counts, f"Reviewer bottom counts {live_counts} != real sched counts {expected_counts}"
-    reviewer_ui.focus_store().elapsed = 1800
-    reviewer_ui.focus_store().running_since = time.monotonic()
-    reviewer_ui._focus_tick()
-    until("!document.getElementById('nos-focus-summary').hidden")
-    assert js("document.getElementById('nos-focus-summary-text').textContent.includes('1 lượt trả lời')")
-    assert not reviewer_ui.focus_store().status()["active"]
+    pomodoro_ui.pomodoro_store().elapsed = 1500
+    pomodoro_ui.pomodoro_store().running_since = time.monotonic()
+    pomodoro_ui._tick()
+    until("!document.getElementById('nos-pomo-banner').hidden")
+    assert js("document.getElementById('nos-pomo-banner').textContent.includes('1 lượt ôn')")
+    assert not pomodoro_ui.pomodoro_store().status()["active"]
     aqt.mw.moveToState("deckBrowser")
     until("!!window.NOSStudy && !document.getElementById('study-now').disabled")
     # Exercise the production async export/preview/restore bridge on this profile.
@@ -600,7 +600,7 @@ def main():
     assert integration.settings()["theme"] == "night"
     assert integration.settings()["layout"] == "bento"
     until("document.getElementById('nos-app').dataset.layout === 'bento'")
-    assert reviewer_ui.focus_store().history()["completed_sessions"] >= 1
+    assert pomodoro_ui.pomodoro_store().analytics(period="week")["summary"]["completed_sessions"] >= 1
     assert list((integration.ROOT / "user_files/backups").glob("before-restore-*.nosbackup"))
     # Failed rendering restores native content, and explicit re-enable recovers.
     with patch.object(integration, "showWarning"):

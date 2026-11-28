@@ -7,7 +7,8 @@
   <link rel="stylesheet" href="assets/dashboard.css">
   <link rel="stylesheet" href="assets/media-studio.css">
   <link rel="stylesheet" href="assets/stats-page.css">
-  <link rel="stylesheet" href="assets/focus-dashboard.css">
+  <link rel="stylesheet" href="assets/pomodoro.css">
+  <link rel="stylesheet" href="assets/pomodoro-stats.css">
   <link rel="stylesheet" href="assets/study-dashboard.css">
   <link rel="stylesheet" href="assets/daily-schedule.css">
   <link rel="stylesheet" href="assets/theme.css">
@@ -109,6 +110,7 @@
             <button type="button" class="update-pill-dismiss" data-action="dismiss_update_pill" aria-label="Ẩn thông báo cập nhật" title="Ẩn thông báo">×</button>
           </div>
           <span class="connection" id="connection"><span class="status-dot"></span>Đang kết nối…</span>
+          <button type="button" class="icon-button" id="pomodoro-toggle" data-action="pomodoro" aria-haspopup="dialog" aria-expanded="false" aria-controls="nos-pomo-popover" title="Đồng hồ Pomodoro" aria-label="Đồng hồ Pomodoro"><svg class="icon"><use href="#i-clock"/></svg><span class="pomo-btn-time" hidden data-i18n-skip></span><span class="edge-tip">Pomodoro</span></button>
           <button type="button" class="icon-button" id="guide-toggle" data-action="guide" aria-haspopup="dialog" title="Hướng dẫn sử dụng" aria-label="Hướng dẫn sử dụng"><svg class="icon"><use href="#i-info"/></svg><span class="edge-tip">Hướng dẫn</span></button>
           <button type="button" class="icon-button nos-layout-toggle" id="layout-toggle" data-action="layout_menu" aria-haspopup="menu" aria-expanded="false" aria-controls="layout-menu" title="Đổi bố cục (Alt+Shift+L)" aria-label="Đổi bố cục giao diện"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span class="edge-tip">Bố cục</span></button>
           <button class="icon-button" id="fullscreen-toggle" data-action="fullscreen" title="Toàn màn hình" aria-label="Toàn màn hình" aria-pressed="false"><svg class="icon"><use href="#i-fullscreen"/></svg><span class="edge-tip">Toàn màn hình</span></button>
@@ -175,7 +177,7 @@
           <p class="study-queue" id="study-queue">Đang đọc lịch học Anki…</p>
           <p class="study-brief" id="study-brief" aria-live="polite"></p>
           <div class="study-actions"><button type="button" id="study-now" class="primary-button" disabled>Học ngay</button>
-            <div class="study-focus-row"><button type="button" id="study-focus" class="subtle-button" disabled>Focus 30 phút</button><select id="study-budget" aria-label="Hôm nay tôi có"><option value="15">15 phút</option><option value="30" selected>30 phút</option><option value="60">60 phút</option></select></div></div>
+            <div class="study-focus-row"><button type="button" id="study-focus" class="subtle-button" disabled>Pomodoro 25/5</button><select id="study-budget" aria-label="Chế độ Pomodoro"><option value="classic" selected>Tiêu chuẩn (25/5)</option><option value="long">Long (50/10)</option><option value="custom">Tùy chỉnh</option><option value="stopwatch">Timer đếm</option></select></div></div>
           <button type="button" class="study-link" data-action="library">Chọn bộ thẻ khác</button>
           <details class="study-more"><summary>Cách tính thời gian</summary>
             <p id="study-estimate" aria-live="polite">Bạn có thể bắt đầu ngay khi lịch học sẵn sàng.</p><p id="study-capacity"></p>
@@ -351,11 +353,12 @@
           <div class="daily-study-actions">
             <button type="button" class="primary-button" id="daily-study-today" disabled>Ôn tập hôm nay</button>
             <div class="daily-focus-row">
-              <button type="button" class="subtle-button" id="daily-focus-today" disabled>Focus hôm nay</button>
-              <select id="daily-focus-budget" aria-label="Thời lượng Focus hôm nay">
-                <option value="15">15 phút</option>
-                <option value="30" selected>30 phút</option>
-                <option value="60">60 phút</option>
+              <button type="button" class="subtle-button" id="daily-focus-today" disabled>Pomodoro hôm nay</button>
+              <select id="daily-focus-budget" aria-label="Chế độ Pomodoro hôm nay">
+                <option value="classic" selected>Tiêu chuẩn (25/5)</option>
+                <option value="long">Long (50/10)</option>
+                <option value="custom">Tùy chỉnh</option>
+                <option value="stopwatch">Timer đếm</option>
               </select>
             </div>
           </div>
@@ -424,20 +427,87 @@
         <div class="study-insights-head"><h2 id="study-insights-title">Điều đáng chú ý</h2><select id="study-insight-scope" aria-label="Phạm vi nhận xét"><option value="all">Mọi bộ thẻ</option><option value="selected">Bộ đang chọn ở trang chủ</option></select><button type="button" class="subtle-button" id="study-insights-refresh">Làm mới nhận xét</button></div>
         <p id="study-insights-status" role="status">Đang đọc lịch sử học…</p><small id="study-insight-period"></small><div id="study-insights-list"></div>
       </section>
-      <section id="nos-focus-history" aria-labelledby="nos-focus-title">
-        <div class="nos-focus-head"><div><h2 id="nos-focus-title">Focus Mode · Lịch sử tập trung</h2><p id="nos-focus-history-status">Bắt đầu Focus khi ôn tập để lưu lịch sử.</p></div><button type="button" id="nos-focus-refresh">Làm mới Focus</button></div>
-        <div class="nos-focus-metrics">
-          <div class="nos-focus-metric"><span>Hôm nay</span><strong id="nos-focus-today">0 phút</strong></div>
-          <div class="nos-focus-metric"><span>7 ngày gần nhất</span><strong id="nos-focus-week">0 phút</strong></div>
-          <div class="nos-focus-metric"><span>Tổng thời gian</span><strong id="nos-focus-total">0 phút</strong></div>
-          <div class="nos-focus-metric"><span>Số phiên</span><strong id="nos-focus-sessions">0</strong></div>
-          <div class="nos-focus-metric"><span>Đạt mục tiêu</span><strong id="nos-focus-completed">0</strong></div>
-          <div class="nos-focus-metric"><span>Thời lượng trung bình</span><strong id="nos-focus-average">0 phút</strong></div>
-          <div class="nos-focus-metric"><span>Lượt ôn trong Focus</span><strong id="nos-focus-cards">0</strong></div>
+      <section id="nos-pomodoro-stats" aria-labelledby="nos-pomo-stats-title">
+        <div class="pomo-stats-head">
+          <div>
+            <h2 id="nos-pomo-stats-title">Pomodoro · Thời gian học &amp; nghỉ</h2>
+            <p id="pomo-stats-status">Bắt đầu Pomodoro để theo dõi cân bằng học và nghỉ.</p>
+          </div>
+          <div class="pomo-stats-head-controls">
+            <div class="pomo-period-seg" role="group" aria-label="Khoảng thời gian Pomodoro">
+              <button type="button" data-pomo-period="week" aria-pressed="true">Tuần</button>
+              <button type="button" data-pomo-period="month" aria-pressed="false">Tháng</button>
+              <button type="button" data-pomo-period="year" aria-pressed="false">Năm</button>
+            </div>
+            <div class="pomo-nav-group">
+              <button type="button" class="subtle-button" id="pomo-nav-prev" aria-label="Kỳ trước">‹</button>
+              <span class="pomo-nav-label" id="pomo-period-label" data-i18n-skip>—</span>
+              <button type="button" class="subtle-button" id="pomo-nav-next" aria-label="Kỳ sau" disabled>›</button>
+              <button type="button" class="subtle-button" id="pomo-nav-today">Hôm nay</button>
+            </div>
+            <button type="button" class="subtle-button" id="pomo-stats-refresh">Làm mới</button>
+          </div>
         </div>
-        <div class="nos-focus-columns">
-          <div><h3>Thời gian Focus · 14 ngày</h3><div id="nos-focus-days" aria-label="Biểu đồ thời gian tập trung 14 ngày"></div></div>
-          <div><h3>Lịch sử phiên gần đây</h3><div id="nos-focus-session-list" aria-live="polite"></div></div>
+
+        <div class="pomo-stats-filters" role="region" aria-label="Bộ lọc thống kê Pomodoro">
+          <label class="pomo-filter-group">Chế độ
+            <select id="pomo-filter-mode" aria-label="Lọc theo chế độ Pomodoro">
+              <option value="all" selected>Tất cả chế độ</option>
+              <option value="classic">Tiêu chuẩn (25/5)</option>
+              <option value="long">Long (50/10)</option>
+              <option value="custom">Tùy chỉnh</option>
+              <option value="stopwatch">Timer đếm</option>
+            </select>
+          </label>
+          <label class="pomo-filter-group">Trạng thái
+            <select id="pomo-filter-status" aria-label="Lọc theo trạng thái phiên">
+              <option value="all" selected>Mọi trạng thái</option>
+              <option value="completed">Hoàn thành</option>
+              <option value="stopped">Dừng sớm</option>
+            </select>
+          </label>
+          <label class="pomo-filter-group">Bộ thẻ
+            <select id="pomo-filter-deck" aria-label="Lọc theo bộ thẻ">
+              <option value="all" selected>Mọi bộ thẻ</option>
+            </select>
+          </label>
+          <label class="pomo-filter-group">Đường phân tích
+            <select id="pomo-line-metric" aria-label="Chỉ số đường phân tích">
+              <option value="total" selected>Tổng thời gian</option>
+              <option value="ratio">% Tập trung</option>
+              <option value="cards">Số lượt ôn</option>
+            </select>
+          </label>
+          <div class="pomo-series-toggles" role="group" aria-label="Hiển thị chuỗi biểu đồ">
+            <button type="button" class="pomo-series-chip" data-pomo-series="study" aria-pressed="true"><i class="pomo-swatch study"></i>Giờ học</button>
+            <button type="button" class="pomo-series-chip" data-pomo-series="break" aria-pressed="true"><i class="pomo-swatch break"></i>Giờ nghỉ</button>
+            <button type="button" class="pomo-series-chip" data-pomo-series="line" aria-pressed="true"><i class="pomo-swatch line"></i>Đường phân tích</button>
+          </div>
+        </div>
+
+        <div class="pomo-kpi-grid">
+          <div class="pomo-kpi-card is-highlight"><span>Tổng cả 2 (Học + Nghỉ)</span><strong id="pomo-kpi-total">0 phút</strong><small id="pomo-kpi-total-sub">Hôm nay: 0 phút</small></div>
+          <div class="pomo-kpi-card"><span>Giờ học</span><strong id="pomo-kpi-study">0 phút</strong><small id="pomo-kpi-study-sub">—</small></div>
+          <div class="pomo-kpi-card"><span>Giờ nghỉ</span><strong id="pomo-kpi-break">0 phút</strong><small id="pomo-kpi-break-sub">—</small></div>
+          <div class="pomo-kpi-card"><span>Hoàn thành / Tổng phiên</span><strong id="pomo-kpi-sessions">0 / 0</strong><small>Tất cả pha học &amp; nghỉ</small></div>
+          <div class="pomo-kpi-card"><span>Trung bình phiên học</span><strong id="pomo-kpi-avg">0 phút</strong><small>Mỗi phiên tập trung</small></div>
+          <div class="pomo-kpi-card"><span>Lượt ôn trong Pomodoro</span><strong id="pomo-kpi-cards">0</strong><small>Chỉ tính trong pha học</small></div>
+        </div>
+
+        <div class="pomo-stats-body">
+          <div class="pomo-chart-card">
+            <div class="pomo-chart-head">
+              <h3>Biểu đồ Học &amp; Nghỉ kết hợp đường phân tích</h3>
+              <span class="pomo-chart-sub" id="pomo-chart-sub">Đường vàng: Tổng thời gian (Học + Nghỉ)</span>
+            </div>
+            <div class="pomo-chart-wrap" id="pomo-chart-wrap">
+              <div class="pomo-chart-tooltip" id="pomo-chart-tooltip" hidden></div>
+            </div>
+          </div>
+          <div class="pomo-sessions-card">
+            <h3>Lịch sử phiên gần đây</h3>
+            <div id="pomo-session-list" aria-live="polite"></div>
+          </div>
         </div>
       </section>
 
@@ -1135,7 +1205,7 @@
       </section>
     </dialog>
 
-    <section class="launcher glass" id="launcher" aria-label="Tất cả chức năng" hidden><div class="launcher-heading"><span>Không gian AnkiNOS</span><button class="icon-button small-button" data-action="launcher" aria-label="Đóng menu"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="launcher-grid"><button data-action="browse"><svg class="icon"><use href="#i-search"/></svg>Duyệt thẻ</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ</button><button data-action="import"><svg class="icon"><use href="#i-download"/></svg>Nhập thẻ</button><button data-action="export"><svg class="icon"><use href="#i-upload"/></svg>Xuất thẻ</button><button data-action="addons"><svg class="icon"><use href="#i-puzzle"/></svg>Tiện ích</button><button data-action="studio" id="studio-launcher"><svg class="icon"><use href="#i-folder"/></svg>Thư viện ảnh</button><button data-action="open_custom_ui"><svg class="icon"><use href="#i-grid"/></svg>Tùy biến giao diện</button><button data-action="sync"><svg class="icon"><use href="#i-sync"/></svg>Đồng bộ</button><button data-action="shared"><svg class="icon"><use href="#i-external"/></svg>Bộ thẻ chia sẻ</button><button data-action="guide"><svg class="icon"><use href="#i-info"/></svg>Hướng dẫn</button><button data-action="changelog"><svg class="icon"><use href="#i-spark"/></svg>Nhật ký cập nhật</button><button data-action="about"><svg class="icon"><use href="#i-spark"/></svg>Giới thiệu</button></div></section>
+    <section class="launcher glass" id="launcher" aria-label="Tất cả chức năng" hidden><div class="launcher-heading"><span>Không gian AnkiNOS</span><button class="icon-button small-button" data-action="launcher" aria-label="Đóng menu"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="launcher-grid"><button data-action="browse"><svg class="icon"><use href="#i-search"/></svg>Duyệt thẻ</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ</button><button data-action="import"><svg class="icon"><use href="#i-download"/></svg>Nhập thẻ</button><button data-action="export"><svg class="icon"><use href="#i-upload"/></svg>Xuất thẻ</button><button data-action="addons"><svg class="icon"><use href="#i-puzzle"/></svg>Tiện ích</button><button data-action="studio" id="studio-launcher"><svg class="icon"><use href="#i-folder"/></svg>Thư viện ảnh</button><button data-action="pomodoro"><svg class="icon"><use href="#i-clock"/></svg>Pomodoro</button><button data-action="open_custom_ui"><svg class="icon"><use href="#i-grid"/></svg>Tùy biến giao diện</button><button data-action="sync"><svg class="icon"><use href="#i-sync"/></svg>Đồng bộ</button><button data-action="shared"><svg class="icon"><use href="#i-external"/></svg>Bộ thẻ chia sẻ</button><button data-action="guide"><svg class="icon"><use href="#i-info"/></svg>Hướng dẫn</button><button data-action="changelog"><svg class="icon"><use href="#i-spark"/></svg>Nhật ký cập nhật</button><button data-action="about"><svg class="icon"><use href="#i-spark"/></svg>Giới thiệu</button></div></section>
 
     <dialog id="about-dialog" class="info-modal-dialog" aria-labelledby="about-title" aria-modal="true">
       <section class="info-modal-panel glass panel">
@@ -1172,7 +1242,7 @@
             </article>
             <article class="about-pillar">
               <strong>Sổ tay học tập &amp; Sao lưu dễ dàng</strong>
-              <p>Ghi chú nhanh ngay khi đang học, bấm giờ tập trung (Focus) và lưu toàn bộ cài đặt vào 1 tệp duy nhất khi cần chuyển máy.</p>
+              <p>Ghi chú nhanh ngay khi đang học, bấm giờ Pomodoro 4 chế độ với âm báo và lưu toàn bộ cài đặt vào 1 tệp duy nhất khi cần chuyển máy.</p>
             </article>
           </div>
           <div class="about-specs">
@@ -1489,7 +1559,7 @@
         <div class="guide-tabs" role="tablist" aria-label="Chủ đề hướng dẫn">
           <button type="button" class="guide-tab active" data-guide-select="start" role="tab" aria-selected="true">Bắt đầu nhanh</button>
           <button type="button" class="guide-tab" data-guide-select="scheduler" role="tab" aria-selected="false">ANOS Scheduler</button>
-          <button type="button" class="guide-tab" data-guide-select="focus" role="tab" aria-selected="false">Focus &amp; Phiên học</button>
+          <button type="button" class="guide-tab" data-guide-select="focus" role="tab" aria-selected="false">Pomodoro &amp; Phiên học</button>
           <button type="button" class="guide-tab" data-guide-select="notebook" role="tab" aria-selected="false">Sổ tay &amp; Phím tắt</button>
           <button type="button" class="guide-tab" data-guide-select="stats" role="tab" aria-selected="false">Thống kê &amp; Sao lưu</button>
         </div>
@@ -1543,8 +1613,8 @@
           <div class="guide-pane" id="gpane-focus" hidden>
             <div class="guide-cards">
               <article class="guide-card">
-                <h3>Đồng hồ Focus trong lúc học</h3>
-                <p>Bắt đầu Focus 15 / 25 / 30 / 60 phút ngay từ Trang chủ hoặc trên thanh đầu phiên học. Khi bạn chuyển sang ứng dụng khác, đồng hồ tự tạm dừng để chỉ tính đúng thời gian tập trung thật.</p>
+                <h3>Đồng hồ Pomodoro 4 chế độ &amp; 4 giao diện</h3>
+                <p>Hỗ trợ Tiêu chuẩn (25/5), Long (50/10), Tùy chỉnh và Timer đếm giờ. Chọn kiểu hiển thị Gọn (Pill), Vòng tròn (Ring), Lật số (Flip) hoặc Thanh Zen siêu mảnh — hoặc tách cửa sổ nổi chạy xuyên các màn hình Anki kèm âm báo hết giờ học và nghỉ.</p>
               </article>
               <article class="guide-card">
                 <h3>Khung thẻ học &amp; Cách ly mẫu thẻ</h3>
@@ -1552,7 +1622,7 @@
               </article>
               <article class="guide-card">
                 <h3>Ước lượng thời gian cá nhân</h3>
-                <p>Khoảng phút dự kiến tính từ phân vị 25–75% thời gian trả lời thật trong 30 ngày gần nhất của chính bạn (cần tối thiểu 20 lượt có ghi giờ), giúp bạn chọn gói Focus phù hợp.</p>
+                <p>Khoảng phút dự kiến tính từ phân vị 25–75% thời gian trả lời thật trong 30 ngày gần nhất của chính bạn (cần tối thiểu 20 lượt có ghi giờ), giúp bạn chọn chế độ Pomodoro phù hợp.</p>
               </article>
             </div>
           </div>
@@ -1586,7 +1656,7 @@
               </article>
               <article class="guide-card">
                 <h3>Gói sao lưu .nosbackup</h3>
-                <p>Vào Cài đặt → Dữ liệu (hoặc hộp thoại Giới thiệu) để xuất tệp .nosbackup chứa toàn bộ cài đặt giao diện, ảnh nền, Sổ tay, lịch sử Focus và Nhật ký lịch ôn. Khi khôi phục, AnkiNOS luôn tự tạo bản dự phòng an toàn trước.</p>
+                <p>Vào Cài đặt → Dữ liệu (hoặc hộp thoại Giới thiệu) để xuất tệp .nosbackup chứa toàn bộ cài đặt giao diện, ảnh nền, Sổ tay, lịch sử Pomodoro và Nhật ký lịch ôn. Khi khôi phục, AnkiNOS luôn tự tạo bản dự phòng an toàn trước.</p>
               </article>
             </div>
           </div>
@@ -1629,7 +1699,8 @@
   <script src="assets/dashboard.js"></script>
   <script src="assets/media-studio.js"></script>
   <script src="assets/stats-page.js"></script>
-  <script src="assets/focus-dashboard.js"></script>
+  <script src="assets/pomodoro.js"></script>
+  <script src="assets/pomodoro-stats.js"></script>
   <script src="assets/study-dashboard.js"></script>
   <script src="assets/daily-schedule.js"></script>
   <script src="assets/custom-ui.js"></script>

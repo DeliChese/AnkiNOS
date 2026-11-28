@@ -29,6 +29,7 @@ from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, 
                           WALLPAPER_DIM_MAX, WALLPAPER_BLUR_MAX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
                           valid_images, valid_albums, valid_image_frames, MAX_ALBUMS, profile_dir)
+from .pomodoro_store import clean_pomodoro_settings, public_pomodoro_settings
 
 ROOT = Path(__file__).resolve().parent
 MODULE = __package__ or "NOS"
@@ -355,6 +356,8 @@ def _config_updated(values: dict[str, Any]) -> None:
             send("settings", current_public)
             from .study_tools_ui import sync_settings
             sync_settings(current_public)
+            from .pomodoro_ui import sync_settings as sync_pomo_settings
+            sync_pomo_settings(current_public)
 
 
 @lru_cache(maxsize=3)
@@ -523,7 +526,8 @@ def settings() -> dict[str, Any]:
             "whats_new_seen_version": profile.get("whats_new_seen_version", "")
             if isinstance(profile.get("whats_new_seen_version"), str) else "",
             "custom_greeting": re.sub(r"[\x00-\x1f\x7f]+", " ", profile.get("custom_greeting", "")).strip()[:120]
-            if isinstance(profile.get("custom_greeting"), str) else ""}
+            if isinstance(profile.get("custom_greeting"), str) else "",
+            "pomodoro": clean_pomodoro_settings(profile.get("pomodoro"))}
 
 
 def public_settings() -> dict[str, Any]:
@@ -536,6 +540,7 @@ def public_settings() -> dict[str, Any]:
     for entry in data["images"]:
         if entry.get("album_id") not in album_ids:
             entry.pop("album_id", None)
+    data["pomodoro"] = public_pomodoro_settings(data.get("pomodoro"), ROOT, mw.pm.name, str(package))
     return data
 
 
@@ -912,11 +917,29 @@ def _study_support(force: bool = False) -> None:
             success=success).failure(failure).run_in_background()
 
 
-def _quick_study(did: int, minutes: Any = None) -> None:
+def _quick_study(did: int, minutes: Any = None, pomodoro: Any = None) -> None:
     if _navigating:
         return
-    if minutes is not None and (type(minutes) is not int or minutes not in {15, 30, 60}):
-        raise ValueError("Chọn thời lượng 15, 30 hoặc 60 phút.")
+    if minutes is not None and (type(minutes) is not int or not (1 <= minutes <= 180)):
+        raise ValueError("Chọn thời lượng học từ 1 đến 180 phút.")
+    pomo_opts: dict[str, Any] | None = None
+    if pomodoro is True:
+        pomo_opts = {}
+    elif isinstance(pomodoro, dict):
+        pomo_opts = {}
+        if pomodoro.get("mode") in {"classic", "long", "custom", "stopwatch"}:
+            pomo_opts["mode"] = pomodoro["mode"]
+        if type(pomodoro.get("study_minutes")) is int and 1 <= pomodoro["study_minutes"] <= 180:
+            pomo_opts["study_minutes"] = pomodoro["study_minutes"]
+        if type(pomodoro.get("break_minutes")) is int and 1 <= pomodoro["break_minutes"] <= 60:
+            pomo_opts["break_minutes"] = pomodoro["break_minutes"]
+    elif minutes is not None:
+        if minutes == 25:
+            pomo_opts = {"mode": "classic"}
+        elif minutes == 50:
+            pomo_opts = {"mode": "long"}
+        else:
+            pomo_opts = {"mode": "custom", "study_minutes": minutes}
     from aqt.operations.deck import set_current_deck
     profile = mw.pm.name
     _begin_navigation()
@@ -928,7 +951,7 @@ def _quick_study(did: int, minutes: Any = None) -> None:
             if mw.col and mw.pm.name == profile and mw.state == "deckBrowser" and enabled():
                 refresh()
             return
-        _quick_plan = (profile, str(did), minutes)
+        _quick_plan = (profile, str(did), pomo_opts)
         # Start from the loaded overview's bridge. An immediate second setHtml
         # can let its asynchronous load overwrite the reviewer's card page.
         mw.onOverview()
@@ -942,9 +965,14 @@ def _quick_study(did: int, minutes: Any = None) -> None:
 def _start_overview_review() -> None:
     global _quick_plan
     plan, _quick_plan = _quick_plan, None
-    if plan and plan[:2] == (mw.pm.name, str(mw.col.decks.selected())) and plan[2]:
-        from .reviewer_ui import prepare_focus
-        prepare_focus(plan[2])
+    if plan and plan[:2] == (mw.pm.name, str(mw.col.decks.selected())) and plan[2] is not None:
+        from .pomodoro_ui import prepare_pomodoro
+        opts = plan[2]
+        prepare_pomodoro(
+            mode=opts.get("mode"),
+            study_minutes=opts.get("study_minutes"),
+            break_minutes=opts.get("break_minutes"),
+        )
     _begin_navigation()
     mw.overview._linkHandler("study")
 
@@ -990,8 +1018,8 @@ def _backup_export() -> None:
     path, _ = QFileDialog.getSaveFileName(mw, _t("Sao lưu đầy đủ AnkiNOS"), "AnkiNOS-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".nosbackup", _t("Gói AnkiNOS (*.nosbackup)"))
     if not path:
         return
-    from .reviewer_ui import checkpoint_focus
-    checkpoint_focus()
+    from .pomodoro_ui import checkpoint_pomodoro
+    checkpoint_pomodoro()
     profile, values = mw.pm.name, settings()
     names = {str(d.id): d.name for d in mw.col.decks.all_names_and_ids()}
     def done(destination: Path) -> None:
@@ -1021,7 +1049,7 @@ def _backup_restore() -> None:
             created_at=html.escape(str(manifest.get("created_at", ""))),
             images_count=len(values["images"]),
             albums_count=len(values["image_albums"]),
-            focus_sessions=manifest["focus_sessions"],
+            focus_sessions=manifest.get("pomodoro", {}).get("sessions", 0) or manifest["focus_sessions"],
             resources_count=len(values["resources"]),
             notes_count=manifest.get("workspace", {}).get("notes", 0),
             target_profile=html.escape(profile),
@@ -1033,8 +1061,8 @@ def _backup_restore() -> None:
             return
         if mw.state == "review":
             mw.moveToState("deckBrowser")
-        from .reviewer_ui import reset_focus_store
-        reset_focus_store()
+        from .pomodoro_ui import reset_pomodoro_store
+        reset_pomodoro_store()
         from .study_tools_ui import reset_tools
         reset_tools()
         original = settings()
@@ -1284,10 +1312,11 @@ def _replace_content(content: Any, context: Any) -> None:
         _refresh_timer.stop()
     content.body = _body_template("ankios-overview.html" if overview else "ankios-ui.html")
     content.body = content.body.replace('id="nos-app"', 'id="nos-app" data-native="true"', 1)
+    from .pomodoro_ui import current_payload as pomodoro_payload
     if overview:
         initial = overview_base(mw.col)
         initial["auto_start"] = bool(_quick_plan and _quick_plan[:2] == (mw.pm.name, str(initial["id"])))
-        initial.update(profile=mw.pm.name, settings=public_settings(), fullscreen=mw.isFullScreen())
+        initial.update(profile=mw.pm.name, settings=public_settings(), fullscreen=mw.isFullScreen(), pomodoro=pomodoro_payload())
         content.body += '<textarea id="nos-overview-bootstrap" hidden>' + html.escape(json.dumps(initial, ensure_ascii=True)) + '</textarea>'
     else:
         current_settings = public_settings()
@@ -1318,6 +1347,7 @@ def _replace_content(content: Any, context: Any) -> None:
             fullscreen=mw.isFullScreen(),
             selected_deck=str(mw.col.decks.selected()),
             support_revision=_data_revision,
+            pomodoro=pomodoro_payload(),
         )
         if _library_focus:
             initial["library_focus"] = _library_focus
@@ -1352,12 +1382,14 @@ def _replace_content(content: Any, context: Any) -> None:
     content.js.append(f"{base}/runtime-guard.js")
     if not overview:
         content.js.append(f"{base}/layouts.js")
+    content.css.append(f"{base}/pomodoro.css")
     content.js.append(f"{base}/overview.js" if overview else f"{base}/dashboard.js")
+    content.js.append(f"{base}/pomodoro.js")
     if not overview:
         content.css.append(f"{base}/stats-page.css")
-        content.css.append(f"{base}/focus-dashboard.css")
+        content.css.append(f"{base}/pomodoro-stats.css")
         content.js.append(f"{base}/stats-page.js")
-        content.js.append(f"{base}/focus-dashboard.js")
+        content.js.append(f"{base}/pomodoro-stats.js")
         content.css.append(f"{base}/media-studio.css")
         content.js.append(f"{base}/media-studio.js")
         content.css.append(f"{base}/study-dashboard.css")
@@ -1648,6 +1680,10 @@ def _save_ui(values: Any) -> None:
             merged_frames = dict(valid_image_frames(settings().get("image_frames")))
             merged_frames.update(incoming_frames)
             patch["image_frames"] = merged_frames
+    if isinstance(values.get("pomodoro"), dict):
+        merged_pomo = dict(clean_pomodoro_settings(settings().get("pomodoro")))
+        merged_pomo.update(values["pomodoro"])
+        patch["pomodoro"] = clean_pomodoro_settings(merged_pomo)
     if patch:
         save_settings(patch)
 
@@ -1705,9 +1741,9 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
                         clear_snapshot_cache()
                         _clear_support_cache()
 
-                    def launch_review(did: int, minutes: int | None) -> None:
+                    def launch_review(did: int, minutes: int | None, pomo: Any = None) -> None:
                         if current():
-                            _quick_study(did, minutes)
+                            _quick_study(did, minutes, pomo)
 
                     handle_daily(
                         command,
@@ -1753,7 +1789,7 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             did = _deck_id(command["id"]) if command.get("id") else None
             open_notebook(did)
         elif action == "quick_study":
-            _quick_study(_deck_id(command.get("id")), command.get("minutes"))
+            _quick_study(_deck_id(command.get("id")), command.get("minutes"), command.get("pomodoro"))
         elif action == "insight_browse":
             _insight_browse(_deck_id(command.get("id")), command.get("kind"))
         elif action == "backup_export":
@@ -1792,9 +1828,12 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             browser.show()
             browser.raise_()
             browser.activateWindow()
-        elif action == "focus_history":
-            from .reviewer_ui import focus_history
-            send("focus_history", focus_history())
+        elif action == "pomodoro":
+            from .pomodoro_ui import handle_action as handle_pomodoro
+            handle_pomodoro(command)
+        elif action in {"pomodoro_analytics", "focus_history"}:
+            from .pomodoro_ui import analytics_payload
+            send("pomodoro_analytics", analytics_payload(command))
         elif action == "stats_pdf":
             _stats_pdf()
         elif action == "study":
@@ -1862,6 +1901,8 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             send("settings", current_public)
             from .study_tools_ui import sync_settings
             sync_settings(current_public)
+            from .pomodoro_ui import sync_settings as sync_pomo_settings
+            sync_pomo_settings(current_public)
         elif action == "image_previews":
             _prepare_image_previews()
         elif action == "image_add":
@@ -2004,7 +2045,10 @@ def install() -> None:
     if _installed:
         return
     _installed = True
-    mw.addonManager.setWebExports(MODULE, r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp))")
+    mw.addonManager.setWebExports(
+        MODULE,
+        r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|pomodoro_audio/[0-9a-f]{32}\.(?:mp3|wav|ogg)))",
+    )
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
     _guard_unused_heatmaps()
     _guard_unused_deck_html()
@@ -2030,6 +2074,13 @@ def install() -> None:
     _refresh_timer = QTimer(mw)
     _refresh_timer.setSingleShot(True)
     qconnect(_refresh_timer.timeout, refresh)
+    from .pomodoro_ui import install as install_pomodoro
+    install_pomodoro(
+        lambda: bool(enabled()),
+        settings,
+        save_settings,
+        lambda: send("settings", public_settings()),
+    )
     from .reviewer_ui import install as install_reviewer
     install_reviewer(lambda: bool(enabled()), public_settings)
     from .study_tools_ui import install as install_tools

@@ -357,9 +357,9 @@ try {
   assert.equal(await evaluate(`document.getElementById('study-now').disabled`),false);
   assert(await evaluate(`document.getElementById('study-estimate-source').textContent.includes('250')`));
   await evaluate(`window.__studyCommands=[];window.__realStudyCommand=window.AnkiNOS.studioCommand;window.AnkiNOS.studioCommand=(action,args)=>window.__studyCommands.push({action,...args})`);
-  await evaluate(`(()=>{const budget=document.getElementById('study-budget');budget.value='15';budget.dispatchEvent(new Event('change'));document.getElementById('study-focus').click();document.getElementById('study-now').click()})()`);
+  await evaluate(`(()=>{const budget=document.getElementById('study-budget');budget.value='long';budget.dispatchEvent(new Event('change'));document.getElementById('study-focus').click();document.getElementById('study-now').click()})()`);
   assert.deepEqual(await evaluate(`window.__studyCommands.filter(x=>x.action==='quick_study')`),
-    [{action:'quick_study',id:'101',minutes:15},{action:'quick_study',id:'101'}]);
+    [{action:'quick_study',id:'101',pomodoro:{mode:'long'}},{action:'quick_study',id:'101'}]);
   await evaluate(`window.NOSStudy.receive({timing:{all:{samples:4,median_ms:null}},decks:{}})`);
   assert(await evaluate(`document.getElementById('study-estimate').textContent.includes('Chưa đủ 20')`));
   assert.equal(await evaluate(`document.getElementById('study-focus').disabled`),false,'Sparse data must not prevent a study session');
@@ -367,7 +367,26 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('#study-insights-list img').length`),0);
   await click('#study-insights-list button');
   assert.deepEqual(await evaluate(`window.__studyCommands.at(-1)`),{action:'insight_browse',id:'101',kind:'retention_drop'});
-  await evaluate(`window.AnkiNOS.studioCommand=window.__realStudyCommand;window.NOSStudy.refresh(true);const budget=document.getElementById('study-budget');budget.value='30';budget.dispatchEvent(new Event('change'))`);
+  await evaluate(`window.AnkiNOS.studioCommand=window.__realStudyCommand;window.NOSStudy.refresh(true);const budget=document.getElementById('study-budget');budget.value='classic';budget.dispatchEvent(new Event('change'))`);
+  // Exercise Pomodoro Popover (4 modes, 4 UI modes) & Pomodoro Statistics combo chart (week/month/year + filters + line metrics).
+  await click('#pomodoro-toggle');
+  assert.equal(await evaluate(`!document.getElementById('nos-pomo-popover').hidden && document.querySelectorAll('#nos-pomo-popover [data-pomo-mode]').length === 4 && document.querySelectorAll('#nos-pomo-popover [data-pomo-ui]').length === 4`),true,'Pomodoro popover must expose all 4 modes and 4 UI styles');
+  await click('#nos-pomo-popover [data-pomo-ui="ring"]');
+  await click('#nos-pomo-start-btn');
+  assert.equal(await evaluate(`!document.getElementById('nos-pomo-dock-widget').hidden && !!document.querySelector('#nos-pomo-dock-widget .nos-pomo-clock-ring')`),true,'Ring UI mode must show floating corner widget when running');
+  await click('#nos-pomo-popover [data-pomo-ui="ambient"]');
+  assert.equal(await evaluate(`!document.getElementById('nos-pomo-ambient-bar').hidden`),true,'Zen Ambient mode must display slim top edge bar');
+  await click('#nos-pomo-popover [data-pomo-op="stop"]');
+  await click('#nos-pomo-popover [data-pomo-ui="pill"]');
+  await click('#nos-pomo-popover [data-pomo-close]');
+  await click('#stats-toggle');
+  assert.equal(await evaluate(`!!document.querySelector('#pomo-chart-wrap svg.pomo-combo-svg') && document.querySelectorAll('#pomo-chart-wrap .pomo-bar-study').length > 0 && document.querySelectorAll('#pomo-chart-wrap .pomo-bar-break').length > 0 && !!document.querySelector('#pomo-chart-wrap .pomo-line-path')`),true,'Pomodoro Stats must render stacked Study+Break bar chart with overlay line graph');
+  await click('#nos-pomodoro-stats [data-pomo-period="year"]');
+  assert.equal(await evaluate(`document.querySelectorAll('#pomo-chart-wrap .pomo-col').length`),12,'Year view must render 12 monthly columns');
+  await evaluate(`(()=>{const s=document.getElementById('pomo-line-metric');s.value='ratio';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  assert(await evaluate(`document.getElementById('pomo-chart-sub').textContent.includes('%')`),'Switching line metric to ratio must update chart subtitle');
+  await click('#nos-pomodoro-stats [data-pomo-period="week"]');
+  await click('.rail-main [data-action="page"][data-value="home"]');
   for(const width of [1024,768,600,390,320]){
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
     assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth && document.getElementById('nos-app').scrollWidth<=innerWidth`),`Study home must fit ${width}px`);
@@ -893,10 +912,9 @@ try {
   await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
   await shot('review-mobile.png');
   assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),true,'Review overflows on mobile');
-  await evaluate(`window.NOSReview.setFocus({active:false,paused:false,seconds:0,target_seconds:1800,cards:0,last_session:{seconds:1800,target_seconds:1800,cards:42,status:'completed'}})`);
-  assert.equal(await evaluate(`document.getElementById('nos-focus-summary').hidden`),false);
-  assert.equal(await evaluate(`document.getElementById('nos-focus-duration').value`),'30');
-  assert(await evaluate(`document.getElementById('nos-focus-summary-text').textContent.includes('42 lượt trả lời')`));
+  await evaluate(`window.NOSPomodoro.receive({state:{active:false,paused:false,phase:'study',mode:'classic',seconds:0,target_seconds:1500,cards:0,cycle_count:1,awaiting_phase:'break',awaiting_target_seconds:300,awaiting_mode:'classic',last_event:{event_id:99,kind:'study_done',phase:'study',mode:'classic',seconds:1500,cards:42,next_phase:'break',next_target_seconds:300}}})`);
+  assert.equal(await evaluate(`document.getElementById('nos-pomo-banner').hidden`),false);
+  assert(await evaluate(`document.getElementById('nos-pomo-banner').textContent.includes('42 lượt ôn')`));
   for(const width of [768,600,390,320]){
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:false});
     assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),`Review summary must fit ${width}px`);

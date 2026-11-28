@@ -940,9 +940,9 @@
     runAction('Đang mở phiên ôn Hôm nay…', () => request('study_today', {minutes: null, session_mode: mode}));
   });
   $('focus-today').addEventListener('click', () => {
-    const minutes = Number($('focus-budget').value) || 30;
+    const pomoMode = $('focus-budget').value || 'classic';
     const mode = state?.active_session?.active ? 'continue' : 'smart';
-    runAction(`Đang mở Focus ${minutes} phút cho Hôm nay…`, () => request('study_today', {minutes, session_mode: mode}));
+    runAction('Đang mở phiên ôn Hôm nay với Pomodoro…', () => request('study_today', {pomodoro: {mode: pomoMode}, session_mode: mode}));
   });
   $('rebuild-session')?.addEventListener('click', () => {
     const relearning = state?.active_session?.relearning_count || 0;

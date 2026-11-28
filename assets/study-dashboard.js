@@ -8,12 +8,26 @@
   if(!root||window.NOSStudy)return;
   const $=id=>document.getElementById(id), fmt=window.NOSI18n.numberFormat();
   const n=value=>fmt.format(value||0);
-  let snapshot=null, support=null, selected='', budget=30, pending=false, requestAt=-Infinity, revision='';
+  let snapshot=null, support=null, selected='', pomoMode='classic', pending=false, requestAt=-Infinity, revision='';
   const command=(action,args={})=>window.AnkiNOS?.studioCommand(action,args);
   const allDecks=nodes=>nodes.flatMap(node=>[node,...allDecks(node.children||[])]);
   const queue=deck=>(deck?.new||0)+(deck?.learn||0)+(deck?.review||0);
   const title=deck=>deck.full_name||deck.name;
   const minutes=ms=>Math.max(1,Math.ceil(ms/60000));
+  const modeMinutes=()=>{
+    const cfg=window.NOSPomodoro?.getConfig?.()||snapshot?.settings?.pomodoro||{};
+    if(pomoMode==='long')return 50;
+    if(pomoMode==='custom')return Number(cfg.study_minutes)||25;
+    if(pomoMode==='stopwatch')return 30;
+    return 25;
+  };
+  const modeButtonLabel=()=>{
+    const cfg=window.NOSPomodoro?.getConfig?.()||snapshot?.settings?.pomodoro||{};
+    if(pomoMode==='long')return 'Pomodoro 50/10';
+    if(pomoMode==='custom')return `Pomodoro ${Number(cfg.study_minutes)||25}/${Number(cfg.break_minutes)||5}`;
+    if(pomoMode==='stopwatch')return 'Timer đếm giờ';
+    return 'Pomodoro 25/5';
+  };
   function request(force=false){
     if(!snapshot)return;
     if(!force&&(pending||performance.now()-requestAt<1500))return;
@@ -53,37 +67,38 @@
       const stats=support.timing[kind]?.median_ms?support.timing[kind]:pooled;
       low+=(deck[kind]||0)*stats.low_ms;median+=(deck[kind]||0)*stats.median_ms;high+=(deck[kind]||0)*stats.high_ms;
     }
+    const minsBudget=modeMinutes();
     return {low:minutes(low),median:minutes(median),high:minutes(high),
-      capacity:Math.max(1,Math.floor(budget*60000/pooled.median_ms)),samples:pooled.samples};
+      capacity:Math.max(1,Math.floor(minsBudget*60000/pooled.median_ms)),samples:pooled.samples};
   }
   function render(){
     if(!snapshot)return;
-    const deck=choose(), available=queue(deck), estimated=deck&&available?estimate(deck):null;
+    const deck=choose(), available=queue(deck), estimated=deck&&available?estimate(deck):null, minsBudget=modeMinutes();
     $('study-deck').disabled=!deck;
     $('study-now').disabled=$('study-focus').disabled=!available;
     $('study-title').textContent=deck?(String(deck.id)===String(snapshot.settings?.last_study_deck)?'Tiếp tục học':'Sẵn sàng cho phiên học'):'Bắt đầu từ bộ thẻ đầu tiên';
     $('study-queue').textContent=deck?`${n(deck.new)} mới · ${n(deck.learn)} đang học · ${n(deck.review)} cần ôn`:'Tạo hoặc nhập bộ thẻ để bắt đầu.';
     $('study-now').textContent=available?'Học ngay':'Chưa có thẻ sẵn sàng';
-    $('study-focus').textContent=`Focus ${budget} phút`;
-    $('study-budget').value=String(budget);
+    $('study-focus').textContent=modeButtonLabel();
+    $('study-budget').value=pomoMode;
     const brief=$('study-brief');
     if(brief){
       if(!available) brief.textContent=deck?'Bộ thẻ này đã xong lúc này.':'Mở thư viện để quản lý bộ thẻ.';
-      else if(estimated) brief.textContent=`Khoảng ${n(Math.min(available,estimated.capacity))} lượt trong ${budget} phút · cả hàng đợi ${estimated.low}–${estimated.high} phút`;
-      else brief.textContent=pending?'Đang ước lượng thời gian…':'Chưa đủ dữ liệu ước lượng · vẫn bắt đầu Focus được.';
+      else if(estimated) brief.textContent=`Khoảng ${n(Math.min(available,estimated.capacity))} lượt trong ${minsBudget} phút · cả hàng đợi ${estimated.low}–${estimated.high} phút`;
+      else brief.textContent=pending?'Đang ước lượng thời gian…':'Chưa đủ dữ liệu ước lượng · vẫn bắt đầu Pomodoro được.';
     }
     if(!available){
       $('study-estimate').textContent=deck?'Bộ thẻ này đã xong lúc này. Bạn có thể chọn bộ khác hoặc quay lại khi thẻ đến hạn.':'Mở thư viện để quản lý bộ thẻ.';
       $('study-capacity').textContent='';
     }else if(estimated){
       $('study-estimate').textContent=`Khoảng ${estimated.low}–${estimated.high} phút cho các lượt hiện có (mốc giữa ${estimated.median} phút).`;
-      $('study-capacity').textContent=`Trong ${budget} phút: khoảng ${n(Math.min(available,estimated.capacity))} lượt đầu, theo nhịp trả lời gần đây.`;
+      $('study-capacity').textContent=`Trong ${minsBudget} phút: khoảng ${n(Math.min(available,estimated.capacity))} lượt đầu, theo nhịp trả lời gần đây.`;
     }else{
-      $('study-estimate').textContent=pending?'Đang đọc lịch sử để ước lượng…':'Chưa đủ 20 lượt có ghi thời gian trong 30 ngày để ước lượng. Bạn vẫn có thể bắt đầu Focus.';
+      $('study-estimate').textContent=pending?'Đang đọc lịch sử để ước lượng…':'Chưa đủ 20 lượt có ghi thời gian trong 30 ngày để ước lượng. Bạn vẫn có thể bắt đầu Pomodoro.';
       $('study-capacity').textContent='';
     }
     $('study-estimate-source').textContent=estimated?`${n(estimated.samples)} lượt có thời gian · 30 ngày · mọi bộ thẻ. Khoảng được quy đổi từ phân vị 25–75% của thời gian mỗi lượt, không phải cam kết. Thẻ học có thể xuất hiện lại; âm thanh, nghỉ và độ khó làm thời gian thay đổi.`:'Ước lượng dựa trên lịch sử cá nhân; không dùng tốc độ giả định.';
-    $('study-planning-note').textContent='Focus nhắc bạn khi đủ giờ. Anki tiếp tục quản lý thứ tự và lịch ôn; phiên không giới hạn số thẻ.';
+    $('study-planning-note').textContent='Pomodoro nhắc giờ học và giờ nghỉ êm nhẹ. Anki tiếp tục quản lý thứ tự và lịch ôn; phiên không giới hạn số thẻ.';
     renderInsights();
   }
   function renderInsights(){
@@ -124,7 +139,8 @@
   function sync(data){
     const key=JSON.stringify([data.today,data.stats?.reviews,data.support_revision]);
     const changed=revision!==key;revision=key;snapshot=data;
-    budget=[15,30,60].includes(data.settings?.study_budget)?data.settings.study_budget:budget;
+    const savedMode=data.settings?.pomodoro?.mode;
+    if(['classic','long','custom','stopwatch'].includes(savedMode))pomoMode=savedMode;
     render();
     if(data.partial)return;
     if(changed||!support){
@@ -139,9 +155,18 @@
     }
   }
   $('study-deck').addEventListener('change',e=>{selected=e.target.value;render();});
-  $('study-budget').addEventListener('change',e=>{budget=Number(e.target.value);command('save_ui',{values:{study_budget:budget}});render();});
+  $('study-budget').addEventListener('change',e=>{
+    pomoMode=['classic','long','custom','stopwatch'].includes(e.target.value)?e.target.value:'classic';
+    command('save_ui',{values:{pomodoro:{mode:pomoMode}}});
+    window.NOSPomodoro?.command?.({op:'config',values:{mode:pomoMode}});
+    render();
+  });
   $('study-now').addEventListener('click',()=>command('quick_study',{id:selected}));
-  $('study-focus').addEventListener('click',()=>command('quick_study',{id:selected,minutes:budget}));
+  $('study-focus').addEventListener('click',()=>command('quick_study',{id:selected,pomodoro:{mode:pomoMode}}));
+  document.addEventListener('nos:pomodoro',e=>{
+    const m=e.detail?.config?.mode;
+    if(['classic','long','custom','stopwatch'].includes(m)&&m!==pomoMode){pomoMode=m;render();}
+  });
   $('study-notebook').addEventListener('click',()=>command('notebook',{}));
   $('study-insight-scope').addEventListener('change',renderInsights);
   $('study-insights-refresh').addEventListener('click',()=>request(true));

@@ -132,7 +132,7 @@
       'text_color','custom_text_color','theme_overrides','rating_colors','rating_color_again','rating_color_hard','rating_color_good','rating_color_easy','reviewer_card_opacity',
       'font_family','blur','glass_blur','glass_opacity','surface_style','motion_preset','motion_duration','animations','lite_mode','ui_scale','language',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
-      'activity_collapsed','launchpad_collapsed','library_collapsed','sidebar_collapsed','welcome_dismissed','whats_new_seen_version','update_notice_muted','custom_ui_presets','custom_ui_active','view',
+      'activity_collapsed','launchpad_collapsed','library_collapsed','sidebar_collapsed','welcome_dismissed','whats_new_seen_version','update_notice_muted','custom_ui_presets','custom_ui_active','view','pomodoro',
       // Image assignments belong exclusively to Studio and save immediately.
     ];
     const values = Object.fromEntries(keys.filter(key => Object.hasOwn(patch,key))
@@ -1247,7 +1247,7 @@
       pageAnimation?.cancel();
       pageAnimation = animatePageEnter(page === 'stats' ? statsNode : page === 'daily' ? dailyNode : homeNode);
     }
-    if (page === 'stats') { window.NOSStats?.open(); window.NOSFocusHistory?.open(); }
+    if (page === 'stats') { window.NOSStats?.open(); window.NOSPomodoroStats?.open(); }
     if (page === 'daily') window.NOSDaily?.open();
     app.querySelectorAll('.rail-main [data-action="page"]').forEach(button => {
       button.classList.toggle('active', button.dataset.value === page);
@@ -1302,7 +1302,7 @@
       $('activity-summary').textContent='Không thể tải lịch sử. Nhấn Làm mới để thử lại.';
       toast(payload.message);return;
     }
-    if (event === 'focus_history') { window.NOSFocusHistory?.render(payload); return; }
+    if (event === 'pomodoro_analytics' || event === 'focus_history') { window.NOSPomodoroStats?.render(payload); return; }
     if (event === 'graphs' || event === 'graphs_error') {
       window.NOSStats?.receive(event, payload);
       return;
@@ -1346,7 +1346,10 @@
       if (state.page === 'daily') window.NOSDaily?.sync();
       window.NOSStats?.syncRevision(payload.support_revision, payload.today);
     }
-    if (event === 'settings' || event === 'snapshot') window.NOSStudio?.sync();
+    if (event === 'settings' || event === 'snapshot') {
+      window.NOSStudio?.sync();
+      if (state.settings?.pomodoro) window.NOSPomodoro?.receive({config: state.settings.pomodoro});
+    }
     if(event==='snapshot'||state.settings.goal!==previousGoal||state.settings.custom_greeting!==previousGreeting) {
       renderStats();
       if (state.page === 'stats') window.NOSStats?.refreshMetrics();
@@ -1499,6 +1502,10 @@
     if (action === 'open_anki_prefs') { closeSettings(); return command('preferences'); }
     if (action === 'profile') return togglePopup('profile-panel','profile-toggle');
     if (action === 'launcher') return togglePopup('launcher','launcher-toggle');
+    if (action === 'pomodoro') {
+      closePopups();
+      return window.NOSPomodoro?.toggle(button);
+    }
     if (action === 'studio') {
       closePopups();
       closeLibrary(false);

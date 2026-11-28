@@ -173,6 +173,7 @@ const htmlFiles = [
   'ankios-overview.html',
   'ankios-review.html',
   'ankios-tools.html',
+  'ankios-pomodoro.html',
   'assets/reviewer-controls-preview.html',
 ];
 // Strip any element (and its balanced nested content) carrying data-i18n-skip.
