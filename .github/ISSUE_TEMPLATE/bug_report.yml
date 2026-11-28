@@ -1,0 +1,41 @@
+name: Bug Report / Báo lỗi
+description: Report a visual glitch, error, or unexpected behavior in AnkiNOS.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve **AnkiNOS**!
+        Tip: Click the **AnkiNOS logo → Copy diagnostics** (*Sao chép chẩn đoán*) inside Anki and paste it below — it never includes your decks, cards, or profile name.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (from About → Copy diagnostics) / Thông tin chẩn đoán
+      description: Paste the output of "Copy diagnostics" here (or write your OS, Anki version, and AnkiNOS version).
+      placeholder: |
+        AnkiNOS: v1.0.0 Beta (1.0.0-beta)
+        Anki: 25.02 · Qt ... · Python ...
+        OS: Windows / macOS / Linux
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened? / Lỗi xảy ra như thế nào?
+      description: Briefly describe what went wrong and what you expected to see.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Các bước tái hiện
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See error / visual glitch
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot or error trace (optional) / Ảnh chụp màn hình (nếu có)
+      description: Drag & drop a screenshot or paste the Anki error traceback here.

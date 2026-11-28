@@ -619,8 +619,10 @@
       `<button type="button" class="stats-cal-btn" data-cal-step="1" ${year >= maxYear ? 'disabled' : ''} aria-label="Năm sau">►</button>` +
       `</div>`;
 
+    const allHistoryTotal = sum(Array.from(countsByDate.values()));
     const footer =
       `<span>Tổng năm ${year}: <strong>${fmtWhole(yearTotal)} lượt ôn</strong></span>` +
+      `<span>Tổng toàn bộ: <strong>${fmtWhole(allHistoryTotal)} lượt ôn</strong></span>` +
       `<span>Số ngày đã học: <strong>${fmtWhole(activeDays)} ngày</strong></span>` +
       `<span>Chuỗi dài nhất: <strong>${fmtWhole(longestStreak)} ngày</strong></span>`;
 
@@ -658,7 +660,11 @@
       .map(([k, v]) => [Number(k), v])
       .filter(([k]) => Number.isInteger(k) && k <= 0);
     const countLookup = new Map(countEntries);
-    const activeLookup = new Map(activeEntries);
+    const timeEntries = Object.entries(timeSource)
+      .map(([k, v]) => [Number(k), v])
+      .filter(([k]) => Number.isInteger(k) && k <= 0);
+    const timeLookup = new Map(timeEntries);
+    const activeLookup = isTime ? timeLookup : countLookup;
     const earliest = countEntries.length ? Math.min(0, ...countEntries.map(([k]) => k)) : 0;
 
     let rangeLen = 31;
@@ -669,8 +675,18 @@
 
     const rows = [];
     let daysStudied = 0;
+    let totalReviews = 0;
+    let totalMinutes = 0;
     for (let day = minDay; day <= 0; day++) {
-      if (countLookup.has(day)) daysStudied++;
+      const cntObj = countLookup.get(day);
+      const dayReviews = totals(cntObj, typeKeys);
+      if (dayReviews > 0) {
+        daysStudied++;
+        totalReviews += dayReviews;
+      }
+      const timeObj = timeLookup.get(day);
+      const dayMinutes = totals(timeObj, typeKeys) / 60000;
+      totalMinutes += dayMinutes;
       const obj = activeLookup.get(day);
       const values = Object.fromEntries(REVIEW_TYPES.map(k => [
         k.key,
@@ -683,19 +699,21 @@
         values,
       });
     }
-    const totalVal = sum(rows.map(r => totals(r.values, typeKeys)));
+    const totalVal = isTime ? totalMinutes : totalReviews;
     const studiedPct = rangeLen ? fmt2.format((daysStudied / rangeLen) * 100) : fmt2.format(0);
     const avgIfDaily = rangeLen ? totalVal / rangeLen : 0;
     const avgStudiedDays = daysStudied ? totalVal / daysStudied : 0;
+    const avgSecPerCard = totalReviews > 0 ? (totalMinutes * 60) / totalReviews : 0;
+    const cardsPerMin = totalMinutes > 0 ? totalReviews / totalMinutes : 0;
 
     const rangeOptions = [['1m', '1 tháng'], ['3m', '3 tháng'], ['1y', '1 năm'], ['all', 'tất cả']];
     const controls =
       checkToggle('reviews', 'time', 'Thời gian', isTime) +
       radioGroup('reviews', 'range', rangeOptions, state.range);
 
-    const isEn = window.NOSI18n?.language() === 'en';
-    const minTick = isEn ? 'm' : 'p';
-    const hrTick = isEn ? 'h' : 'g';
+    const activeLang = window.NOSI18n?.language() || 'vi';
+    const minTick = activeLang === 'en' ? 'm' : activeLang === 'zh-cn' ? '分' : 'p';
+    const hrTick = activeLang === 'en' ? 'h' : activeLang === 'zh-cn' ? '时' : 'g';
     const plot = stackPlot(rows, REVIEW_TYPES, {
       maxBars: 64,
       cumulative: true,
@@ -705,15 +723,22 @@
       tooltip: isTime ? v => fmt(v) + ' phút' : v => fmtWhole(v) + ' thẻ',
     });
 
+    const avgAnswerHtml = totalReviews > 0 && totalMinutes > 0
+      ? `<span>Thời gian trả lời trung bình: <strong>${fmt2.format(avgSecPerCard)} giây/thẻ (${fmt(cardsPerMin)} thẻ/phút)</strong></span>`
+      : '';
     const footer = isTime
       ? `<span>Số ngày đã học: <strong>${fmtWhole(daysStudied)} trong ${fmtWhole(rangeLen)} (${studiedPct}%)</strong></span>` +
-        `<span>Tổng: <strong>${formatDurationMinutes(totalVal)}</strong></span>` +
+        `<span>Tổng thời gian: <strong>${formatDurationMinutes(totalMinutes)}</strong></span>` +
+        `<span>Tổng lượt ôn: <strong>${fmtWhole(totalReviews)} lượt ôn</strong></span>` +
         `<span>Nếu học hàng ngày thì: <strong>${formatDurationMinutes(avgIfDaily)}/ngày</strong></span>` +
-        `<span>Số ngày trung bình đã học: <strong>${formatDurationMinutes(avgStudiedDays)}/ngày</strong></span>`
+        `<span>Số ngày trung bình đã học: <strong>${formatDurationMinutes(avgStudiedDays)}/ngày</strong></span>` +
+        avgAnswerHtml
       : `<span>Số ngày đã học: <strong>${fmtWhole(daysStudied)} trong ${fmtWhole(rangeLen)} (${studiedPct}%)</strong></span>` +
-        `<span>Tổng: <strong>${fmtWhole(totalVal)} thẻ ôn tập</strong></span>` +
+        `<span>Tổng lượt ôn: <strong>${fmtWhole(totalReviews)} lượt ôn</strong></span>` +
+        (totalMinutes > 0 ? `<span>Tổng thời gian: <strong>${formatDurationMinutes(totalMinutes)}</strong></span>` : '') +
         `<span>Nếu học hàng ngày thì: <strong>${fmtWhole(Math.round(avgIfDaily))} thẻ ôn tập/ngày</strong></span>` +
-        `<span>Số ngày trung bình đã học: <strong>${fmtWhole(Math.round(avgStudiedDays))} thẻ ôn tập/ngày</strong></span>`;
+        `<span>Số ngày trung bình đã học: <strong>${fmtWhole(Math.round(avgStudiedDays))} thẻ ôn tập/ngày</strong></span>` +
+        avgAnswerHtml;
 
     return frame(
       'reviews',
@@ -1271,30 +1296,38 @@
       ? null
       : Math.round(((current - previous) / previous) * 1000) / 10
   });
-  const emptyDay = { reviews: 0, milliseconds: 0, tested: 0, passed: 0 };
+  const emptyDay = { reviews: 0, milliseconds: 0, correct: 0, tested: 0, passed: 0 };
+  const pacePerMin = (reviews, ms) => (reviews > 0 ? Math.round((reviews / Math.max(1, num(ms) / 60000)) * 10) / 10 : null);
 
   function updateMetricCards(payload) {
     metricData = payload;
     const g = payload?.data || {}, m = payload?.metrics;
     const t = g.today || {};
     const reviews = getField(t, 'answer_count'), ms = getField(t, 'answer_millis');
-    const pace = ms ? Math.round((reviews / ms) * 3600000) : null;
-    const month = g.true_retention?.month || {};
-    const passed = getField(month, 'young_passed') + getField(month, 'mature_passed');
-    const failed = getField(month, 'young_failed') + getField(month, 'mature_failed');
-    const tested = passed + failed;
-    const retention = tested ? (passed / tested) * 100 : null;
+    const correct = getField(t, 'correct_count');
+    const pace = pacePerMin(reviews, ms);
+    const retention = reviews ? Math.round((correct / reviews) * 1000) / 10 : null;
+    const trToday = g.true_retention?.today || {};
+    const trPassed = getField(trToday, 'young_passed') + getField(trToday, 'mature_passed');
+    const trFailed = getField(trToday, 'young_failed') + getField(trToday, 'mature_failed');
+    const trTested = trPassed + trFailed;
+    const trRate = trTested ? Math.round((trPassed / trTested) * 1000) / 10 : null;
     if ($('stat-retention')) $('stat-retention').textContent = retention === null ? '—' : fmt(retention) + '%';
-    if ($('retention-detail')) $('retention-detail').textContent = tested
-      ? 'True Retention · 30 ngày · ' + fmt(tested) + ' lượt kiểm tra'
-      : 'Chưa có lượt kiểm tra trong 30 ngày';
-    if ($('stat-pace')) $('stat-pace').innerHTML = (pace === null ? '—' : fmt(pace)) + ' <small>lượt/giờ</small>';
-    if ($('pace-detail')) $('pace-detail').textContent = reviews
-      ? 'Tốc độ ôn hôm nay · ' + fmt(reviews) + ' lượt' + (reviews < 20 ? ' (mẫu nhỏ)' : '')
-      : 'Hôm nay chưa ôn thẻ nào';
+    if ($('retention-detail')) $('retention-detail').textContent = reviews
+      ? (trRate !== null
+        ? `Hôm nay · ${fmtWhole(correct)}/${fmtWhole(reviews)} lượt đúng · True Retention ${fmt(trRate)}%`
+        : `Hôm nay · ${fmtWhole(correct)}/${fmtWhole(reviews)} lượt đúng`)
+      : 'Hôm nay chưa có lượt ôn';
+    if ($('stat-pace')) $('stat-pace').innerHTML = (pace === null ? '—' : fmt(pace)) + ' <small>lượt/phút</small>';
+    if ($('pace-detail')) {
+      const avgSec = reviews > 0 ? (ms / 1000) / reviews : 0;
+      $('pace-detail').textContent = reviews
+        ? `Hôm nay · ${fmt(avgSec)} giây/thẻ · ${fmtWhole(reviews)} lượt`
+        : 'Hôm nay chưa ôn thẻ nào';
+    }
     if ($('stat-time')) $('stat-time').textContent = minutes(ms);
-    if ($('stat-studied')) $('stat-studied').innerHTML = fmt(reviews) + ' <small>lượt</small>';
-    drawMetricCharts(g, m, { reviews, ms, pace });
+    if ($('stat-studied')) $('stat-studied').innerHTML = fmtWhole(reviews) + ' <small>lượt</small>';
+    drawMetricCharts(g, m, { reviews, ms, correct, retention, pace });
   }
 
   function drawMetricCharts(g, m, now) {
@@ -1307,7 +1340,7 @@
       const date = isoDate(shiftDay(base, i - 13));
       if (i === 13) {
         return {
-          date, reviews: now.reviews, milliseconds: now.ms,
+          date, reviews: now.reviews, milliseconds: now.ms, correct: now.correct,
           tested: (m?.days?.[date] || emptyDay).tested,
           passed: (m?.days?.[date] || emptyDay).passed,
         };
@@ -1318,36 +1351,29 @@
         date,
         reviews: totals(g.reviews?.count?.[off], typeKeys),
         milliseconds: totals(g.reviews?.time?.[off], typeKeys),
-        tested: 0, passed: 0,
+        correct: 0, tested: 0, passed: 0,
       };
     };
     const recent = Array.from({ length: 14 }, (_, i) => dayOf(i));
-    const sum30 = (from, to) => {
-      let tested = 0, passed = 0;
-      for (let i = from; i <= to; i++) {
-        const d = m.days[isoDate(shiftDay(base, -i))];
-        if (d) { tested += d.tested; passed += d.passed; }
-      }
-      return { tested, passed, rate: tested ? (passed / tested) * 100 : null };
-    };
     let trends = {};
     if (m?.days) {
-      const cur = sum30(0, 29), prev = sum30(30, 59);
+      const yDay = m.days[isoDate(shiftDay(base, -1))] || emptyDay;
+      const prevRet = yDay.reviews ? Math.round((yDay.correct / yDay.reviews) * 1000) / 10 : null;
       const p = m.previous || { reviews: 0, milliseconds: 0 };
       trends = {
-        retention: change(
-          cur.rate == null ? null : Math.round(cur.rate * 10) / 10,
-          prev.rate == null ? null : Math.round(prev.rate * 10) / 10,
-          '30 ngày trước'
-        ),
-        pace: change(now.pace, p.milliseconds ? Math.round(p.reviews / (p.milliseconds / 3600000)) : null, 'cùng giờ hôm qua'),
+        retention: change(now.retention, prevRet, 'hôm qua'),
+        pace: change(now.pace, pacePerMin(p.reviews, p.milliseconds), 'cùng giờ hôm qua'),
         milliseconds: change(now.ms, p.milliseconds, 'cùng giờ hôm qua'),
         reviews: change(now.reviews, p.reviews, 'cùng giờ hôm qua'),
       };
     }
+    const dayRet = d => {
+      if (d.reviews > 0 && typeof d.correct === 'number') return Math.max(0, Math.min(100, (d.correct / d.reviews) * 100));
+      return d.tested ? Math.max(0, Math.min(100, (d.passed / d.tested) * 100)) : null;
+    };
     const series = {
-      retention: ['%', d => d.tested ? Math.max(0, Math.min(100, (d.passed / d.tested) * 100)) : null],
-      pace: ['lượt/giờ', d => d.milliseconds > 0 ? d.reviews / (d.milliseconds / 3600000) : null],
+      retention: ['%', dayRet],
+      pace: ['lượt/phút', d => pacePerMin(d.reviews, d.milliseconds)],
       time: ['phút', d => d.milliseconds / 60000],
       studied: ['lượt ôn', d => d.reviews],
     };

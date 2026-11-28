@@ -16,7 +16,7 @@ from uuid import uuid4
 import zipfile
 
 from .media_store import (IMAGE_FITS, MAX_IMAGE_BYTES, SLOTS, WALLPAPER_BLUR_MAX, WALLPAPER_DIM_MAX,
-                          profile_dir, valid_albums, valid_images)
+                          profile_dir, valid_albums, valid_image_frames, valid_images)
 
 from .theme_settings import clean_theme_settings
 
@@ -64,8 +64,9 @@ def clean_settings(raw: object) -> dict:
     if not isinstance(raw, dict):
         raise ValueError("Cấu hình trong gói sao lưu không hợp lệ.")
     result = clean_theme_settings(raw)
-    for key in ("activity_collapsed", "library_collapsed", "sidebar_collapsed", "blur", "animations",
-                "lite_mode", "stat_retention", "stat_pace", "stat_time", "stat_studied"):
+    for key in ("activity_collapsed", "launchpad_collapsed", "library_collapsed", "sidebar_collapsed",
+                "welcome_dismissed", "blur", "animations", "lite_mode",
+                "stat_retention", "stat_pace", "stat_time", "stat_studied"):
         if type(raw.get(key)) is bool:
             result[key] = raw[key]
     for key, allowed in {"view": {"list", "grid"},
@@ -85,6 +86,7 @@ def clean_settings(raw: object) -> dict:
             result["image_fit_" + surface] = raw["image_fit_" + surface]
     result["images"] = valid_images(raw.get("images"))
     result["image_albums"] = valid_albums(raw.get("image_albums"))
+    result["image_frames"] = valid_image_frames(raw.get("image_frames"))
     image_ids = {entry["id"] for entry in result["images"]}
     for slot in SLOTS:
         result[slot] = raw.get(slot) if isinstance(raw.get(slot), str) and raw[slot] in image_ids else None

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: User Guide / Documentation
+    url: https://github.com/
+    about: Check the built-in User Guide (i icon in AnkiNOS) or README.md before opening an issue.

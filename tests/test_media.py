@@ -87,6 +87,16 @@ class ImageLibraryTests(unittest.TestCase):
 
     def test_display_option_limits_are_exposed(self):
         self.assertEqual((media.WALLPAPER_DIM_MAX, media.WALLPAPER_BLUR_MAX, media.WALLPAPER_MAX_SIDE), (80, 24, 2048))
+        self.assertIn("image_cover", media.SLOTS)
+        frames = media.valid_image_frames({
+            "cover": {"x": 20, "y": 80, "zoom": 150},
+            "avatar": {"x": -10, "y": 999, "zoom": 999},
+            "evil": {"x": 10, "y": 10, "zoom": 120},
+        })
+        self.assertEqual(frames, {
+            "cover": {"x": 20, "y": 80, "zoom": 150},
+            "avatar": {"x": 50, "y": 50, "zoom": 100},
+        })
 
     def test_legacy_library_without_thumbnails_stays_valid(self):
         entry = media.add_image(self.root, "Old", self.source, "png")

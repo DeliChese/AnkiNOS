@@ -3,14 +3,16 @@ from __future__ import annotations
 
 import html
 import json
+import os
 from pathlib import Path
 import re
+import sys
 from typing import Any
 from uuid import uuid4
 
 from aqt import dialogs, gui_hooks, mw
 from aqt.operations import QueryOp
-from aqt.qt import QAction, QColor, QDialog, QKeySequence, QSizeGrip, Qt, QVBoxLayout, qconnect
+from aqt.qt import QAction, QColor, QDialog, QKeySequence, QPainterPath, QRectF, QRegion, QSizeGrip, Qt, QVBoxLayout, qconnect
 from aqt.webview import AnkiWebView
 
 from .i18n import translate as _tr_text
@@ -74,28 +76,42 @@ class ToolDialog(QDialog):
         self.serial, self.closed, self.minimized = 0, False, False
         self._normal_geo = None
         self.setWindowTitle(_t(_TOOL_TITLES[kind]))
-        if kind == "workspace":
+        is_wayland = (
+            sys.platform.startswith("linux")
+            and (os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
+                 or os.environ.get("QT_QPA_PLATFORM", "").lower().startswith("wayland"))
+        )
+        self._use_frameless = kind == "workspace" and not is_wayland
+        self._use_mask = self._use_frameless and sys.platform != "darwin"
+        if self._use_frameless:
             # Frameless ANOS window with rounded translucent corners and corner-minimize pocket mode.
             self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            self.resize(1020, 700)
+            self.setStyleSheet("QDialog { background: transparent; border: none; }")
+            self.resize(1060, 720)
             self.setMinimumSize(210, 56)
+        elif kind == "workspace":
+            # Wayland fallback: keep native window frame so move/resize always work reliably.
+            self.resize(1060, 720)
+            self.setMinimumSize(420, 420)
         else:
             self.resize(760, 580)
             self.setMinimumSize(360, 400)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self.web = AnkiWebView(self)
-        if kind == "workspace":
+        if self._use_frameless:
             self.web.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            self.web.setStyleSheet("background: transparent;")
             page = self.web.page()
             if page is not None:
                 page.setBackgroundColor(QColor(0, 0, 0, 0))
         self.web.set_bridge_command(self.bridge, self)
         layout.addWidget(self.web)
-        if kind == "workspace":
+        if self._use_frameless:
             self._grip = QSizeGrip(self)
             self._grip.setFixedSize(16, 16)
+            self._apply_rounded_mask()
         else:
             self._grip = None
         body = re.search(r"<body[^>]*>(.*?)</body>", (ROOT / "ankios-tools.html").read_text(encoding="utf-8"), re.S).group(1)
@@ -103,13 +119,13 @@ class ToolDialog(QDialog):
         from .integration import settings
         appearance = {
             key: value for key, value in settings().items()
-            if key in {"theme", "color_theme", "accent", "custom_accent", "blur", "glass_blur", "glass_opacity", "animations", "lite_mode", "language"}
+            if key in {"theme", "color_theme", "accent", "custom_accent", "text_color", "custom_text_color", "font_family", "blur", "glass_blur", "glass_opacity", "animations", "lite_mode", "language"}
         }
         initial = {
             "settings": appearance,
             "kind": kind,
             "native": True,
-            "frameless": kind == "workspace",
+            "frameless": self._use_frameless,
             "deck": self.deck_name if self.did is not None else "",
             "deck_id": str(self.did) if self.did is not None else "",
             "note_id": self.note_id,
@@ -121,16 +137,28 @@ class ToolDialog(QDialog):
         self.web.stdHtml(
             body,
             css=[base + "/tools.css", base + "/theme.css"],
-            js=[base + "/i18n.js", base + "/i18n-en.js", base + "/theme.js", base + "/tools.js", base + "/commands.js", base + "/notebook.js"],
+            js=[base + "/i18n.js", base + "/i18n-en.js", base + "/i18n-zh-cn.js", base + "/theme.js", base + "/tools.js", base + "/commands.js", base + "/notebook.js"],
             context=self,
             default_css=False,
         )
+
+    def _apply_rounded_mask(self):
+        if not self._use_mask:
+            return
+        w, h = self.width(), self.height()
+        if w <= 0 or h <= 0:
+            return
+        radius = 18.0 if self.minimized else 22.0
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(0, 0, float(w), float(h)), radius, radius)
+        self.setMask(QRegion(path.toFillPolygon().toPolygon()))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self._grip is not None:
             self._grip.setVisible(not self.minimized)
-            self._grip.move(self.width() - self._grip.width() - 4, self.height() - self._grip.height() - 4)
+            self._grip.move(self.width() - self._grip.width() - 6, self.height() - self._grip.height() - 6)
+        self._apply_rounded_mask()
 
     def live(self):
         return not self.closed and mw.col is self.collection and mw.pm.name == self.profile
@@ -175,7 +203,8 @@ class ToolDialog(QDialog):
                 self.resize(1020, 700)
             if self._grip is not None:
                 self._grip.show()
-                self._grip.move(self.width() - self._grip.width() - 4, self.height() - self._grip.height() - 4)
+                self._grip.move(self.width() - self._grip.width() - 6, self.height() - self._grip.height() - 6)
+        self._apply_rounded_mask()
         self.send("window_state", {"minimized": self.minimized})
 
     def bridge(self, message: str):
@@ -258,6 +287,7 @@ class ToolDialog(QDialog):
                     "stats": host.open_statistics,
                     "sync": mw.on_sync_button_clicked,
                     "backup": host._backup_export,
+                    "toggle_nos": lambda: host._toggle(not host.enabled()),
                 }
                 if identifier not in actions:
                     raise ValueError("Lệnh không được hỗ trợ.")
@@ -287,6 +317,9 @@ class ToolDialog(QDialog):
             else:
                 scope = "all"
             query = str(command.get("query", ""))[:300]
+            color = str(command.get("color", ""))[:20]
+            pinned_only = command.get("pinned_only") is True
+            sort = "title" if command.get("sort") == "title" else "recent"
             def read(col):
                 deck_filter: str | None
                 if scope == "general":
@@ -295,8 +328,8 @@ class ToolDialog(QDialog):
                     deck_filter = str(self.did)
                 else:
                     deck_filter = None
-                notes = store.list(self.key, deck_filter, trash=trash, query=query, archived=archive)
-                if self.selected_note and not archive and not trash:
+                notes = store.list(self.key, deck_filter, trash=trash, query=query, archived=archive, color=color, pinned_only=pinned_only, sort=sort)
+                if self.selected_note and not archive and not trash and not color and not pinned_only:
                     focus = store.get(self.key, self.selected_note)
                     if focus and (deck_filter is None or focus["deck_id"] == deck_filter) and all(n["id"] != focus["id"] for n in notes):
                         notes = [focus, *notes[:99]]
@@ -307,6 +340,9 @@ class ToolDialog(QDialog):
                     "scope": scope,
                     "archived": archive,
                     "trash": trash,
+                    "color": color,
+                    "pinned_only": pinned_only,
+                    "sort": sort,
                     "selected_note": self.selected_note,
                 }
             self.query(read, lambda data: self.send("notebook", data))
@@ -321,11 +357,25 @@ class ToolDialog(QDialog):
                 note_id=self.note_id if deck_id and self.did is not None and deck_id == str(self.did) else None,
                 identifier=command.get("id") or None,
                 allow_deck_change=True,
+                pinned=command.get("pinned") if isinstance(command.get("pinned"), bool) else None,
+                color=command.get("color") if isinstance(command.get("color"), str) else None,
+                tags=command.get("tags") if isinstance(command.get("tags"), str) else None,
             )
             self.selected_note = identifier
             scope = command.get("scope") if command.get("scope") in {"all", "general", "current"} else "all"
-            self.notebook("load", {"scope": scope})
+            self.notebook("load", {"scope": scope, "color": command.get("filter_color", ""), "pinned_only": command.get("pinned_only") is True, "sort": command.get("sort", "recent")})
             self.send("notice", "Đã lưu ghi chú trên máy.")
+        elif action == "pin":
+            pinned_state = store.toggle_pin(self.key, str(command.get("id", "")))
+            scope = command.get("scope") if command.get("scope") in {"all", "general", "current"} else "all"
+            self.notebook("load", {"scope": scope, "color": command.get("filter_color", ""), "pinned_only": command.get("pinned_only") is True, "sort": command.get("sort", "recent")})
+            self.send("notice", "Đã ghim ghi chú lên đầu." if pinned_state else "Đã bỏ ghim ghi chú.")
+        elif action == "duplicate":
+            new_id = store.duplicate(self.key, str(command.get("id", "")))
+            self.selected_note = new_id
+            scope = command.get("scope") if command.get("scope") in {"all", "general", "current"} else "all"
+            self.notebook("load", {"scope": scope, "color": command.get("filter_color", ""), "pinned_only": command.get("pinned_only") is True, "sort": command.get("sort", "recent")})
+            self.send("notice", "Đã nhân bản ghi chú.")
         elif action == "trash":
             store.trash(self.key, str(command.get("id", "")), command.get("restore") is True)
             scope = command.get("scope") if command.get("scope") in {"all", "general", "current"} else "all"
@@ -411,7 +461,7 @@ def reset_tools():
 def sync_settings(raw_settings: dict[str, Any]) -> None:
     appearance = {
         key: value for key, value in raw_settings.items()
-        if key in {"theme", "color_theme", "accent", "custom_accent", "blur", "glass_blur", "glass_opacity", "animations", "lite_mode", "language"}
+        if key in {"theme", "color_theme", "accent", "custom_accent", "text_color", "custom_text_color", "font_family", "blur", "glass_blur", "glass_opacity", "animations", "lite_mode", "language"}
     }
     lang = str(appearance.get("language", "vi"))
     if _commands_action is not None:

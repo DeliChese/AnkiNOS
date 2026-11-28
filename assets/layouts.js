@@ -32,7 +32,8 @@
   const topbarActions = app.querySelector('.topbar-actions');
   const topbarDivider = topbarActions?.querySelector('.topbar-divider') || null;
   const elasticPath = rail.querySelector('.rail-elastic-path');
-  const dockItems = Array.from(rail.querySelectorAll('.brand,.rail-button,.launcher-button'));
+  const getDockItems = () => Array.from(rail.querySelectorAll('.brand, .rail-main > button, .rail-bottom > button'));
+  let dockItems = getDockItems();
 
   // 4-Edge hidden macOS docks (active only in data-layout="edges" on desktop).
   const edgeDocks = {
@@ -131,8 +132,10 @@
       if (prefsBtn && railBottom) railBottom.prepend(prefsBtn);
       if (launcherBtn && railBottom) railBottom.append(launcherBtn);
       if (topbarActions) {
+        const guideBtn = $('guide-toggle');
         if (layoutBtn) topbarActions.insertBefore(layoutBtn, topbarDivider || null);
         if (fullscreenBtn) topbarActions.insertBefore(fullscreenBtn, topbarDivider || null);
+        if (guideBtn && layoutBtn) topbarActions.insertBefore(guideBtn, layoutBtn);
         if (profileBtn) topbarActions.append(profileBtn);
       }
       delete app.dataset.edgesPeek;
@@ -140,6 +143,11 @@
       if (peekBtn) peekBtn.setAttribute('aria-pressed', 'false');
       edgesMounted = false;
     }
+    dockItems = getDockItems();
+    dockCur.length = dockItems.length;
+    dockTarget.length = dockItems.length;
+    for (let i = 0; i < dockItems.length; i++) { dockCur[i] = 1; dockTarget[i] = 1; }
+    dockRestCenters = null;
   }
 
   const menu = $('layout-menu');
@@ -186,6 +194,23 @@
     enterTimer = setTimeout(() => app.classList.remove('nos-entering'), 1600);
   }
 
+  let switchGuardTimer = 0;
+  function beginLayoutSwap() {
+    app.classList.add('nos-layout-switching');
+    rail.classList.remove('nos-rail-kb', 'is-open');
+    for (const popupId of ['profile-panel', 'launcher']) {
+      const p = $(popupId);
+      if (p && !p.hidden) p.hidden = true;
+    }
+    $('profile-toggle')?.setAttribute('aria-expanded', 'false');
+    $('launcher-toggle')?.setAttribute('aria-expanded', 'false');
+    resetPointerEffects();
+    clearTimeout(switchGuardTimer);
+    switchGuardTimer = setTimeout(() => {
+      app.classList.remove('nos-layout-switching');
+    }, 80);
+  }
+
   function changed() {
     syncEdgeDocks();
     syncMenu();
@@ -199,32 +224,43 @@
 
   function choose(id, commit) {
     const next = LAYOUTS.find(layout => layout.id === id);
-    if (!next || id === (pendingLayout?.id ?? current())) return;
+    const activeId = pendingLayout?.id ?? current();
+    if (!next || id === activeId) return;
     if (transition) {
       pendingLayout = null;
-      transition.skipTransition();
+      try { transition.skipTransition(); } catch {}
+      transition = null;
+      app.classList.remove('nos-vt');
+    }
+    const involvesEdges = activeId === 'edges' || id === 'edges';
+    if (motionOff() || involvesEdges || typeof document.startViewTransition !== 'function') {
+      beginLayoutSwap();
       commit(next);
+      void app.offsetWidth;
+      requestAnimationFrame(() => {
+        app.classList.remove('nos-layout-switching');
+        enter();
+      });
       return;
     }
-    if (motionOff() || typeof document.startViewTransition !== 'function') {
-      commit(next);
-      enter();
-      return;
-    }
-    resetPointerEffects();
+    beginLayoutSwap();
     pendingLayout = next;
     app.classList.add('nos-vt');
-    transition = document.startViewTransition(() => {
+    const activeTransition = document.startViewTransition(() => {
       if (pendingLayout !== next) return;
       pendingLayout = null;
       commit(next);
     });
+    transition = activeTransition;
     const finish = () => {
-      transition = pendingLayout = null;
-      app.classList.remove('nos-vt');
+      if (transition === activeTransition) {
+        transition = null;
+        pendingLayout = null;
+      }
+      app.classList.remove('nos-vt', 'nos-layout-switching');
     };
-    transition.ready.catch(() => {});
-    transition.finished.then(finish, finish);
+    activeTransition.ready.catch(() => {});
+    activeTransition.finished.then(finish, finish);
   }
 
   function cycle(commit) {
@@ -404,7 +440,7 @@
     for (let i = 0; i < items.length; i++) {
       const dist = Math.min(radius, Math.abs(axis - edgeSpring.centers[i]));
       const cosineWave = (1 + Math.cos(Math.PI * dist / radius)) * 0.5;
-      edgeSpring.target[i] = 1 + cosineWave * 0.46;
+      edgeSpring.target[i] = 1 + cosineWave * 0.40;
     }
     ensureEdgeSpring();
   }
@@ -538,7 +574,7 @@
         for (let i = 0; i < dockItems.length; i++) {
           const dist = Math.min(radius, Math.abs(pointerX - dockRestCenters[i]));
           const cosineWave = (1 + Math.cos(Math.PI * dist / radius)) * 0.5;
-          dockTarget[i] = 1 + cosineWave * 0.56;
+          dockTarget[i] = 1 + cosineWave * 0.45;
         }
         ensureDockSpring();
       } else {
@@ -562,7 +598,7 @@
   }
   app.addEventListener('pointermove', event => {
     if (event.pointerType !== 'mouse') return;
-    if (event.target.closest('dialog, #layout-menu')) {
+    if (event.target.closest('dialog, #layout-menu, #welcome-overlay')) {
       resetPointerEffects();
       return;
     }

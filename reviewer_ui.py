@@ -23,11 +23,56 @@ def _t(text: str) -> str:
         lang = "vi"
     return _tr_text(text, lang)
 _answered = 0
+_session_base_reviews: int | None = None
 _focus: Any = None
 _focus_profile: str | None = None
 _focus_timer: QTimer | None = None
 _focus_guard: QObject | None = None
 _pending_focus: tuple | None = None
+
+
+def _today_review_count() -> int:
+    try:
+        if not mw.col:
+            return 0
+        start_ms = (int(mw.col.sched.day_cutoff) - 86400) * 1000
+        return int(mw.col.db.scalar(
+            "SELECT count(*) FROM revlog WHERE id >= ? AND ease > 0 AND type < 4",
+            start_ms,
+        ) or 0)
+    except Exception:
+        return 0
+
+
+def _live_review_counts() -> tuple[list[int], int] | None:
+    try:
+        if not mw.col or mw.state != "review" or not mw.col.conf.get("dueCounts", True):
+            return None
+        new_c, learn_c, review_c = (int(v) for v in mw.col.sched.counts())
+        active_idx = -1
+        v3 = getattr(mw.reviewer, "_v3", None)
+        if v3 is not None:
+            try:
+                active_idx = int(v3.counts()[0])
+            except Exception:
+                active_idx = -1
+        if active_idx not in {0, 1, 2} and mw.reviewer.card is not None:
+            queue = int(getattr(mw.reviewer.card, "queue", 0))
+            active_idx = 0 if queue == 0 else (1 if queue in {1, 3} else 2)
+        return ([new_c, learn_c, review_c], active_idx)
+    except Exception:
+        return None
+
+
+def _sync_bottom_counts() -> None:
+    if not _enabled() or mw.state != "review" or getattr(mw.reviewer, "state", None) != "question":
+        return
+    live = _live_review_counts()
+    if not live:
+        return
+    counts, active_idx = live
+    payload = json.dumps(counts)
+    mw.bottomWeb.eval(f"window.NOSRatings && window.NOSRatings.setCounts({payload}, {active_idx});")
 
 
 def prepare_focus(minutes: int) -> None:
@@ -68,11 +113,13 @@ def _emit_focus() -> None:
 
 
 def _focus_tick() -> None:
-    if _focus is not None and mw.state == "review":
-        before = _focus.session_id
-        _focus.checkpoint()
-        if before != _focus.session_id:
-            _emit_focus()
+    if mw.state == "review" and _enabled():
+        if _focus is not None:
+            before = _focus.session_id
+            _focus.checkpoint()
+            if before != _focus.session_id:
+                _emit_focus()
+        _sync_bottom_counts()
 
 
 def _review_content(content: Any, context: Any) -> None:
@@ -81,10 +128,20 @@ def _review_content(content: Any, context: Any) -> None:
     package = mw.addonManager.addonFromModule(__package__)
     base = f"/_addons/{package}/assets"
     current_settings = _settings()
-    appearance = {key: current_settings[key] for key in ("theme", "color_theme", "accent", "custom_accent", "glass_blur", "glass_opacity", "language") if key in current_settings}
-    if isinstance(context, Reviewer):
-        content.js.append(f"{base}/i18n.js")
-        content.js.append(f"{base}/i18n-en.js")
+    appearance = {
+        key: current_settings[key]
+        for key in (
+            "theme", "color_theme", "accent", "custom_accent",
+            "text_color", "custom_text_color",
+            "rating_colors", "rating_color_again", "rating_color_hard", "rating_color_good", "rating_color_easy",
+            "reviewer_card_opacity",
+            "font_family", "glass_blur", "glass_opacity", "language",
+        )
+        if key in current_settings
+    }
+    content.js.append(f"{base}/i18n.js")
+    content.js.append(f"{base}/i18n-en.js")
+    content.js.append(f"{base}/i18n-zh-cn.js")
     content.js.append(f"{base}/theme.js")
     if isinstance(context, Reviewer):
         deck = mw.col.decks.current()
@@ -99,6 +156,7 @@ def _review_content(content: Any, context: Any) -> None:
                    "wallpaper_dim": current_settings.get("wallpaper_dim", 28),
                    "wallpaper_blur": current_settings.get("wallpaper_blur", 0),
                    "background_position": current_settings.get("image_position_review", "center"),
+                   "background_frame": (current_settings.get("image_frames") or {}).get("review", {"x": 50, "y": 50, "zoom": 100}),
                    "ui_scale": current_settings.get("ui_scale", 100),
                    "blur": current_settings.get("blur", True),
                    "lite_mode": bool(current_settings.get("lite_mode", False)),
@@ -147,6 +205,7 @@ def _show(card: Any, side: str) -> None:
 def _question(card: Any) -> None:
     _show(card,"question")
     _emit_focus()
+    _sync_bottom_counts()
 
 
 def _answer(card: Any) -> None:
@@ -155,17 +214,36 @@ def _answer(card: Any) -> None:
 
 def _answered_card(_reviewer: Any, _card: Any, _ease: int) -> None:
     global _answered
-    _answered += 1
+    if _session_base_reviews is not None:
+        _answered = max(0, _today_review_count() - _session_base_reviews)
+    else:
+        _answered += 1
     if _focus is not None:
         _focus.answer()
 
 
+def _op_executed(changes: Any, initiator: Any) -> None:
+    global _answered
+    if not _enabled() or mw.state != "review":
+        return
+    if any(getattr(changes, key, False) for key in ("study_queues", "card", "deck_config")):
+        if _session_base_reviews is not None:
+            _answered = max(0, _today_review_count() - _session_base_reviews)
+        if getattr(mw.reviewer, "state", None) == "question":
+            QTimer.singleShot(0, _sync_bottom_counts)
+            if mw.reviewer.card is not None and initiator is not mw.reviewer:
+                QTimer.singleShot(0, lambda c=mw.reviewer.card: _show(c, "question"))
+
+
 def _state(new: str, old: str) -> None:
-    global _answered, _pending_focus
+    global _answered, _session_base_reviews, _pending_focus
     if old == "review" and new != "review" and _focus is not None:
         _focus.stop("stopped")
+    if new != "review":
+        _session_base_reviews = None
     if new == "review" and old != "review":
         _answered = 0
+        _session_base_reviews = _today_review_count()
         planned, _pending_focus = _pending_focus, None
         if _enabled() and planned and planned[:2] == (mw.pm.name, str(mw.col.decks.selected())):
             focus_store().start(planned[2])
@@ -244,3 +322,4 @@ def install(enabled: Callable[[],bool], settings: Callable[[],dict[str,Any]]) ->
     gui_hooks.reviewer_did_show_question.append(_question)
     gui_hooks.reviewer_did_show_answer.append(_answer)
     gui_hooks.reviewer_did_answer_card.append(_answered_card)
+    gui_hooks.operation_did_execute.append(_op_executed)

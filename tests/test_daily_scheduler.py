@@ -19,7 +19,7 @@ package = types.ModuleType(PKG)
 package.__path__ = [str(ROOT)]
 sys.modules[PKG] = package
 
-for mod_name in ("media_store", "daily_scheduler", "daily_store", "daily_bridge"):
+for mod_name in ("media_store", "i18n", "daily_scheduler", "daily_store", "daily_bridge"):
     spec = importlib.util.spec_from_file_location(f"{PKG}.{mod_name}", ROOT / f"{mod_name}.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -443,6 +443,171 @@ class DailySchedulerTests(unittest.TestCase):
             self.assertFalse(dirty)
             deckbrowser_mod.DeckBrowser.refresh(view)
             self.assertEqual(reloads, [])
+
+    def test_safety_floor_and_max_shift_guardrails(self) -> None:
+        # Borderline card currently at ~78% R (above 75% floor) drops below 75% if pushed far out.
+        borderline = ds.ScheduledCard(
+            card_id=101, note_id=101, deck_id=1, deck_name="English", queue=2, due=99, due_offset=-1,
+            ivl=5, reps=3, lapses=0, odid=0,
+            first_studied_day=(self.today - timedelta(days=20)).isoformat(),
+            last_review_day=(self.today - timedelta(days=12)).isoformat(),
+            stability=5.0, difficulty=5.5, decay=0.5, memory_model="fsrs", preview="borderline",
+        )
+        # Durable card stays well above 75% even weeks later.
+        durable = ds.ScheduledCard(
+            card_id=102, note_id=102, deck_id=1, deck_name="English", queue=2, due=98, due_offset=-2,
+            ivl=90, reps=8, lapses=0, odid=0,
+            first_studied_day=(self.today - timedelta(days=150)).isoformat(),
+            last_review_day=(self.today - timedelta(days=92)).isoformat(),
+            stability=90.0, difficulty=3.5, decay=0.5, memory_model="fsrs", preview="durable",
+        )
+        existing = {0: 1, 1: 1, 2: 1, 3: 1, 10: 0}
+        plan = ds.plan_redistribution(
+            [durable, borderline], existing, self.today,
+            daily_cap=2, initial_window=14, max_window=7, min_target_r=0.75,
+        )
+        self.assertEqual(plan["max_window"], 7)
+        self.assertLessEqual(plan["expanded_window"], 7)
+        self.assertEqual(plan["safe_floor_r"], 75)
+        by_cid = {m["card_id"]: m for m in plan["moves"]}
+        self.assertEqual(by_cid[101]["target_offset"], 0)
+
+    def test_virtual_catchup_and_reschedule_session_queues(self) -> None:
+        today_card = ds.ScheduledCard(
+            card_id=1, note_id=1, deck_id=1, deck_name="English", queue=2, due=100, due_offset=0,
+            ivl=10, reps=2, lapses=0, odid=0,
+            first_studied_day=(self.today - timedelta(days=20)).isoformat(),
+            last_review_day=(self.today - timedelta(days=10)).isoformat(),
+            stability=10.0, difficulty=5.0, decay=0.5, memory_model="fsrs",
+        )
+        overdue_high_r = ds.ScheduledCard(
+            card_id=2, note_id=2, deck_id=1, deck_name="English", queue=2, due=99, due_offset=-1,
+            ivl=60, reps=5, lapses=0, odid=0,
+            first_studied_day=(self.today - timedelta(days=100)).isoformat(),
+            last_review_day=(self.today - timedelta(days=61)).isoformat(),
+            stability=60.0, difficulty=4.0, decay=0.5, memory_model="fsrs",
+        )
+        overdue_low_r = ds.ScheduledCard(
+            card_id=3, note_id=3, deck_id=1, deck_name="English", queue=2, due=95, due_offset=-5,
+            ivl=3, reps=2, lapses=1, odid=0,
+            first_studied_day=(self.today - timedelta(days=15)).isoformat(),
+            last_review_day=(self.today - timedelta(days=8)).isoformat(),
+            stability=3.0, difficulty=7.0, decay=0.5, memory_model="fsrs",
+        )
+        sq_virtual = ds.build_session_queue(
+            [today_card], [overdue_low_r, overdue_high_r], self.today,
+            daily_cap=2, backlog_mode="virtual", review_order="auto",
+        )
+        self.assertEqual(sq_virtual["resolved_order"], "desc_r")
+        self.assertEqual(sq_virtual["count"], 2)
+        self.assertEqual(sq_virtual["today_included"], 1)
+        self.assertEqual(sq_virtual["overdue_included"], 1)
+        self.assertEqual(sq_virtual["deferred_count"], 1)
+        # In desc_r with cap=2, today_card (1) and overdue_high_r (2) are chosen; 1 & 2 ordered desc R.
+        self.assertEqual(set(sq_virtual["card_ids"]), {1, 2})
+
+        sq_resched = ds.build_session_queue(
+            [today_card], [overdue_low_r, overdue_high_r], self.today,
+            daily_cap=2, backlog_mode="reschedule", review_order="asc_r",
+        )
+        self.assertEqual(sq_resched["resolved_order"], "asc_r")
+        self.assertEqual(sq_resched["card_ids"], [1])
+        self.assertEqual(sq_resched["overdue_included"], 0)
+
+    @unittest.skipUnless(importlib.util.find_spec("aqt"), "requires Anki's Qt operations")
+    def test_virtual_catchup_fsrs_sm2_ordering_relearning_guard_and_cleanup(self) -> None:
+        from anki.collection import Collection
+        from anki.lang import set_lang
+
+        set_lang("en_US")
+        col = Collection(str(self.root / "collection_orders.anki2"))
+        self.addCleanup(col.close)
+        col.crt -= 100 * 86400
+        col._load_scheduler()
+        did = col.decks.id("Chinese")
+        today = col.sched.today
+
+        # Create 3 cards: today (high R), overdue (medium R), overdue (low R), plus 1 future card (must stay excluded).
+        def make_card(front: str, due_val: int, stability: float, rev_days_ago: int) -> int:
+            note = col.new_note(col.models.current())
+            note.fields = [front, "Ans"]
+            col.add_note(note, did)
+            c = note.cards()[0]
+            c.type = c.queue = 2
+            c.due = due_val
+            c.ivl = max(1, int(stability))
+            c.factor = 2500
+            c.reps = 3
+            c.data = json.dumps({"s": stability, "d": 5.0})
+            col.update_card(c)
+            col.db.execute(
+                "INSERT INTO revlog VALUES (?, ?, 0, 3, ?, 1, 2500, 1000, 1)",
+                (col.sched.day_cutoff - rev_days_ago * 86400) * 1000 + c.id % 1000,
+                c.id,
+                max(1, int(stability)),
+            )
+            return c.id
+
+        cid_today_high = make_card("TodayHighR", today, 30.0, 10)
+        cid_over_mid = make_card("OverMidR", today - 1, 20.0, 21)
+        cid_over_low = make_card("OverLowR", today - 4, 3.0, 7)
+        cid_future = make_card("FutureLocked", today + 3, 15.0, 12)
+
+        # Create legacy nested filtered deck + empty 'AnkiNOS' shell to verify migration/cleanup.
+        legacy_fdid = col.decks.new_filtered("AnkiNOS::Lịch hôm nay")
+        self.assertIsNotNone(col.decks.id_for_name("AnkiNOS"))
+
+        # Test both SM-2 (fsrs=False) and FSRS (fsrs=True) with desc_r and asc_r without DbError.
+        for fsrs_enabled in (False, True):
+            col.set_config("fsrs", fsrs_enabled)
+            fdid, count = bridge_mod.prepare_today_filtered_deck(
+                col, daily_cap=3, backlog_mode="virtual", review_order="desc_r"
+            )
+            self.assertEqual(count, 3)
+            self.assertIsNone(col.decks.id_for_name("AnkiNOS::Lịch hôm nay"))
+            self.assertIsNone(col.decks.id_for_name("AnkiNOS"))
+            self.assertEqual(col.get_card(cid_future).odid, 0)
+            # Home due dates are preserved untouched in odue!
+            self.assertEqual(col.get_card(cid_today_high).odue, today)
+            self.assertEqual(col.get_card(cid_over_mid).odue, today - 1)
+            self.assertEqual(col.get_card(cid_over_low).odue, today - 4)
+
+            served_desc = [item.card.id for item in col.sched.get_queued_cards(fetch_limit=10).cards]
+            self.assertEqual(served_desc, [cid_today_high, cid_over_mid, cid_over_low])
+
+            # Test asc_r order too.
+            bridge_mod.prepare_today_filtered_deck(
+                col, daily_cap=3, backlog_mode="virtual", review_order="asc_r", session_mode="rebuild"
+            )
+            served_asc = [item.card.id for item in col.sched.get_queued_cards(fetch_limit=10).cards]
+            self.assertEqual(served_asc, [cid_over_low, cid_over_mid, cid_today_high])
+
+        # Simulate active relearning card (queue=1) inside managed filtered deck -> smart & continue must preserve it!
+        relearn_card = col.get_card(cid_over_low)
+        relearn_card.queue = 1
+        relearn_card.due = int(col.sched.day_cutoff) - 600
+        col.update_card(relearn_card)
+
+        active = bridge_mod.inspect_active_filtered_session(col)
+        self.assertTrue(active["active"])
+        self.assertEqual(active["relearning_count"], 1)
+
+        with patch.object(col.sched, "empty_filtered_deck", wraps=col.sched.empty_filtered_deck) as empty_spy:
+            resumed_did, resumed_count = bridge_mod.prepare_today_filtered_deck(
+                col, daily_cap=3, backlog_mode="virtual", review_order="desc_r", session_mode="smart"
+            )
+            self.assertEqual(empty_spy.call_count, 0)
+            self.assertEqual(resumed_did, fdid)
+            self.assertEqual(resumed_count, 3)
+
+        # Explicit empty_session returns all cards and deletes the managed filtered deck cleanly.
+        returned = bridge_mod.empty_session_in_col(col)
+        self.assertEqual(returned, 3)
+        self.assertIsNone(col.decks.id_for_name(bridge_mod.FILTERED_DECK_NAME))
+        self.assertEqual(col.get_card(cid_today_high).did, did)
+        self.assertEqual(col.get_card(cid_over_mid).due, today - 1)
+        self.assertEqual(col.get_card(cid_over_low).did, did)
+        self.assertIsNotNone(legacy_fdid)
 
 
 if __name__ == "__main__":

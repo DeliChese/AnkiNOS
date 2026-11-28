@@ -125,13 +125,16 @@
       if (previous.heatmap_day !== state.settings.heatmap_day) renderHeatmap();
     }
     // Never send the image gallery (or large resource lists) back over pycmd.
-    const keys = ['goal','layout','sidebar_side','theme','color_theme','accent','custom_accent','blur','glass_blur','glass_opacity','animations','lite_mode','ui_scale','language',
+    const keys = ['goal','layout','sidebar_side','theme','color_theme','accent','custom_accent',
+      'text_color','custom_text_color','rating_colors','rating_color_again','rating_color_hard','rating_color_good','rating_color_easy','reviewer_card_opacity',
+      'font_family','blur','glass_blur','glass_opacity','animations','lite_mode','ui_scale','language',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
-      'activity_collapsed','library_collapsed','sidebar_collapsed','view',
+      'activity_collapsed','launchpad_collapsed','library_collapsed','sidebar_collapsed','welcome_dismissed','view',
       // Image assignments belong exclusively to Studio and save immediately.
     ];
     const values = Object.fromEntries(keys.filter(key => Object.hasOwn(state.settings,key))
       .map(key => [key,state.settings[key]]));
+    if (state.settings.language_pref) values.language = state.settings.language_pref;
     command('apply_settings', {values});
     $('btn-apply-settings').disabled = true;
     $('settings-save-status').textContent = 'Đã áp dụng · cấu hình lưu theo hồ sơ';
@@ -241,13 +244,114 @@
 
   window.NOSTheme.watch(app,()=>state.settings,true);
   window.NOSTheme.cards($('theme-palette-grid'),id=>saveUI({color_theme:id,accent:'auto'}));
+  window.NOSTheme.fontCards?.($('theme-font-grid'),id=>saveUI({font_family:id}));
   window.NOSTheme.watch($('theme-preview'),()=>settingsDraft||state.settings,false,()=>window.NOSTheme.sync(settingsDraft||state.settings));
+
+  let infoReturnFocus = null;
+  function openAbout() {
+    closePopups();
+    closeLibrary(false);
+    closeGuide(false);
+    const dialog = $('about-dialog');
+    if (!dialog || dialog.open) return;
+    infoReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : $('brand-about');
+    dialog.showModal();
+    $('about-close')?.focus({preventScroll: true});
+  }
+  function closeAbout(restoreFocus = true) {
+    const dialog = $('about-dialog');
+    if (!dialog?.open) return;
+    dialog.close();
+    if (restoreFocus) (infoReturnFocus || $('brand-about'))?.focus({preventScroll: true});
+  }
+  function switchGuideTab(tabName = 'start') {
+    const valid = ['start','scheduler','focus','notebook','stats'].includes(tabName) ? tabName : 'start';
+    app.querySelectorAll('.guide-tab[data-guide-select]').forEach(btn => {
+      const active = btn.dataset.guideSelect === valid;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', String(active));
+    });
+    app.querySelectorAll('.guide-pane').forEach(pane => {
+      pane.hidden = pane.id !== `gpane-${valid}`;
+    });
+  }
+  function openGuide(initialTab = 'start') {
+    closePopups();
+    closeLibrary(false);
+    closeAbout(false);
+    const dialog = $('guide-dialog');
+    if (!dialog) return;
+    switchGuideTab(initialTab);
+    if (dialog.open) return;
+    infoReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : $('guide-toggle');
+    dialog.showModal();
+    $('guide-close')?.focus({preventScroll: true});
+  }
+  function closeGuide(restoreFocus = true) {
+    const dialog = $('guide-dialog');
+    if (!dialog?.open) return;
+    dialog.close();
+    if (restoreFocus) (infoReturnFocus || $('guide-toggle'))?.focus({preventScroll: true});
+  }
+  let lightboxState = null;
+  function openLightbox(kind) {
+    const slot = kind === 'cover' ? 'image_cover' : 'image_avatar';
+    const entry = (state.settings.images || []).find(img => img.id === state.settings[slot]);
+    if (!entry) return;
+    const url = mediaUrl(slot, state.settings, 'original') || mediaUrl(slot, state.settings, 'wall');
+    if (!url) return;
+    const dialog = $('image-lightbox-dialog');
+    if (!dialog) return;
+    lightboxState = {kind, slot, photoId: entry.id};
+    $('lightbox-image').src = url;
+    $('lightbox-title').textContent = kind === 'cover' ? 'Ảnh bìa hồ sơ' : 'Ảnh đại diện hồ sơ';
+    const parts = [entry.name];
+    if (entry.width && entry.height) parts.push(`${entry.width} × ${entry.height} px`);
+    $('lightbox-meta').setAttribute('data-i18n-skip', '');
+    $('lightbox-meta').textContent = parts.filter(Boolean).join(' · ');
+    closePopups(false);
+    if (!dialog.open) dialog.showModal();
+    $('lightbox-close')?.focus({preventScroll: true});
+  }
+  function closeLightbox(restoreFocus = true) {
+    const dialog = $('image-lightbox-dialog');
+    if (!dialog?.open) return;
+    dialog.close();
+    if (restoreFocus) $('profile-toggle')?.focus({preventScroll: true});
+  }
+
+  let settingsDragX = 0, settingsDragY = 0;
+  function resetSettingsPosition() {
+    settingsDragX = 0;
+    settingsDragY = 0;
+    const panel = $('settings-panel');
+    if (panel) {
+      panel.style.removeProperty('--drag-x');
+      panel.style.removeProperty('--drag-y');
+    }
+    $('settings-dialog')?.classList.remove('is-dragged');
+  }
+
+  function setSettingsDocked(docked) {
+    const dialog = $('settings-dialog');
+    const btn = $('settings-dock-toggle');
+    if (!dialog) return;
+    dialog.classList.toggle('is-docked', !!docked);
+    if (docked) resetSettingsPosition();
+    if (btn) {
+      btn.setAttribute('aria-pressed', String(!!docked));
+      const label = docked ? 'Trả về cửa sổ giữa' : 'Ghim sang cạnh để xem trực tiếp';
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+    }
+  }
 
   function openSettings(initialTab = 'appearance') {
     closePopups();
     closeLibrary(false);
     const dialog = $('settings-dialog');
     if (dialog.open) return;
+    resetSettingsPosition();
     settingsDraft = {...state.settings};
     settingsDirty = false;
     switchSettingsTab(initialTab);
@@ -263,6 +367,7 @@
     const dialog = $('settings-dialog');
     if (!dialog.open) return;
     dialog.close();
+    resetSettingsPosition();
     settingsDraft = null;
     settingsDirty = false;
     app.classList.remove('settings-open');
@@ -319,13 +424,33 @@
       btn.classList.toggle('active', Number(btn.dataset.scale) === (s.ui_scale || 100));
     });
     const side = s.sidebar_side === 'right' ? 'right' : 'left';
-    const language = window.NOSI18n?.has(s.language) ? s.language : 'vi';
+    const langGrid = $('language-grid');
+    if (langGrid && window.NOSI18n?.languages) {
+      for (const pack of window.NOSI18n.languages()) {
+        if (!langGrid.querySelector(`[data-set-language="${pack.id}"]`)) {
+          const btn = document.createElement('button');
+          btn.type = 'button'; btn.className = 'language-card'; btn.dataset.setLanguage = pack.id;
+          btn.setAttribute('role', 'radio'); btn.setAttribute('aria-checked', 'false'); btn.setAttribute('data-i18n-skip', '');
+          btn.innerHTML = `<span class="language-code">${escape(pack.id.toUpperCase())}</span><div><strong>${escape(pack.name)}</strong><small>${escape(pack.english)}</small></div>`;
+          langGrid.append(btn);
+        }
+      }
+    }
+    const autoResolved = window.NOSI18n?.resolve ? window.NOSI18n.resolve(s.anki_locale || navigator.language || '') : 'vi';
+    const langPref = s.language_pref === 'auto' ? 'auto' : (window.NOSI18n?.has(s.language_pref) ? s.language_pref : (window.NOSI18n?.has(s.language) ? s.language : 'auto'));
+    const effectiveLang = langPref === 'auto' ? autoResolved : langPref;
+    const autoNote = $('language-auto-note');
+    if (autoNote) {
+      const detectedMeta = window.NOSI18n?.languages?.().find(p => p.id === autoResolved);
+      const label = detectedMeta ? detectedMeta.name : autoResolved.toUpperCase();
+      autoNote.textContent = s.anki_locale ? `Đang nhận: ${label} (${s.anki_locale})` : `Đang nhận: ${label}`;
+    }
     app.querySelectorAll('.language-card').forEach(btn => {
-      const selected = btn.dataset.setLanguage === language;
+      const selected = btn.dataset.setLanguage === langPref;
       btn.classList.toggle('active', selected);
       btn.setAttribute('aria-checked', String(selected));
     });
-    renderLanguagePreview(language);
+    renderLanguagePreview(effectiveLang);
     app.querySelectorAll('#settings-dialog .side-btn[data-sidebar-side]').forEach(btn => {
       const selected = btn.dataset.sidebarSide === side;
       btn.classList.toggle('active', selected);
@@ -357,8 +482,8 @@
         <div><strong>${tr('Chào buổi sáng')}, Minh ✦</strong><p>${tr('Mỗi lần ôn tập, một chút tiến bộ.')}</p></div></div>
       <div class="language-preview-row"><span class="language-preview-label">${tr('Thẻ chỉ số')}</span>
         <div class="language-preview-stats">
-          <div><small>${tr('Ghi nhớ')}</small><b>92%</b><em>${tr('30 ngày gần nhất')}</em></div>
-          <div><small>${tr('Nhịp học')}</small><b>109 <span>${tr('lượt/giờ')}</span></b><em>${tr('Tốc độ ôn hôm nay')}</em></div>
+          <div><small>${tr('Ghi nhớ')}</small><b>92%</b><em>${tr('Hôm nay')}</em></div>
+          <div><small>${tr('Nhịp học')}</small><b>6,5 <span>${tr('lượt/phút')}</span></b><em>${tr('Tốc độ ôn hôm nay')}</em></div>
         </div></div>
       <div class="language-preview-row"><span class="language-preview-label">${tr('Hành động')}</span>
         <div class="language-preview-action"><span class="language-preview-cta">${tr('Học ngay →')}</span><small>${tr('24 thẻ đang chờ · khoảng 8 phút')}</small></div></div>
@@ -417,6 +542,10 @@
     if (confirm(window.NOSI18n.t('Khôi phục toàn bộ cài đặt AnkiNOS về mặc định ban đầu?'))) {
       const defaults = {
         goal: 200, layout: defaultLayout, sidebar_side: 'left', theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
+        text_color: 'auto', custom_text_color: '#f3f6ff',
+        rating_colors: 'auto', rating_color_again: '#f26d85', rating_color_hard: '#f0b85b', rating_color_good: '#6ea8fe', rating_color_easy: '#4fd19b',
+        reviewer_card_opacity: 100,
+        font_family: 'system',
         blur: true, glass_blur: 16, glass_opacity: 74, animations: true, ui_scale: 100,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
         heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false
@@ -433,6 +562,7 @@
   function mediaUrl(slot, settings = state.settings, kind = 'wall') {
     const entry = (settings.images || []).find(image => image.id === settings[slot]);
     if (!entry) return '';
+    if (kind === 'original') return MEDIA_URL.test(entry.url || '') ? entry.url : '';
     if (kind === 'thumb' && THUMB_URL.test(entry.thumb_url || '')) return entry.thumb_url;
     const wall = kind === 'wall' ? entry.wall_url : '';
     if (wall && MEDIA_URL.test(wall)) return wall;
@@ -440,13 +570,24 @@
   }
   const clampInt = (value, low, high, fallback) =>
     Number.isInteger(value) ? Math.min(high, Math.max(low, value)) : fallback;
-  // Shared by every page: the fit/dim/blur options are plain CSS variables.
+  function imageFrame(settings, surface) {
+    const raw = settings?.image_frames?.[surface] || {};
+    return {
+      x: clampInt(raw.x, 0, 100, 50),
+      y: clampInt(raw.y, 0, 100, 50),
+      zoom: clampInt(raw.zoom, 100, 250, 100),
+    };
+  }
+  // Shared by every page: the fit/dim/blur/framing options are plain CSS variables.
   function wallpaperVars(settings, surface) {
     const fit = settings['image_fit_' + surface] === 'contain' ? 'contain' : 'cover';
     const dim = clampInt(settings.wallpaper_dim, 0, 80, 28);
     const blur = clampInt(settings.wallpaper_blur, 0, 24, 0);
+    const frame = imageFrame(settings, surface);
+    const scale = (frame.zoom / 100) * (blur ? 1.06 : 1);
     return {'--wall-fit': fit, '--wall-dim': String(dim / 100), '--wall-blur': blur + 'px',
-            '--wall-scale': blur ? '1.06' : '1'};
+            '--wall-pos-x': frame.x + '%', '--wall-pos-y': frame.y + '%',
+            '--wall-scale': scale.toFixed(3)};
   }
 
   function applySettings() {
@@ -454,12 +595,14 @@
     const layout = window.NOSLayout?.normalize(s.layout) || defaultLayout;
     const sidebarSide = s.sidebar_side === 'right' ? 'right' : 'left';
     const signature = JSON.stringify([
-      layout,sidebarSide,s.theme,s.color_theme,s.accent,s.custom_accent,s.blur,s.glass_blur,s.glass_opacity,s.animations,s.lite_mode,s.ui_scale,s.language,
+      layout,sidebarSide,s.theme,s.color_theme,s.accent,s.custom_accent,
+      s.text_color,s.custom_text_color,s.rating_colors,s.rating_color_again,s.rating_color_hard,s.rating_color_good,s.rating_color_easy,s.reviewer_card_opacity,
+      s.font_family,s.blur,s.glass_blur,s.glass_opacity,s.animations,s.lite_mode,s.ui_scale,s.language,s.language_pref,
       s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
-      s.heatmap_palette,s.activity_collapsed,s.sidebar_collapsed,s.view,
-      s.image_dashboard,s.image_avatar,
+      s.heatmap_palette,s.activity_collapsed,s.launchpad_collapsed,s.sidebar_collapsed,s.welcome_dismissed,s.view,
+      s.image_dashboard,s.image_avatar,s.image_cover,s.image_frames,
       s.image_fit_dashboard,s.wallpaper_dim,s.wallpaper_blur,
-      mediaUrl('image_dashboard', s), mediaUrl('image_avatar', s, 'thumb')
+      mediaUrl('image_dashboard', s), mediaUrl('image_avatar', s, 'thumb'), mediaUrl('image_cover', s, 'wall')
     ]);
     if (signature === lastAppliedSettings) return;
     lastAppliedSettings = signature;
@@ -479,13 +622,38 @@
       wallpaperImage.hidden = !background;
     }
     const avatar = mediaUrl('image_avatar', s, 'thumb');
-    for (const node of [$('avatar-initials'), $('profile-initials')]) {
-      if (!node) continue;
-      node.classList.toggle('has-image', !!avatar);
-      node.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
-      node.style.backgroundSize = 'contain';
-      node.style.backgroundPosition = 'center';
+    const avFrame = imageFrame(s, 'avatar');
+    for (const [boxId, imgId] of [['avatar-box', 'topbar-avatar-img'], ['profile-avatar-box', 'profile-avatar-img']]) {
+      const box = $(boxId), img = $(imgId);
+      if (box) box.classList.toggle('has-image', !!avatar);
+      if (img) {
+        if (avatar && img.getAttribute('src') !== avatar) img.src = avatar;
+        if (!avatar) img.removeAttribute('src');
+        img.hidden = !avatar;
+        img.style.objectPosition = `${avFrame.x}% ${avFrame.y}%`;
+        img.style.transformOrigin = `${avFrame.x}% ${avFrame.y}%`;
+        img.style.transform = `scale(${(avFrame.zoom / 100).toFixed(3)})`;
+      }
     }
+    const avatarBtn = $('profile-avatar-btn');
+    if (avatarBtn) {
+      avatarBtn.classList.toggle('is-viewable', !!avatar);
+      avatarBtn.disabled = !avatar;
+      avatarBtn.title = avatar ? 'Nhấn để xem ảnh đại diện' : 'Chưa có ảnh đại diện';
+    }
+    const cover = mediaUrl('image_cover', s, 'wall');
+    const coverFrame = imageFrame(s, 'cover');
+    const coverImg = $('profile-cover-img'), coverView = $('profile-cover-view'), banner = $('profile-banner');
+    if (banner) banner.classList.toggle('has-cover', !!cover);
+    if (coverImg) {
+      if (cover && coverImg.getAttribute('src') !== cover) coverImg.src = cover;
+      if (!cover) coverImg.removeAttribute('src');
+      coverImg.hidden = !cover;
+      coverImg.style.objectPosition = `${coverFrame.x}% ${coverFrame.y}%`;
+      coverImg.style.transformOrigin = `${coverFrame.x}% ${coverFrame.y}%`;
+      coverImg.style.transform = `scale(${(coverFrame.zoom / 100).toFixed(3)})`;
+    }
+    if (coverView) coverView.hidden = !cover;
 
 
     app.classList.toggle('lite-mode', !!s.lite_mode);
@@ -498,6 +666,7 @@
     positionLibrary();
     window.NOSLayout?.changed();
 
+    if ($('welcome-overlay')) $('welcome-overlay').hidden = s.welcome_dismissed !== false;
     if ($('card-retention')) $('card-retention').hidden = s.stat_retention === false;
     if ($('card-pace')) $('card-pace').hidden = s.stat_pace === false;
     if ($('card-time')) $('card-time').hidden = s.stat_time === false;
@@ -505,13 +674,19 @@
 
     app.dataset.heatPalette = s.heatmap_palette || 'default';
 
-    for (const [panel, key, action, label] of [['activity-panel','activity_collapsed','collapse_activity','hoạt động']]) {
+    for (const [panel, key, action, label] of [
+      ['activity-panel','activity_collapsed','collapse_activity','hoạt động'],
+      ['study-launchpad','launchpad_collapsed','collapse_launchpad','bước tiếp theo'],
+    ]) {
       const collapsed = !!s[key];
-      $(panel).classList.toggle('collapsed', collapsed);
+      const panelNode = $(panel);
+      if (panelNode) panelNode.classList.toggle('collapsed', collapsed);
       const button = app.querySelector(`[data-action="${action}"]`);
-      button.setAttribute('aria-expanded', String(!collapsed));
-      button.setAttribute('aria-label', `${collapsed ? 'Mở rộng' : 'Thu gọn'} ${label}`);
-      button.title = button.getAttribute('aria-label');
+      if (button) {
+        button.setAttribute('aria-expanded', String(!collapsed));
+        button.setAttribute('aria-label', `${collapsed ? 'Mở rộng' : 'Thu gọn'} ${label}`);
+        button.title = button.getAttribute('aria-label');
+      }
     }
     $('library-panel').classList.toggle('sidebar-hidden', !!s.sidebar_collapsed);
     $('sidebar-toggle').setAttribute('aria-expanded', String(!s.sidebar_collapsed));
@@ -560,8 +735,23 @@
     $('profile-goal-fill').style.width = `${Math.min(100, percent)}%`;
     const retention = stats.retention == null ? '—' : `${n(stats.retention)}%`;
     $('stat-retention').textContent = $('profile-retention').textContent = retention;
-    $('retention-detail').textContent = stats.tested ? `${n(stats.tested)} lượt kiểm tra · 30 ngày` : 'Chưa có lượt ôn đến hạn';
-    $('stat-pace').innerHTML = `${stats.pace == null ? '—' : n(stats.pace)} <small>lượt/giờ</small>`;
+    const todayReviews = Number(stats.reviews) || 0;
+    const todayCorrect = typeof stats.correct === 'number'
+      ? stats.correct
+      : (stats.retention != null && todayReviews ? Math.round(todayReviews * stats.retention / 100) : 0);
+    const trueRet = stats.true_retention;
+    $('retention-detail').textContent = todayReviews
+      ? (trueRet != null
+        ? `Hôm nay · ${n(todayCorrect)}/${n(todayReviews)} lượt đúng · True Retention ${n(trueRet)}%`
+        : `Hôm nay · ${n(todayCorrect)}/${n(todayReviews)} lượt đúng`)
+      : 'Hôm nay chưa có lượt ôn';
+    $('stat-pace').innerHTML = `${stats.pace == null ? '—' : n(stats.pace)} <small>lượt/phút</small>`;
+    if ($('pace-detail')) {
+      const avgSec = todayReviews > 0 ? Math.round((stats.milliseconds / 1000 / todayReviews) * 10) / 10 : 0;
+      $('pace-detail').textContent = todayReviews
+        ? `Hôm nay · ${n(avgSec)} giây/thẻ · ${n(todayReviews)} lượt`
+        : 'Hôm nay chưa ôn thẻ nào';
+    }
     $('stat-time').innerHTML = duration(stats.milliseconds);
     $('stat-studied').innerHTML = `${n(stats.reviews)} <small>lượt</small>`;
     $('studied-detail').textContent = `${n(data.total_cards)} thẻ trong bộ sưu tập`;
@@ -570,11 +760,16 @@
     $('profile-total').textContent = `${n(data.total_cards)} thẻ`;
     const recent = Array.from({length:14}, (_, i) => {
       const date = iso(addDays(parseDate(data.today), i - 13));
-      return {date, ...(data.days[date] || {reviews:0, milliseconds:0, tested:0, passed:0})};
+      return {date, ...(data.days[date] || {reviews:0, milliseconds:0, correct:null, tested:0, passed:0})};
     });
+    const dayRetention = d => {
+      if (typeof d.correct === 'number' && d.reviews > 0) return Math.max(0, Math.min(100, d.correct / d.reviews * 100));
+      return d.tested ? Math.max(0, Math.min(100, d.passed / d.tested * 100)) : null;
+    };
+    const dayPace = d => d.reviews > 0 ? Math.round((d.reviews / Math.max(1, (d.milliseconds || 0) / 60000)) * 10) / 10 : null;
     for (const [id,key,unit,value] of [
-      ['retention','retention','%', d => d.tested ? Math.max(0,Math.min(100,d.passed / d.tested * 100)) : null],
-      ['pace','pace','lượt/giờ', d => d.milliseconds > 0 ? Math.max(0,d.reviews / (d.milliseconds / 3600000)) : null],
+      ['retention','retention','%', dayRetention],
+      ['pace','pace','lượt/phút', dayPace],
       ['time','milliseconds','phút', d => d.milliseconds / 60000],
       ['studied','reviews','lượt ôn', d => d.reviews],
     ]) {
@@ -830,7 +1025,7 @@
         ${hasChildren ? `<button class="deck-expand" data-action="expand" data-id="${buttonId}" aria-label="${expanded?'Thu gọn':'Mở rộng'} ${escape(deck.name)}" aria-expanded="${!!expanded}" aria-controls="children-${buttonId}">${icon('chevron')}</button>` : '<span class="deck-expand-spacer"></span>'}
         <span class="folder ${deckColor(deck)}" aria-hidden="true"></span>
         <div class="deck-info"><button class="deck-name" data-action="study" data-id="${buttonId}" title="${escape(deck.full_name)}" data-i18n-skip>${escape(deck.name)}</button>
-          <div class="deck-meta"><span>${countCopy}</span>${deck.retention==null?'':`<span class="retention-chip" title="Ghi nhớ trong 30 ngày">${icon('chart')}${n(deck.retention)}%</span>`}${deck.filtered?'<span>Bộ lọc</span>':''}</div>
+          <div class="deck-meta"><span>${countCopy}</span>${deck.retention==null?'':`<span class="retention-chip" title="Ghi nhớ hôm nay">${icon('chart')}${n(deck.retention)}%</span>`}${deck.filtered?'<span>Bộ lọc</span>':''}</div>
           ${deck.children.length?`<button class="subdecks-button" data-action="${expanded?'expand':'show_children'}" data-id="${buttonId}" aria-expanded="${!!expanded}" aria-controls="children-${buttonId}">${icon(expanded?'down':'layers','small')}${expanded?'Thu gọn deck con':`Xem ${n(deck.children.length)} deck con`}</button>`:''}
         </div>
         <div class="deck-counts" aria-label="${deck.new} mới, ${deck.learn} đang học, ${deck.review} cần ôn"><span class="deck-count-badge new-count${deck.new?'':' is-zero'}" title="Thẻ mới"><i aria-hidden="true"></i>${n(deck.new)}</span><span class="deck-count-badge learn-count${deck.learn?'':' is-zero'}" title="Đang học"><i aria-hidden="true"></i>${n(deck.learn)}</span><span class="deck-count-badge review-count${deck.review?'':' is-zero'}" title="Cần ôn"><i aria-hidden="true"></i>${n(deck.review)}</span></div>
@@ -962,6 +1157,7 @@
     if(event==='daily'){window.NOSDaily?.receive(payload);return;}
     if(event==='study_support'){window.NOSStudy?.receive(payload);return;}
     if(event==='study_support_error'){window.NOSStudy?.error(payload);return;}
+    if(event==='diagnostics_copied'){toast('Đã sao chép thông tin hỗ trợ (không gồm dữ liệu thẻ).');return;}
     if(event==='backup_status'){
       const status=$('backup-status');if(status)status.textContent=payload.message;
       app.querySelectorAll('[data-action="backup_export"],[data-action="backup_restore"]').forEach(button=>{button.disabled=!!payload.busy;});
@@ -1072,12 +1268,34 @@
   app.addEventListener('click', event => {
     const navBtn = event.target.closest('.settings-nav-btn[data-settings-tab]');
     if (navBtn) { switchSettingsTab(navBtn.dataset.settingsTab); return; }
+    const guideTabBtn = event.target.closest('.guide-tab[data-guide-select]');
+    if (guideTabBtn) { switchGuideTab(guideTabBtn.dataset.guideSelect); return; }
     const languageBtn = event.target.closest('.language-card[data-set-language]');
-    if (languageBtn) { saveUI({language: languageBtn.dataset.setLanguage}); return; }
+    if (languageBtn) {
+      const pref = languageBtn.dataset.setLanguage;
+      const resolved = pref === 'auto'
+        ? (window.NOSI18n?.resolve ? window.NOSI18n.resolve(state.settings.anki_locale || navigator.language || '') : 'vi')
+        : pref;
+      saveUI({language_pref: pref, language: resolved});
+      return;
+    }
     const themeBtn = event.target.closest('.theme-pill-btn[data-set-theme]');
     if (themeBtn) { saveUI({theme: themeBtn.dataset.setTheme}); return; }
     const accentBtn = event.target.closest('.accent-dot-btn[data-set-accent]');
     if (accentBtn) { saveUI({accent: accentBtn.dataset.setAccent}); return; }
+    const textColorBtn = event.target.closest('[data-set-text-color]');
+    if (textColorBtn) {
+      const val = textColorBtn.dataset.setTextColor;
+      if (val === 'auto') saveUI({text_color: 'auto'});
+      else saveUI({text_color: 'custom', custom_text_color: val});
+      return;
+    }
+    const ratingModeBtn = event.target.closest('[data-set-rating-colors]');
+    if (ratingModeBtn) { saveUI({rating_colors: ratingModeBtn.dataset.setRatingColors === 'custom' ? 'custom' : 'auto'}); return; }
+    if (event.target.closest('#btn-reset-rating-colors')) {
+      saveUI({rating_colors: 'auto', rating_color_again: '#f26d85', rating_color_hard: '#f0b85b', rating_color_good: '#6ea8fe', rating_color_easy: '#4fd19b'});
+      return;
+    }
     const scaleBtn = event.target.closest('.scale-btn[data-scale]');
     if (scaleBtn) { saveUI({ui_scale: Number(scaleBtn.dataset.scale)}); return; }
     const sideBtn = event.target.closest('.side-btn[data-sidebar-side]');
@@ -1101,6 +1319,10 @@
     if (!button || button.disabled) return;
     const {action, value, id} = button.dataset;
     if (action === 'preferences') return $('settings-dialog').open ? closeSettings() : openSettings();
+    if (action === 'about') return $('about-dialog')?.open ? closeAbout() : openAbout();
+    if (action === 'close_about') return closeAbout();
+    if (action === 'guide') return openGuide(button.dataset.guideTab || 'start');
+    if (action === 'close_guide') return closeGuide();
     if (action === 'layout_menu') return togglePopup('layout-menu', 'layout-toggle');
     if (action === 'set_layout') {
       if (button.dataset.layoutCard) return saveUI({layout: button.dataset.layoutCard});
@@ -1108,10 +1330,26 @@
       return window.NOSLayout?.choose(button.dataset.layoutId, saveLayout);
     }
     if (action === 'close_settings') return closeSettings();
+    if (action === 'toggle_settings_dock') return setSettingsDocked(!$('settings-dialog')?.classList.contains('is-docked'));
     if (action === 'open_anki_prefs') { closeSettings(); return command('preferences'); }
     if (action === 'profile') return togglePopup('profile-panel','profile-toggle');
     if (action === 'launcher') return togglePopup('launcher','launcher-toggle');
-    if (action === 'studio') { closePopups(); closeLibrary(false); window.NOSStudio?.open(); return; }
+    if (action === 'studio') {
+      closePopups();
+      closeLibrary(false);
+      const focusSlot = button.dataset.studioFocus || '';
+      const photoId = focusSlot ? state.settings['image_' + focusSlot] : '';
+      window.NOSStudio?.open({slot: focusSlot, photoId});
+      return;
+    }
+    if (action === 'view_profile_image') return openLightbox(button.dataset.kind || 'avatar');
+    if (action === 'close_lightbox') return closeLightbox();
+    if (action === 'lightbox_edit') {
+      const target = lightboxState;
+      closeLightbox(false);
+      if (target) window.NOSStudio?.open({slot: target.kind, photoId: target.photoId});
+      return;
+    }
     if (action === 'add_menu') return togglePopup('add-menu','add-toggle');
     if (action === 'library') return $('library-dialog').open?closeLibrary():openLibrary();
     if (action === 'close_library') return closeLibrary();
@@ -1145,7 +1383,30 @@
       toast(next ? 'Đã bật hiệu ứng mượt mà' : 'Đã tắt hiệu ứng mượt mà');
       return;
     }
+    if (action === 'dismiss_welcome') return saveUI({welcome_dismissed: true});
+    if (action === 'welcome_guide') {
+      saveUI({welcome_dismissed: true});
+      return openGuide('start');
+    }
+    if (action === 'welcome_settings') {
+      saveUI({welcome_dismissed: true});
+      return openSettings();
+    }
+    if (action === 'copy_diagnostics') {
+      const client = {width: innerWidth, height: innerHeight, dpr: Number((devicePixelRatio || 1).toFixed(2))};
+      if (native) return command('copy_diagnostics', {client});
+      const s = state.settings;
+      const report = [
+        'AnkiNOS: v1.0.0 Beta (1.0.0-beta · preview)',
+        `Display: ${client.width}x${client.height} @${client.dpr}x · scale=${s.ui_scale || 100}%`,
+        `UI: layout=${s.layout || defaultLayout} · theme=${s.theme || 'dusk'}/${s.color_theme || 'nos'} · font=${s.font_family || 'system'} · lang=${s.language || 'vi'}`,
+      ].join('\n');
+      navigator.clipboard?.writeText?.(report).catch(() => {});
+      toast('Đã sao chép thông tin hỗ trợ (không gồm dữ liệu thẻ).');
+      return;
+    }
     if (action === 'collapse_activity') return saveUI({activity_collapsed:!state.settings.activity_collapsed});
+    if (action === 'collapse_launchpad') return saveUI({launchpad_collapsed:!state.settings.launchpad_collapsed});
     if (action === 'collapse_sidebar') return saveUI({sidebar_collapsed:!state.settings.sidebar_collapsed});
     if (action === 'view') { saveUI({view:value}); renderLibrary(); return; }
     if (action === 'filter' || action === 'color_filter' || action === 'reset_filter') {
@@ -1199,6 +1460,10 @@
     if (event.key === 'Escape') {
       const nestedMenu=!$('add-menu').hidden;
       closePopups(true);$('heat-tooltip').hidden=$('chart-tooltip').hidden=true;
+      if($('welcome-overlay') && !$('welcome-overlay').hidden){event.preventDefault();saveUI({welcome_dismissed:true});}
+      if($('image-lightbox-dialog')?.open){event.preventDefault();closeLightbox();}
+      if($('about-dialog')?.open){event.preventDefault();closeAbout();}
+      if($('guide-dialog')?.open){event.preventDefault();closeGuide();}
       if($('settings-dialog')&&$('settings-dialog').open){event.preventDefault();closeSettings();}
       if($('library-dialog').open){event.preventDefault();if(!nestedMenu)closeLibrary();}
     }
@@ -1232,6 +1497,65 @@
     $('settings-dialog').addEventListener('click', event => {
       if (event.target === event.currentTarget) closeSettings();
     });
+    const dragHead = $('settings-drag-handle');
+    const panel = $('settings-panel');
+    if (dragHead && panel) {
+      let dragging = false, startX = 0, startY = 0, baseX = 0, baseY = 0, maxDx = 240, maxDy = 180;
+      dragHead.addEventListener('dblclick', event => {
+        if (event.target.closest('button')) return;
+        if ($('settings-dialog').classList.contains('is-docked')) setSettingsDocked(false);
+        else resetSettingsPosition();
+      });
+      dragHead.addEventListener('pointerdown', event => {
+        if (event.button !== 0 || event.target.closest('button')) return;
+        if ($('settings-dialog').classList.contains('is-docked') || innerWidth <= 640) return;
+        dragging = true;
+        startX = event.clientX;
+        startY = event.clientY;
+        baseX = settingsDragX;
+        baseY = settingsDragY;
+        const zoom = Number(app.style.zoom) || 1;
+        const rect = panel.getBoundingClientRect();
+        maxDx = Math.max(40, (innerWidth - rect.width) / (2 * zoom) + rect.width * 0.25 / zoom);
+        maxDy = Math.max(24, (innerHeight - rect.height) / (2 * zoom) + 24);
+        dragHead.classList.add('is-dragging');
+        dragHead.setPointerCapture?.(event.pointerId);
+      });
+      dragHead.addEventListener('pointermove', event => {
+        if (!dragging) return;
+        const zoom = Number(app.style.zoom) || 1;
+        settingsDragX = Math.max(-maxDx, Math.min(maxDx, baseX + (event.clientX - startX) / zoom));
+        settingsDragY = Math.max(-maxDy, Math.min(maxDy, baseY + (event.clientY - startY) / zoom));
+        panel.style.setProperty('--drag-x', `${settingsDragX.toFixed(1)}px`);
+        panel.style.setProperty('--drag-y', `${settingsDragY.toFixed(1)}px`);
+        $('settings-dialog').classList.add('is-dragged');
+      });
+      const endDrag = () => {
+        if (!dragging) return;
+        dragging = false;
+        dragHead.classList.remove('is-dragging');
+      };
+      dragHead.addEventListener('pointerup', endDrag);
+      dragHead.addEventListener('pointercancel', endDrag);
+    }
+  }
+  if ($('about-dialog')) {
+    $('about-dialog').addEventListener('cancel', event => { event.preventDefault(); closeAbout(); });
+    $('about-dialog').addEventListener('click', event => {
+      if (event.target === event.currentTarget) closeAbout();
+    });
+  }
+  if ($('guide-dialog')) {
+    $('guide-dialog').addEventListener('cancel', event => { event.preventDefault(); closeGuide(); });
+    $('guide-dialog').addEventListener('click', event => {
+      if (event.target === event.currentTarget) closeGuide();
+    });
+  }
+  if ($('image-lightbox-dialog')) {
+    $('image-lightbox-dialog').addEventListener('cancel', event => { event.preventDefault(); closeLightbox(); });
+    $('image-lightbox-dialog').addEventListener('click', event => {
+      if (event.target === event.currentTarget) closeLightbox();
+    });
   }
   $('set-blur')?.addEventListener('change', e => saveUI({blur: e.target.checked}));
   $('set-glass-blur')?.addEventListener('input', e => {
@@ -1252,6 +1576,20 @@
   $('set-lite-mode')?.addEventListener('change', e => saveUI({lite_mode: e.target.checked}));
   $('set-heatmap-day')?.addEventListener('change', e => saveUI({heatmap_day: e.target.value}));
   $('set-custom-accent')?.addEventListener('input',e=>saveUI({accent:'custom',custom_accent:e.target.value}));
+  $('set-custom-text')?.addEventListener('input',e=>saveUI({text_color:'custom',custom_text_color:e.target.value}));
+  $('set-reviewer-card-opacity')?.addEventListener('input',e=>{
+    const val = Number(e.target.value);
+    if ($('reviewer-card-opacity-val')) $('reviewer-card-opacity-val').textContent = `${val}%`;
+    saveUI({reviewer_card_opacity: val});
+  });
+  for (const [id, key] of [
+    ['set-rating-again', 'rating_color_again'],
+    ['set-rating-hard', 'rating_color_hard'],
+    ['set-rating-good', 'rating_color_good'],
+    ['set-rating-easy', 'rating_color_easy'],
+  ]) {
+    $(id)?.addEventListener('input', e => saveUI({rating_colors: 'custom', [key]: e.target.value}));
+  }
   $('set-heatmap-palette')?.addEventListener('change', e => saveUI({heatmap_palette: e.target.value}));
   $('set-goal-num')?.addEventListener('change', e => {
     const val = Math.max(1, Number(e.target.value) || 200);
@@ -1304,17 +1642,21 @@
       if (i % 9 === 0 && i > 27) continue;
       const count = 55 + ((i * 173 + 79) % 220);
       const accuracy=.86+((i*7)%13)/100;
-      days[iso(addDays(end,-i))] = {reviews:count, milliseconds:count*(17000+(i%5)*2300), tested:count, passed:Math.round(count*accuracy)};
+      const passed = Math.round(count*accuracy);
+      days[iso(addDays(end,-i))] = {reviews:count, milliseconds:count*(9500+(i%5)*1200), correct:passed, tested:count, passed};
     }
-    days[today] = {reviews:186,milliseconds:6120000,tested:170,passed:157};
-    const deck = (id,name,total,color,children=[]) => ({id,name,full_name:name,total,new:20,learn:4,review:Number(id)%71+15,retention:92.4,children,filtered:false});
+    days[today] = {reviews:186,milliseconds:2232000,correct:172,tested:170,passed:157};
+    const deck = (id,name,total,color,children=[]) => ({id,name,full_name:name,total,new:20,learn:4,review:Number(id)%71+15,retention:92.5,children,filtered:false});
     const yesterday=days[iso(addDays(end,-1))];
+    const yPace = Math.round((yesterday.reviews / Math.max(1, yesterday.milliseconds / 60000)) * 10) / 10;
+    const tPace = Math.round((186 / Math.max(1, 2232000 / 60000)) * 10) / 10;
+    const yRet = Math.round((yesterday.correct / yesterday.reviews) * 1000) / 10;
     const trend=(current,previous,comparison) => ({current,previous,percent:previous ? Math.round((current-previous)/previous*1000)/10 : null,comparison});
     return {today, profile:'Minh Quân', due:248,total_cards:9284,days,
-      trends:{retention:trend(92.4,89.9,'30 ngày trước'),pace:trend(109,Math.round(yesterday.reviews/yesterday.milliseconds*3600000),'cùng giờ hôm qua'),milliseconds:trend(6120000,yesterday.milliseconds,'cùng giờ hôm qua'),reviews:trend(186,yesterday.reviews,'cùng giờ hôm qua')},
-      stats:{retention:92.4,pace:109,milliseconds:6120000,reviews:186,streak:27,tested:3248},
+      trends:{retention:trend(92.5,Math.min(89.9, yRet),'hôm qua'),pace:trend(tPace,Math.max(tPace + 0.8, yPace),'cùng giờ hôm qua'),milliseconds:trend(2232000,yesterday.milliseconds,'cùng giờ hôm qua'),reviews:trend(186,yesterday.reviews,'cùng giờ hôm qua')},
+      stats:{retention:92.5,true_retention:92.4,correct:172,tested:170,pace:tPace,milliseconds:2232000,reviews:186,streak:27},
       decks:[deck('101','Tiếng Anh — Từ vựng',4872,'blue',[deck('111','Từ vựng theo chủ đề',1520,'blue'),deck('112','Collocations & Phrasal Verbs',2180,'purple'),deck('113','Idioms',1172,'purple')]),deck('102','Tiếng Nhật — N5',1986,'pink'),deck('103','Y học cơ sở',1204,'green'),deck('104','Lịch sử Việt Nam',642,'amber')],
-      settings:{goal:200,layout:state.settings.layout || defaultLayout,theme:'dusk',language:new URLSearchParams(location.search).get('lang')||'vi',view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
+      settings:{goal:200,layout:state.settings.layout || defaultLayout,theme:'dusk',language:new URLSearchParams(location.search).get('lang')||'vi',language_pref:new URLSearchParams(location.search).get('lang')||'vi',welcome_dismissed:true,view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
   }
   // Paint immediately from inline bootstrap when hosted in Anki so startup
   // feels instantaneous, then pull the prefetched full revlog snapshot if partial.
@@ -1333,20 +1675,22 @@
     command('snapshot');
   }
   if (native) {
-    // Poll at most every 5 minutes, and only when the window is visible.
+    // Keep live card counts (including intraday learning steps) synced while visible.
     let pollTimer = 0;
     const pollSnapshot = () => {
       if (!document.hidden) command('snapshot');
-      pollTimer = setTimeout(pollSnapshot, 300000);
+      pollTimer = setTimeout(pollSnapshot, 30000);
     };
-    pollTimer = setTimeout(pollSnapshot, 300000);
-    window.addEventListener('focus', () => {
-      // Qt focus transitions occur when opening native dialogs/windows. Do not
-      // queue another collection scan every time the user switches a tab.
-      const anyDialogOpen = ['library-dialog','settings-dialog','studio-dialog']
+    pollTimer = setTimeout(pollSnapshot, 30000);
+    const maybeSyncOnFocus = () => {
+      const anyDialogOpen = ['settings-dialog','studio-dialog','about-dialog','guide-dialog','image-lightbox-dialog']
         .some(id => $(id)?.open);
-      if (!anyDialogOpen && !document.hidden && performance.now() - lastSnapshotAt > 90000)
+      if (!anyDialogOpen && !document.hidden && performance.now() - lastSnapshotAt > 4000)
         command('snapshot');
+    };
+    window.addEventListener('focus', maybeSyncOnFocus, {passive:true});
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) maybeSyncOnFocus();
     }, {passive:true});
   }
 })();

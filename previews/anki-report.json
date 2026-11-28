@@ -17,16 +17,16 @@
   "review_chrome_and_native_ratings": true,
   "delete_cancel_confirm_undo": true,
   "skipped_unused_heatmap_computation": true,
-  "overview_ready_ms": 177,
-  "review_ready_ms": 494,
+  "overview_ready_ms": 233,
+  "review_ready_ms": 702,
   "anchored_library_popup": true,
   "parent_to_child_navigation": true,
   "studied_child_separately": true,
   "native_flip_and_ratings_ms": 77,
   "full_card_animation_removed": true,
   "rapid_dashboard_redraw_ms": [
-    176,
-    181
+    283,
+    316
   ],
   "heatmap_present_after_navigation": true,
   "native_scheduler_queried_once": true,
@@ -55,7 +55,7 @@
   "command_shortcut_registered": true,
   "backup_available_in_native_mode": true,
   "compatibility_report": true,
-  "studio_first_open_js_ms": 19,
+  "studio_first_open_js_ms": 25,
   "studio_legacy_preview_in_background": true,
   "studio_reuses_thumbnails": true
 }

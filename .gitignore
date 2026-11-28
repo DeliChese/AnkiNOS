@@ -5,3 +5,5 @@ tests/.tmp/
 # User-imported pictures belong to the local Anki installation, never Git.
 user_files/
 AnkiNOS-master-changes.patch
+dist/
+*.ankiaddon

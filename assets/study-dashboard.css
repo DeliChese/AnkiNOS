@@ -68,6 +68,11 @@
 #nos-app .home-grid { display:grid; grid-template-columns:minmax(0,880px) minmax(300px,420px); gap:20px; align-items:start; margin:0 0 20px; flex-shrink:0; }
 #nos-app .home-grid .activity-panel { max-width:880px; min-width:0; margin:0; }
 #nos-app .study-launchpad.compact { max-width:none; margin:0; padding:18px 20px; display:flex; flex-direction:column; gap:10px; min-width:0; }
+#nos-app .study-launchpad-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+#nos-app .study-launchpad-head > div { min-width:0; }
+#nos-app .study-launchpad-body { display:flex; flex-direction:column; gap:10px; min-width:0; }
+#nos-app .study-launchpad.collapsed .study-launchpad-body { display:none; }
+#nos-app .study-launchpad.collapsed .collapse-button .icon { transform:rotate(-90deg); }
 #nos-app .study-launchpad.compact h2 { font-size:17px; margin:0; }
 #nos-app .study-launchpad.compact .eyebrow { margin:0; }
 #nos-app .study-launchpad.compact p { margin:0; font-size:12.5px; line-height:1.5; }

@@ -69,13 +69,38 @@ class SnapshotTests(unittest.TestCase):
         parent = next(d for d in out["decks"] if d["name"] == "Languages")
         self.assertEqual(parent["total"], 2)
         self.assertEqual(len(parent["children"]), 2)
-        self.assertEqual(parent["retention"], 60.0)
-        self.assertEqual(out["stats"]["retention"], 60.0)
+        self.assertEqual(parent["retention"], 50.0)
+        self.assertEqual(out["stats"]["retention"], 50.0)
+        self.assertEqual(out["stats"]["true_retention"], 50.0)
+        self.assertEqual(out["stats"]["correct"], 2)
         self.assertEqual(out["stats"]["reviews"], 4)
         self.assertEqual(out["stats"]["milliseconds"], 80000)
-        self.assertEqual(out["stats"]["pace"], 180)
+        self.assertEqual(out["stats"]["pace"], 3.0)
         self.assertEqual(out["stats"]["streak"], 2)
         self.assertEqual(sum(day["reviews"] for day in out["days"].values()), 6)
+
+    def test_today_retention_reflects_learning_lapses_and_realistic_pace(self):
+        cid, _ = self.card("DailyRetention")
+        start = self.col.sched.day_cutoff - 86400
+        # Yesterday had 10/10 Good due reviews (100%) — must not distort today's retention.
+        for i in range(10):
+            self.log(cid, start - 3600 + i, ease=3, kind=1, ms=5000)
+        # Today: 2 learning lapses (type=0), 1 relearn lapse (type=2), 1 filtered lapse (type=3), 1 due pass (type=1).
+        # Total = 5 reviews in 20 seconds -> retention = 20.0% (never stuck at 100%), pace = 5.0 reviews/min (never 900/hr).
+        self.log(cid, start + 10, ease=1, kind=0, ms=4000)
+        self.log(cid, start + 15, ease=1, kind=0, ms=4000)
+        self.log(cid, start + 20, ease=1, kind=2, ms=4000)
+        self.log(cid, start + 25, ease=1, kind=3, ms=4000)
+        self.log(cid, start + 30, ease=3, kind=1, ms=4000)
+        out = data.collect_snapshot(self.col)
+        self.assertEqual(out["stats"]["reviews"], 5)
+        self.assertEqual(out["stats"]["correct"], 1)
+        self.assertEqual(out["stats"]["retention"], 20.0)
+        # True Retention counts both standard review (type=1, pass) and rescheduling filtered review (type=3, lastIvl>0, fail) -> 1/2 = 50.0%.
+        self.assertEqual(out["stats"]["true_retention"], 50.0)
+        self.assertEqual(out["stats"]["pace"], 5.0)
+        self.assertEqual(out["trends"]["retention"]["previous"], 100.0)
+        self.assertEqual(out["trends"]["retention"]["comparison"], "hôm qua")
 
     def test_filtered_cards_count_toward_original_deck(self):
         cid, original_id = self.card("Original")

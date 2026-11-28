@@ -16,7 +16,10 @@ MAX_IMAGE_BYTES = 16 * 1024 * 1024
 MAX_IMAGES = 100
 MAX_ALBUMS = 30
 FORMATS = {"png": ".png", "jpeg": ".jpg", "jpg": ".jpg", "webp": ".webp"}
-SLOTS = ("image_dashboard", "image_overview", "image_review", "image_avatar")
+SLOTS = ("image_dashboard", "image_overview", "image_review", "image_avatar", "image_cover")
+FRAME_SLOTS = ("dashboard", "overview", "review", "avatar", "cover")
+FRAME_ZOOM_MIN = 100
+FRAME_ZOOM_MAX = 250
 IMAGE_FITS = ("contain", "cover")
 IMAGE_POSITIONS = ("center", "top", "bottom", "left", "right")
 THUMBNAIL_SUFFIX = "-thumb.png"
@@ -26,6 +29,25 @@ WALLPAPER_MAX_SIDE = 2048
 WALLPAPER_DIM_MAX = 80
 WALLPAPER_BLUR_MAX = 24
 _ID = re.compile(r"[0-9a-f]{32}\Z")
+
+
+def valid_image_frames(raw: object) -> dict[str, dict[str, int]]:
+    """Sanitize non-destructive focal-point (x/y %) and zoom (%) framing per surface."""
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, dict[str, int]] = {}
+    for surface in FRAME_SLOTS:
+        entry = raw.get(surface)
+        if not isinstance(entry, dict):
+            continue
+        x = entry.get("x")
+        y = entry.get("y")
+        zoom = entry.get("zoom")
+        clean_x = x if type(x) is int and 0 <= x <= 100 else 50
+        clean_y = y if type(y) is int and 0 <= y <= 100 else 50
+        clean_zoom = zoom if type(zoom) is int and FRAME_ZOOM_MIN <= zoom <= FRAME_ZOOM_MAX else 100
+        result[surface] = {"x": clean_x, "y": clean_y, "zoom": clean_zoom}
+    return result
 
 
 def profile_dir(root: Path, profile: str) -> Path:

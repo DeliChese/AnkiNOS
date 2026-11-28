@@ -18,7 +18,9 @@ from .i18n import translate as _tr_text
 if TYPE_CHECKING:
     from anki.collection import OpChanges
 
-FILTERED_DECK_NAME = "AnkiNOS::Lịch hôm nay"
+FILTERED_DECK_NAME = "AnkiNOS — Lịch hôm nay"
+LEGACY_FILTERED_DECK_NAMES = ("AnkiNOS::Lịch hôm nay",)
+LEGACY_EMPTY_PARENT_NAME = "AnkiNOS"
 MAX_SESSION_CARDS = 1500
 T = TypeVar("T")
 
@@ -172,6 +174,112 @@ def rollback_batch_in_col(
     }
 
 
+def inspect_active_filtered_session(col: Any) -> dict[str, Any]:
+    """Inspect whether a managed Daily Schedule filtered deck currently holds active cards."""
+    for name in (FILTERED_DECK_NAME, *LEGACY_FILTERED_DECK_NAMES):
+        did = col.decks.id_for_name(name)
+        if not did:
+            continue
+        deck = col.decks.get(did)
+        if not deck or not deck.get("dyn"):
+            continue
+        rows = col.db.all("SELECT queue, count(*) FROM cards WHERE did = ? GROUP BY queue", did)
+        total = sum(int(cnt) for _q, cnt in rows)
+        if total <= 0:
+            continue
+        relearning_count = sum(int(cnt) for q, cnt in rows if int(q) == 1)
+        review_count = sum(int(cnt) for q, cnt in rows if int(q) in (2, 3))
+        return {
+            "active": True,
+            "deck_id": str(did),
+            "deck_name": str(deck.get("name") or name),
+            "total": total,
+            "relearning_count": relearning_count,
+            "review_count": review_count,
+        }
+    return {"active": False, "deck_id": "", "deck_name": "", "total": 0, "relearning_count": 0, "review_count": 0}
+
+
+def _remove_deck_with_changes(col: Any, did: int, changes: OpChanges | None) -> bool:
+    remove_fn = getattr(col.decks, "remove", None)
+    if not callable(remove_fn):
+        return False
+    res = remove_fn([did])
+    _merge_changes(changes, getattr(res, "changes", res))
+    return True
+
+
+def _cleanup_legacy_and_empty_shells(
+    col: Any,
+    changes: OpChanges | None,
+    *,
+    empty_active_legacy: bool = False,
+) -> bool:
+    """Remove obsolete nested filtered decks and any empty 'AnkiNOS' parent shell."""
+    removed = False
+    for legacy_name in LEGACY_FILTERED_DECK_NAMES:
+        ldid = col.decks.id_for_name(legacy_name)
+        if not ldid:
+            continue
+        ldeck = col.decks.get(ldid)
+        if not ldeck or not ldeck.get("dyn"):
+            continue
+        count = int(col.db.scalar("SELECT count(*) FROM cards WHERE did = ?", ldid) or 0)
+        if count > 0 and not empty_active_legacy:
+            continue
+        if count > 0:
+            _merge_changes(changes, col.sched.empty_filtered_deck(ldid))
+        if _remove_deck_with_changes(col, ldid, changes):
+            removed = True
+
+    parent_did = col.decks.id_for_name(LEGACY_EMPTY_PARENT_NAME)
+    if parent_did:
+        parent_deck = col.decks.get(parent_did)
+        if parent_deck and not parent_deck.get("dyn"):
+            prefix = LEGACY_EMPTY_PARENT_NAME + "::"
+            has_children = any(entry.name.startswith(prefix) for entry in col.decks.all_names_and_ids())
+            card_count = int(
+                col.db.scalar("SELECT count(*) FROM cards WHERE did = ? OR odid = ?", parent_did, parent_did) or 0
+            )
+            if not has_children and card_count == 0 and _remove_deck_with_changes(col, parent_did, changes):
+                removed = True
+    return removed
+
+
+def cleanup_empty_filtered_decks_in_col(col: Any, *, changes: OpChanges | None = None) -> bool:
+    """Remove empty managed Daily Schedule filtered decks and any empty legacy parent shell."""
+    removed = False
+    fdid = col.decks.id_for_name(FILTERED_DECK_NAME)
+    if fdid:
+        fdeck = col.decks.get(fdid)
+        if fdeck and fdeck.get("dyn"):
+            count = int(col.db.scalar("SELECT count(*) FROM cards WHERE did = ?", fdid) or 0)
+            if count == 0 and _remove_deck_with_changes(col, fdid, changes):
+                removed = True
+    if _cleanup_legacy_and_empty_shells(col, changes, empty_active_legacy=False):
+        removed = True
+    return removed
+
+
+def empty_session_in_col(col: Any, *, changes: OpChanges | None = None) -> int:
+    """Return all cards from any managed filtered deck to their home decks and remove the shell."""
+    returned = 0
+    for name in (FILTERED_DECK_NAME, *LEGACY_FILTERED_DECK_NAMES):
+        did = col.decks.id_for_name(name)
+        if not did:
+            continue
+        deck = col.decks.get(did)
+        if not deck or not deck.get("dyn"):
+            continue
+        count = int(col.db.scalar("SELECT count(*) FROM cards WHERE did = ?", did) or 0)
+        if count > 0:
+            _merge_changes(changes, col.sched.empty_filtered_deck(did))
+            returned += count
+        _remove_deck_with_changes(col, did, changes)
+    _cleanup_legacy_and_empty_shells(col, changes, empty_active_legacy=False)
+    return returned
+
+
 def prepare_today_filtered_deck(
     col: Any,
     *,
@@ -179,9 +287,13 @@ def prepare_today_filtered_deck(
     deck_names: list[str] | None = None,
     include_children: bool = True,
     limit: int = MAX_SESSION_CARDS,
+    daily_cap: int = DEFAULT_DAILY_CAP,
+    backlog_mode: str = "virtual",
+    review_order: str = "auto",
+    session_mode: str = "smart",
     changes: OpChanges | None = None,
 ) -> tuple[int, int]:
-    """Build or rebuild the managed Anki filtered deck for Today's unlocked cards only."""
+    """Build, resume, or rebuild the managed Anki filtered deck for Today's session."""
     sched_today = int(col.sched.today)
     all_decks = {int(entry.id): entry.name for entry in col.decks.all_names_and_ids()}
     filtered_ids = {int(deck["id"]) for deck in col.decks.all() if deck.get("dyn")}
@@ -195,6 +307,16 @@ def prepare_today_filtered_deck(
     if not scope_dids:
         raise ValueError("Phạm vi hiện tại không khớp bộ thẻ nào.")
 
+    # Protect in-progress sessions (especially queue=1 relearning cards) unless user asks to rebuild.
+    active = inspect_active_filtered_session(col)
+    if active["active"] and (session_mode == "continue" or (session_mode == "smart" and active["relearning_count"] > 0)):
+        did = int(active["deck_id"])
+        _merge_changes(changes, col.decks.set_current(did))
+        return did, int(active["total"])
+
+    # Clean up legacy nested filtered decks and empty 'AnkiNOS' parent shell.
+    _cleanup_legacy_and_empty_shells(col, changes, empty_active_legacy=True)
+
     # Empty our managed filtered deck first so cards return to their home decks before re-gathering.
     existing_did = col.decks.id_for_name(FILTERED_DECK_NAME)
     if existing_did:
@@ -204,35 +326,42 @@ def prepare_today_filtered_deck(
         else:
             existing_did = None
 
-    # Re-collect exact Today unlocked card IDs (never pulls queue=0, queue=1, or future locked cards).
+    # Collect session queue IDs (virtual mode includes capped overdue; reschedule mode uses today only).
     snapshot = collect_daily_schedule(
         col,
         scope_mode=scope_mode,
         deck_names=deck_names,
         include_children=include_children,
+        daily_cap=daily_cap,
+        backlog_mode=backlog_mode,
+        review_order=review_order,
     )
-    valid_ids = [int(cid) for cid in snapshot["today_bucket"].get("card_ids", [])][: max(1, min(MAX_SESSION_CARDS, int(limit)))]
+    queue_ids = snapshot.get("session_queue", {}).get("card_ids") or snapshot["today_bucket"].get("card_ids", [])
+    valid_ids = [int(cid) for cid in queue_ids][: max(1, min(MAX_SESSION_CARDS, int(limit)))]
     if not valid_ids:
         raise ValueError("Hôm nay chưa có thẻ đến hạn trong phạm vi đang chọn.")
 
-    # Double-check against live DB that no future card slipped in and card is free to gather.
+    # Double-check against live DB that no future card slipped in and preserve exact serving order.
     placeholders = ",".join("?" for _ in valid_ids)
-    verified = [
+    due_clause = "due <= ?" if backlog_mode == "virtual" else "due = ?"
+    available_set = {
         int(row[0])
         for row in col.db.all(
             f"SELECT id FROM cards WHERE id IN ({placeholders}) AND queue IN (2, 3) "
-            "AND odid = 0 AND due = ?",
+            f"AND odid = 0 AND {due_clause}",
             *valid_ids,
             sched_today,
         )
-    ]
+    }
+    verified = [cid for cid in valid_ids if cid in available_set]
     if not verified:
         raise ValueError("Hôm nay không còn thẻ đến hạn sẵn sàng (có thể đang nằm trong bộ thẻ lọc khác).")
 
     did = existing_did if existing_did else col.decks.new_filtered(FILTERED_DECK_NAME)
     deck = col.decks.get(did)
     search = "cid:" + ",".join(str(cid) for cid in verified)
-    # Keep native Anki/FSRS rescheduling enabled in the filtered session.
+    # Always pass order=0 (DYN_OLDEST) to avoid Anki DbError on orders 8/9 when FSRS is disabled,
+    # then stamp exact Retrievability ordinals on the gathered filtered cards.
     deck["terms"] = [[search, len(verified), 0]]
     deck["resched"] = True
     deck["delays"] = None
@@ -242,6 +371,21 @@ def prepare_today_filtered_deck(
     gathered = int(getattr(rebuilt, "count", len(verified)))
     if gathered <= 0:
         raise ValueError("Hôm nay không còn thẻ đến hạn sẵn sàng để mở phiên ôn.")
+
+    if len(verified) > 1 and callable(getattr(col, "update_cards", None)):
+        reordered = []
+        for idx, cid in enumerate(verified):
+            try:
+                fc = col.get_card(cid)
+            except Exception:
+                continue
+            if int(fc.did) == int(did) and int(fc.odid) != 0 and int(fc.queue) in (2, 3):
+                # Filtered deck ordinals sit below 0 (preserving real home due in fc.odue).
+                fc.due = -100_000 + idx
+                reordered.append(fc)
+        if reordered:
+            _merge_changes(changes, col.update_cards(reordered))
+
     _merge_changes(changes, col.decks.set_current(did))
     return int(did), gathered
 
@@ -257,12 +401,17 @@ def build_daily_payload(col: Any, root: Path, profile: str) -> dict[str, Any]:
         include_children=cfg["include_children"],
         daily_cap=cfg["daily_cap"],
         horizon_days=HORIZON_DISPLAY_DAYS,
+        backlog_mode=cfg["backlog_mode"],
+        review_order=cfg["review_order"],
+        safe_floor_r=cfg["safe_floor_r"],
+        max_shift_days=cfg["max_shift_days"],
     )
     return {
         "config": cfg,
         "scope_label": scope_label_for(cfg),
         "presets": store.list_presets(),
         "batches": store.list_batches(20),
+        "active_session": inspect_active_filtered_session(col),
         "schedule": schedule,
     }
 
@@ -289,7 +438,7 @@ def handle(
 
     def respond(data: Any = None, error: str = "") -> None:
         if current():
-            reply("daily", {"request_id": request_id, "method": method, "data": data, "error": error})
+            reply("daily", {"request_id": request_id, "method": method, "data": data, "error": _tr_text(error, lang)})
 
     def fail(error: Exception) -> None:
         respond(error=str(error))
@@ -359,6 +508,10 @@ def handle(
                 include_children=cfg["include_children"],
                 daily_cap=cfg["daily_cap"],
                 horizon_days=HORIZON_DISPLAY_DAYS,
+                backlog_mode=cfg["backlog_mode"],
+                review_order=cfg["review_order"],
+                safe_floor_r=cfg["safe_floor_r"],
+                max_shift_days=cfg["max_shift_days"],
             )
             changes = OpChanges()
             result = apply_redistribution_in_col(col, schedule["plan"], store, scope_label_for(cfg), changes=changes, lang=lang)
@@ -403,11 +556,29 @@ def handle(
         ).failure(fail).run_in_background()
         return
 
+    if method == "empty_session":
+        def op_empty(col: Any) -> _CollectionResult[dict[str, Any]]:
+            changes = OpChanges()
+            returned = empty_session_in_col(col, changes=changes)
+            payload = build_daily_payload(col, root, profile)
+            payload["empty_result"] = {"returned": returned}
+            return _CollectionResult(changes, payload)
+
+        def done_empty(result: _CollectionResult[dict[str, Any]]) -> None:
+            on_mutated()
+            respond(data=result.data)
+
+        CollectionOp(parent=mw, op=op_empty).success(done_empty).failure(fail).run_in_background(initiator=initiator)
+        return
+
     if method == "study_today":
         minutes = command.get("minutes")
         if minutes is not None and (type(minutes) is not int or minutes not in {15, 30, 60}):
             respond(error="Chọn thời lượng Focus 15, 30 hoặc 60 phút.")
             return
+        session_mode = command.get("session_mode")
+        if session_mode not in {"smart", "continue", "rebuild"}:
+            session_mode = "smart"
 
         def op_study(col: Any) -> _CollectionResult[tuple[int, int]]:
             cfg = DailyStore(root, profile).get_config()
@@ -417,6 +588,10 @@ def handle(
                 scope_mode=cfg["scope_mode"],
                 deck_names=cfg["deck_names"],
                 include_children=cfg["include_children"],
+                daily_cap=cfg["daily_cap"],
+                backlog_mode=cfg["backlog_mode"],
+                review_order=cfg["review_order"],
+                session_mode=session_mode,
                 changes=changes,
             )
             return _CollectionResult(changes, result)

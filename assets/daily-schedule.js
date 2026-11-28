@@ -124,13 +124,18 @@
     return {
       isoOf,
       decks,
-      config: {scope_mode: 'all', deck_names: [], include_children: true, daily_cap: 40, auto_reschedule: false, active_preset_id: ''},
+      config: {
+        scope_mode: 'all', deck_names: [], include_children: true, daily_cap: 40,
+        backlog_mode: 'virtual', review_order: 'auto', safe_floor_r: 75, max_shift_days: 30,
+        auto_clean_filtered: true, auto_reschedule: false, active_preset_id: '',
+      },
       presets: [
         {id: 'p-en', name: 'Tiếng Anh', scope_mode: 'decks', deck_names: ['Tiếng Anh'], include_children: true, daily_cap: 35},
       ],
       batches: [],
       overdueCards: cards,
       baseFuture,
+      activeSession: {active: false, deck_id: '', deck_name: '', total: 0, relearning_count: 0, review_count: 0},
     };
   }
 
@@ -138,6 +143,10 @@
     if (!previewMock) previewMock = buildPreviewMock();
     const {isoOf, decks, config, presets, batches, overdueCards, baseFuture} = previewMock;
     const cap = Math.max(1, Math.min(2000, Number(config.daily_cap) || 40));
+    const backlogMode = config.backlog_mode === 'reschedule' ? 'reschedule' : 'virtual';
+    const reviewOrder = ['auto', 'desc_r', 'asc_r'].includes(config.review_order) ? config.review_order : 'auto';
+    const safeFloorR = Math.max(50, Math.min(95, Number(config.safe_floor_r) || 75));
+    const maxShiftDays = Math.max(3, Math.min(90, Number(config.max_shift_days) || 30));
     const matchesDeck = name => {
       if (config.scope_mode !== 'decks') return true;
       return (config.deck_names || []).some(sel => name === sel || (config.include_children && name.startsWith(sel + '::')));
@@ -148,13 +157,13 @@
     for (let offset = 0; offset <= 45; offset++) loads[offset] = Math.round((baseFuture[offset] || 0) * factor);
 
     // Mini client-side mirror of adaptive window planner for interactive preview.
-    let win = 14;
+    let win = Math.min(14, maxShiftDays);
     const freeSlots = w => {
       let s = 0;
       for (let d = 0; d <= w; d++) s += Math.max(0, cap - (loads[d] || 0));
       return s;
     };
-    while (freeSlots(win) < filteredOverdue.length && win < 90) win += 7;
+    while (freeSlots(win) < filteredOverdue.length && win < maxShiftDays) win = Math.min(maxShiftDays, win + 7);
     const projected = {...loads};
     const moves = [];
     const sorted = [...filteredOverdue].sort((a, b) => a.r_before - b.r_before);
@@ -200,11 +209,18 @@
       : !config.deck_names.length ? 'Chưa chọn bộ thẻ'
       : config.deck_names.length === 1 ? config.deck_names[0] + (config.include_children ? ' (+ bộ con)' : '')
       : `${config.deck_names.length} bộ thẻ đã chọn`;
+    const resolvedOrder = reviewOrder === 'auto' ? (filteredOverdue.length ? 'desc_r' : 'asc_r') : reviewOrder;
+    const overdueIncluded = backlogMode === 'virtual' ? Math.min(filteredOverdue.length, Math.max(0, cap - todayCount)) : 0;
+    const todayIncluded = backlogMode === 'virtual' ? Math.min(todayCount, cap) : todayCount;
+    const sessionCount = todayIncluded + overdueIncluded;
+    const totalPool = backlogMode === 'virtual' ? todayCount + filteredOverdue.length : todayCount;
+
     return {
-      config: {...config},
+      config: {...config, backlog_mode: backlogMode, review_order: reviewOrder, safe_floor_r: safeFloorR, max_shift_days: maxShiftDays},
       scope_label: label,
       presets: [...presets],
       batches: [...batches],
+      active_session: {...previewMock.activeSession},
       schedule: {
         today: isoOf(0), daily_cap: cap, scope_mode: config.scope_mode,
         total_tracked: todayCount + futureDays.reduce((s, d) => s + d.count, 0) + filteredOverdue.length,
@@ -222,10 +238,17 @@
           ] : [],
           card_ids: todayCount ? [7001, 7002] : [],
         },
+        session_queue: {
+          mode: backlogMode, order: reviewOrder, resolved_order: resolvedOrder,
+          count: sessionCount, today_included: todayIncluded, overdue_included: overdueIncluded,
+          deferred_count: Math.max(0, totalPool - sessionCount),
+          avg_r: sessionCount ? 81.6 : null, card_ids: todayCount ? [7001, 7002] : [],
+        },
         future: {horizon_days: 45, total_in_horizon: futureDays.reduce((s, d) => s + d.count, 0), beyond_horizon_count: 118, days: futureDays},
         plan: {
-          total_movable: moves.length, daily_cap: cap, initial_window: 14, expanded_window: win,
-          window_expanded: win > 14,
+          total_movable: moves.length, daily_cap: cap, initial_window: Math.min(14, maxShiftDays), expanded_window: win,
+          max_window: maxShiftDays, safe_floor_r: safeFloorR, protected_floor_count: moves.filter(m => m.r_target >= safeFloorR).length,
+          window_expanded: win > Math.min(14, maxShiftDays),
           today_added: moves.filter(m => m.target_offset === 0).length,
           future_added: moves.filter(m => m.target_offset > 0).length,
           future_days_used: new Set(moves.filter(m => m.target_offset > 0).map(m => m.target_offset)).size,
@@ -279,6 +302,12 @@
       const next = computePreviewPayload();
       next.rollback_result = {batch_id: args.batch_id, restored: batch?._moves?.length || 0, skipped_reviewed: 0, skipped_changed: 0};
       return Promise.resolve(next);
+    } else if (method === 'empty_session') {
+      const returned = previewMock.activeSession.total || 0;
+      previewMock.activeSession = {active: false, deck_id: '', deck_name: '', total: 0, relearning_count: 0, review_count: 0};
+      const next = computePreviewPayload();
+      next.empty_result = {returned};
+      return Promise.resolve(next);
     } else if (method === 'study_today') {
       setStatus('Bản xem trước: Mở Anki để vào phiên ôn Hôm nay với reviewer gốc của Anki.');
       return Promise.resolve(computePreviewPayload());
@@ -312,10 +341,13 @@
 
   function syncActionButtons() {
     const planCount = state?.schedule?.plan?.total_movable || 0;
-    const todayCount = state?.schedule?.today_bucket?.count || 0;
+    const sqCount = state?.schedule?.session_queue?.count ?? state?.schedule?.today_bucket?.count ?? 0;
+    const hasActive = !!state?.active_session?.active;
     if ($('apply-plan')) $('apply-plan').disabled = busy || planCount === 0;
-    if ($('study-today')) $('study-today').disabled = busy || todayCount === 0;
-    if ($('focus-today')) $('focus-today').disabled = busy || todayCount === 0;
+    if ($('study-today')) $('study-today').disabled = busy || (!hasActive && sqCount === 0);
+    if ($('focus-today')) $('focus-today').disabled = busy || (!hasActive && sqCount === 0);
+    if ($('rebuild-session')) $('rebuild-session').disabled = busy;
+    if ($('empty-session')) $('empty-session').disabled = busy;
     if ($('refresh')) $('refresh').disabled = busy;
   }
 
@@ -340,6 +372,8 @@
           setStatus(`Đã dời ${fmt.format(data.apply_result.applied)} thẻ quá hạn sang ngày tối ưu (due thật).`);
         } else if (data.apply_result) {
           setStatus('Không có thẻ quá hạn nào cần dời.');
+        } else if (data.empty_result) {
+          setStatus(`Đã trả ${fmt.format(data.empty_result.returned)} thẻ về bộ thẻ gốc.`);
         } else if (data.rollback_result) {
           if (lastAppliedBatchId === data.rollback_result.batch_id) lastAppliedBatchId = '';
           const r = data.rollback_result;
@@ -364,7 +398,10 @@
   function renderScopeControls() {
     if (!state?.config) return;
     const cfg = state.config;
-    $('scope-label').textContent = state.scope_label || 'Toàn bộ bộ sưu tập';
+    const scopeEl = $('scope-label');
+    scopeEl.textContent = state.scope_label || 'Toàn bộ bộ sưu tập';
+    if (cfg.scope_mode === 'decks') scopeEl.setAttribute('data-i18n-skip', '');
+    else scopeEl.removeAttribute('data-i18n-skip');
     $('scope-toggle').setAttribute('aria-expanded', String(scopeOpen));
     $('scope-panel').hidden = !scopeOpen;
 
@@ -381,16 +418,26 @@
       chip.type = 'button';
       chip.dataset.dailyPreset = preset.id;
       chip.setAttribute('aria-pressed', String(cfg.active_preset_id === preset.id));
+      chip.setAttribute('data-i18n-skip', '');
       presetsBox.append(chip);
     }
 
-    // Daily cap controls
+    // Daily cap + mode + order controls
     const cap = Number(cfg.daily_cap) || 40;
+    const backlogMode = cfg.backlog_mode === 'reschedule' ? 'reschedule' : 'virtual';
     $('cap-input').value = String(cap);
-    $('cap-hint').textContent = `Tự mở rộng cửa sổ rải khi quá hạn vượt trần · ${estimateMinutes(cap)}`;
+    $('cap-hint').textContent = backlogMode === 'virtual'
+      ? `Gom an toàn không sửa due thật · ${estimateMinutes(cap)}`
+      : `Tự mở rộng cửa sổ rải khi quá hạn vượt trần · ${estimateMinutes(cap)}`;
     page.querySelectorAll('[data-daily-cap]').forEach(btn => {
       btn.setAttribute('aria-pressed', String(Number(btn.dataset.dailyCap) === cap));
     });
+    page.querySelectorAll('[data-backlog-mode]').forEach(btn => {
+      btn.setAttribute('aria-pressed', String(btn.dataset.backlogMode === backlogMode));
+    });
+    if ($('order-select')) $('order-select').value = cfg.review_order || 'auto';
+    if ($('safe-r')) $('safe-r').value = String(cfg.safe_floor_r || 75);
+    if ($('max-shift')) $('max-shift').value = String(cfg.max_shift_days || 30);
 
     if (scopeOpen) renderScopeTree();
   }
@@ -516,6 +563,8 @@
     if (!state?.schedule) return;
     const overdue = state.schedule.overdue;
     const plan = state.schedule.plan;
+    const sq = state.schedule.session_queue;
+    const backlogMode = state.config?.backlog_mode === 'reschedule' ? 'reschedule' : 'virtual';
     const panel = $('overdue-panel');
     const undoBanner = $('undo-banner');
 
@@ -527,7 +576,12 @@
     const nonMovableNote = overdue.non_movable_count
       ? ` (${fmt.format(overdue.non_movable_count)} thẻ đang học theo ngày/bộ lọc được giữ nguyên)`
       : '';
-    $('overdue-summary').textContent = plan.summary + nonMovableNote;
+    const virtualNote = backlogMode === 'virtual'
+      ? (sq?.overdue_included
+        ? ` Đang gom an toàn ${fmt.format(sq.overdue_included)} thẻ quá hạn vào phiên hôm nay mà không sửa ngày đến hạn gốc.`
+        : ' Đang bật Gom thông minh (không sửa ngày đến hạn gốc).')
+      : '';
+    $('overdue-summary').textContent = plan.summary + nonMovableNote + virtualNote;
     $('apply-plan').disabled = busy || plan.total_movable === 0;
     $('toggle-preview').setAttribute('aria-expanded', String(previewOpen));
     $('toggle-preview').textContent = previewOpen ? 'Ẩn xem trước' : 'Xem trước Trước / Sau';
@@ -564,19 +618,42 @@
   function renderToday() {
     if (!state?.schedule) return;
     const today = state.schedule.today_bucket;
+    const sq = state.schedule.session_queue || null;
+    const active = state.active_session || null;
+    const isVirtual = sq?.mode === 'virtual';
+    const sessionCount = isVirtual ? sq.count : today.count;
+    const orderLabel = (sq?.resolved_order || 'asc_r') === 'desc_r' ? 'R cao → thấp' : 'R thấp → cao';
+
     $('today-date').textContent = `Hôm nay · ${formatFullDate(today.date)}`;
-    $('today-count').textContent = fmt.format(today.count);
-    $('today-meta').textContent = today.count
-      ? `${estimateMinutes(today.count)} · R trung bình ${today.avg_r != null ? today.avg_r + '%' : '—'}`
-      : 'Hôm nay đã hoàn tất hoặc chưa có thẻ đến hạn.';
+    $('today-count').textContent = fmt.format(sessionCount);
+    if (sessionCount > 0) {
+      const mix = isVirtual && sq.overdue_included > 0
+        ? `${fmt.format(sq.today_included)} hôm nay + ${fmt.format(sq.overdue_included)} quá hạn · `
+        : '';
+      const avgR = (isVirtual ? sq.avg_r : today.avg_r);
+      $('today-meta').textContent = `${mix}${estimateMinutes(sessionCount)} · R trung bình ${avgR != null ? avgR + '%' : '—'} · ${orderLabel}`;
+    } else {
+      $('today-meta').textContent = 'Hôm nay đã hoàn tất hoặc chưa có thẻ đến hạn.';
+    }
     $('tracked-note').textContent = `Đang theo dõi ${fmt.format(state.schedule.total_tracked)} thẻ đã học theo ngày · ${fmt.format(state.schedule.pending_first_study)} thẻ mới/học phút vẫn ở bộ thẻ gốc.`;
 
     $('tier-critical').textContent = fmt.format(today.tiers?.critical || 0);
     $('tier-due').textContent = fmt.format(today.tiers?.due || 0);
     $('tier-strong').textContent = fmt.format(today.tiers?.strong || 0);
 
-    $('study-today').disabled = busy || today.count === 0;
-    $('focus-today').disabled = busy || today.count === 0;
+    const sessionBanner = $('session-banner');
+    if (sessionBanner) {
+      const hasActive = !!active?.active;
+      sessionBanner.hidden = !hasActive;
+      sessionBanner.classList.toggle('has-relearning', !!active?.relearning_count);
+      if (hasActive) {
+        $('session-copy').textContent = active.relearning_count > 0
+          ? `Phiên đang dở: còn ${fmt.format(active.total)} thẻ (${fmt.format(active.relearning_count)} thẻ đang học lại được bảo vệ).`
+          : `Phiên đang dở trong bộ thẻ lọc: còn ${fmt.format(active.total)} thẻ.`;
+      }
+    }
+    $('study-today').textContent = active?.active ? 'Tiếp tục phiên hôm nay' : 'Ôn tập hôm nay';
+    syncActionButtons();
 
     page.querySelectorAll('[data-today-tab]').forEach(btn => {
       btn.setAttribute('aria-pressed', String(btn.dataset.todayTab === todayTab));
@@ -605,6 +682,7 @@
       for (const card of today.cards || []) {
         const li = el('li');
         const main = el('span', `${card.preview || 'Thẻ #' + card.card_id} · ${card.deck_name}`, 'daily-mini-main');
+        if (native && card.preview) main.setAttribute('data-i18n-skip', '');
         main.title = `${card.preview}\nBộ thẻ: ${card.deck_name}\nHọc lần đầu: ${card.first_studied_day}`;
         li.append(main, el('strong', `R ${card.retrievability}%`));
         list.append(li);
@@ -668,8 +746,10 @@
     list.replaceChildren();
     for (const card of (day.cards || []).slice(0, 30)) {
       const li = el('li');
+      const mainEl = el('span', `${card.preview || 'Thẻ #' + card.card_id} · ${card.deck_name}`, 'daily-mini-main');
+      if (native && card.preview) mainEl.setAttribute('data-i18n-skip', '');
       li.append(
-        el('span', `${card.preview || 'Thẻ #' + card.card_id} · ${card.deck_name}`, 'daily-mini-main'),
+        mainEl,
         el('span', `Đầu: ${formatShortDate(card.first_studied_day)} · ivl ${card.ivl}d`, 'daily-muted')
       );
       list.append(li);
@@ -794,6 +874,12 @@
       runAction('Đang tính lại lịch theo trần mới…', () => request('save_config', {config: {daily_cap: cap}}));
       return;
     }
+    const modeBtn = e.target.closest('[data-backlog-mode]');
+    if (modeBtn) {
+      const mode = modeBtn.dataset.backlogMode === 'reschedule' ? 'reschedule' : 'virtual';
+      runAction('Đang cập nhật chế độ lịch ôn…', () => request('save_config', {config: {backlog_mode: mode}}));
+      return;
+    }
     const tabBtn = e.target.closest('[data-today-tab]');
     if (tabBtn) {
       todayTab = tabBtn.dataset.todayTab;
@@ -820,6 +906,15 @@
     e.target.value = String(cap);
     runAction('Đang tính lại lịch theo trần mới…', () => request('save_config', {config: {daily_cap: cap}}));
   });
+  $('order-select')?.addEventListener('change', e => {
+    runAction('Đang cập nhật thứ tự ưu tiên…', () => request('save_config', {config: {review_order: e.target.value}}));
+  });
+  $('safe-r')?.addEventListener('change', e => {
+    runAction('Đang tính lại theo ngưỡng R an toàn…', () => request('save_config', {config: {safe_floor_r: Number(e.target.value)}}));
+  });
+  $('max-shift')?.addEventListener('change', e => {
+    runAction('Đang tính lại theo giới hạn ngày dời…', () => request('save_config', {config: {max_shift_days: Number(e.target.value)}}));
+  });
 
   $('toggle-preview').addEventListener('click', () => {
     previewOpen = !previewOpen;
@@ -841,11 +936,23 @@
   });
 
   $('study-today').addEventListener('click', () => {
-    runAction('Đang mở phiên ôn Hôm nay…', () => request('study_today', {minutes: null}));
+    const mode = state?.active_session?.active ? 'continue' : 'smart';
+    runAction('Đang mở phiên ôn Hôm nay…', () => request('study_today', {minutes: null, session_mode: mode}));
   });
   $('focus-today').addEventListener('click', () => {
     const minutes = Number($('focus-budget').value) || 30;
-    runAction(`Đang mở Focus ${minutes} phút cho Hôm nay…`, () => request('study_today', {minutes}));
+    const mode = state?.active_session?.active ? 'continue' : 'smart';
+    runAction(`Đang mở Focus ${minutes} phút cho Hôm nay…`, () => request('study_today', {minutes, session_mode: mode}));
+  });
+  $('rebuild-session')?.addEventListener('click', () => {
+    const relearning = state?.active_session?.relearning_count || 0;
+    if (relearning > 0 && !confirm(window.NOSI18n.t('Phiên đang dở có thẻ đang học lại theo phút. Gom lại sẽ trả các thẻ này về bộ thẻ gốc. Bạn có muốn gom lại phiên mới?'))) {
+      return;
+    }
+    runAction('Đang gom lại phiên ôn Hôm nay…', () => request('study_today', {minutes: null, session_mode: 'rebuild'}));
+  });
+  $('empty-session')?.addEventListener('click', () => {
+    runAction('Đang trả thẻ về bộ thẻ gốc…', () => request('empty_session'));
   });
 
   $('open-ledger').addEventListener('click', () => {

@@ -6,15 +6,16 @@ COLLECTION_KEY = "ankinos_learning_collection_uuid"
 
 
 COMMANDS = [
-    ("study", "Học bộ thẻ hiện tại", "học tiếp ôn tập study review learn current deck"),
-    ("daily", "Lịch ôn theo ngày", "lịch ôn theo ngày thông minh due schedule daily memory"),
-    ("focus", "Bắt đầu Focus", "tập trung thời gian focus timer session"),
-    ("notebook", "Sổ tay của bộ thẻ", "ghi chú sổ tay notes notebook"),
-    ("add", "Thêm thẻ Anki", "tạo thẻ note add cards"),
-    ("browse", "Duyệt thẻ", "tìm kiếm browser browse cards"),
-    ("stats", "Thống kê AnkiNOS", "thống kê số liệu lịch sử stats statistics analytics graphs"),
-    ("sync", "Đồng bộ Anki", "đồng bộ ankiweb sync"),
-    ("backup", "Tạo gói sao lưu AnkiNOS", "sao lưu dữ liệu backup archive export"),
+    ("study", "Học bộ thẻ hiện tại", "học tiếp ôn tập study review learn current deck 学习 复习 当前牌组"),
+    ("daily", "Lịch ôn theo ngày", "lịch ôn theo ngày thông minh due schedule daily memory 每日复习 计划 日程"),
+    ("focus", "Bắt đầu Focus", "tập trung thời gian focus timer session 专注 计时器"),
+    ("notebook", "Sổ tay của bộ thẻ", "ghi chú sổ tay notes notebook 笔记 笔记本"),
+    ("add", "Thêm thẻ Anki", "tạo thẻ note add cards 添加卡片 新建"),
+    ("browse", "Duyệt thẻ", "tìm kiếm browser browse cards 浏览卡片 搜索"),
+    ("stats", "Thống kê AnkiNOS", "thống kê số liệu lịch sử stats statistics analytics graphs 统计 数据 图表"),
+    ("sync", "Đồng bộ Anki", "đồng bộ ankiweb sync 同步"),
+    ("backup", "Tạo gói sao lưu AnkiNOS", "sao lưu dữ liệu backup archive export 备份 导出"),
+    ("toggle_nos", "Bật / tắt giao diện AnkiNOS", "quay lại ankinos giao diện gốc native default switch ui enable 返回 ankinos 原生界面 切换界面"),
 ]
 
 

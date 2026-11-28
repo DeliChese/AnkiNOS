@@ -207,17 +207,18 @@ def collect_scope_metrics(
         rows = col.db.all(
             f"""SELECT date(id / 1000, 'unixepoch', 'localtime', ?),
                        count(*), coalesce(sum(time), 0),
-                       sum(CASE WHEN type = 1 THEN 1 ELSE 0 END),
-                       sum(CASE WHEN type = 1 AND ease > 1 THEN 1 ELSE 0 END)
+                       sum(CASE WHEN ease > 1 THEN 1 ELSE 0 END),
+                       sum(CASE WHEN type = 1 OR (type = 3 AND lastIvl > 0) THEN 1 ELSE 0 END),
+                       sum(CASE WHEN (type = 1 OR (type = 3 AND lastIvl > 0)) AND ease > 1 THEN 1 ELSE 0 END)
                 FROM revlog
                 WHERE ease > 0 AND type < 4 AND id >= ? AND cid IN ({cards_sql})
                 GROUP BY 1 ORDER BY 1""",
             f"-{rollover} hours", start_ms,
         )
         days = {
-            date: {"reviews": int(count), "milliseconds": int(ms),
+            date: {"reviews": int(count), "milliseconds": int(ms), "correct": int(correct or 0),
                    "tested": int(tested or 0), "passed": int(passed or 0)}
-            for date, count, ms, tested, passed in rows
+            for date, count, ms, correct, tested, passed in rows
             if date and date <= today.isoformat()
         }
         # Partial today is compared with the same clock time yesterday.

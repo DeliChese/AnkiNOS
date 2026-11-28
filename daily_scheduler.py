@@ -15,6 +15,14 @@ MAX_DAILY_CAP = 2000
 DEFAULT_INITIAL_WINDOW = 14
 MAX_EXPANDED_WINDOW = 365
 DEFAULT_SAFE_R = 0.78
+DEFAULT_SAFE_FLOOR_R = 75
+MIN_SAFE_FLOOR_R = 50
+MAX_SAFE_FLOOR_R = 95
+DEFAULT_MAX_SHIFT_DAYS = 30
+MIN_MAX_SHIFT_DAYS = 3
+MAX_MAX_SHIFT_DAYS = 90
+BACKLOG_MODES = {"virtual", "reschedule"}
+REVIEW_ORDERS = {"auto", "desc_r", "asc_r"}
 DEFAULT_FSRS_DECAY = 0.5
 HORIZON_DISPLAY_DAYS = 45
 TAG_RE = re.compile(r"<[^>]+>")
@@ -159,12 +167,17 @@ def _memory_cost(
     target_offset: int,
     safe_r: float,
     window: int = DEFAULT_INITIAL_WINDOW,
+    min_target_r: float | None = None,
 ) -> tuple[float, float]:
     r_target = card_retrievability_on_offset(card, today_date, target_offset)
     memory_loss = max(0.0, r_now - r_target)
     safety_penalty = max(0.0, safe_r - r_target)
     urgent_delay = max(0.0, safe_r - r_now) * (target_offset / max(1, window))
-    return 9.0 * memory_loss + 6.0 * safety_penalty + 2.5 * urgent_delay, r_target
+    floor_penalty = 0.0
+    if min_target_r is not None and target_offset > 0 and r_now >= min_target_r and r_target < min_target_r:
+        # Strongly resist pushing a card past the day where its R crosses below the safety floor.
+        floor_penalty = 28.0 * (min_target_r - r_target)
+    return 9.0 * memory_loss + 6.0 * safety_penalty + 2.5 * urgent_delay + floor_penalty, r_target
 
 
 def plan_redistribution(
@@ -176,6 +189,7 @@ def plan_redistribution(
     initial_window: int = DEFAULT_INITIAL_WINDOW,
     safe_r: float = DEFAULT_SAFE_R,
     max_window: int = MAX_EXPANDED_WINDOW,
+    min_target_r: float | None = None,
 ) -> dict[str, Any]:
     """Compute a deterministic, memory-aware redistribution plan with adaptive window expansion.
 
@@ -184,7 +198,10 @@ def plan_redistribution(
     - Automatically expands the future horizon in 7-day steps whenever backlog exceeds capacity.
     """
     cap = max(MIN_DAILY_CAP, min(MAX_DAILY_CAP, int(daily_cap)))
-    window = max(1, int(initial_window))
+    safe_max_window = max(1, int(max_window))
+    window = min(safe_max_window, max(1, int(initial_window)))
+    floor_ratio = max(0.50, min(0.95, float(min_target_r))) if min_target_r is not None else safe_r
+    floor_pct = round(floor_ratio * 100)
     movable = [card for card in overdue_cards if card.movable]
     if not movable:
         return {
@@ -192,6 +209,9 @@ def plan_redistribution(
             "daily_cap": cap,
             "initial_window": window,
             "expanded_window": window,
+            "max_window": safe_max_window,
+            "safe_floor_r": floor_pct,
+            "protected_floor_count": 0,
             "window_expanded": False,
             "moves": [],
             "days": [],
@@ -202,10 +222,10 @@ def plan_redistribution(
     def free_slots(horizon: int) -> int:
         return sum(max(0, cap - existing_loads.get(offset, 0)) for offset in range(0, horizon + 1))
 
-    while free_slots(window) < len(movable) and window < max_window:
-        window = min(max_window, window + 7)
+    while free_slots(window) < len(movable) and window < safe_max_window:
+        window = min(safe_max_window, window + 7)
 
-    # Edge case: astronomical backlog even beyond max_window — raise effective overflow cap cleanly.
+    # Edge case: astronomical backlog even beyond safe_max_window — raise effective overflow cap cleanly.
     effective_cap = cap
     if free_slots(window) < len(movable):
         deficit = len(movable) - free_slots(window)
@@ -239,7 +259,9 @@ def plan_redistribution(
             day_load = projected[offset]
             if day_load >= effective_cap:
                 continue
-            mem_cost, _r_target = _memory_cost(card, today_date, r_now, offset, safe_r, window)
+            mem_cost, _r_target = _memory_cost(
+                card, today_date, r_now, offset, safe_r, window, min_target_r=min_target_r
+            )
             load_ratio = day_load / max(1, effective_cap)
             distance_tie = offset / max(1, window)
             total_cost = mem_cost + 0.95 * load_ratio + 0.06 * distance_tie
@@ -271,12 +293,12 @@ def plan_redistribution(
                 c1, c2 = by_id[c1_id], by_id[c2_id]
                 r1_now, r2_now = metrics[c1_id][1], metrics[c2_id][1]
                 before_cost = (
-                    _memory_cost(c1, today_date, r1_now, d1, safe_r, window)[0]
-                    + _memory_cost(c2, today_date, r2_now, d2, safe_r, window)[0]
+                    _memory_cost(c1, today_date, r1_now, d1, safe_r, window, min_target_r=min_target_r)[0]
+                    + _memory_cost(c2, today_date, r2_now, d2, safe_r, window, min_target_r=min_target_r)[0]
                 )
                 after_cost = (
-                    _memory_cost(c1, today_date, r1_now, d2, safe_r, window)[0]
-                    + _memory_cost(c2, today_date, r2_now, d1, safe_r, window)[0]
+                    _memory_cost(c1, today_date, r1_now, d2, safe_r, window, min_target_r=min_target_r)[0]
+                    + _memory_cost(c2, today_date, r2_now, d1, safe_r, window, min_target_r=min_target_r)[0]
                 )
                 if after_cost + 1e-6 < before_cost:
                     buckets[d1].remove(c1_id)
@@ -356,19 +378,76 @@ def plan_redistribution(
     if window > initial_window:
         parts.append(f"tự mở rộng cửa sổ lên {window} ngày để giữ trần {cap} thẻ/ngày")
 
+    protected_floor_count = sum(1 for item in moves if item["r_target"] >= round(floor_ratio * 100, 1))
     return {
         "total_movable": len(moves),
         "daily_cap": cap,
         "effective_cap": effective_cap,
-        "initial_window": initial_window,
+        "initial_window": min(safe_max_window, max(1, int(initial_window))),
         "expanded_window": window,
-        "window_expanded": window > initial_window,
+        "max_window": safe_max_window,
+        "safe_floor_r": floor_pct,
+        "protected_floor_count": protected_floor_count,
+        "window_expanded": window > min(safe_max_window, max(1, int(initial_window))),
         "today_added": today_added,
         "future_added": future_added,
         "future_days_used": future_days_used,
         "moves": moves,
         "days": days_chart,
         "summary": " · ".join(parts) + ".",
+    }
+
+
+def build_session_queue(
+    today_cards: list[ScheduledCard],
+    overdue_cards: list[ScheduledCard],
+    today_date: date,
+    *,
+    daily_cap: int = DEFAULT_DAILY_CAP,
+    backlog_mode: str = "virtual",
+    review_order: str = "auto",
+    max_session: int = 1500,
+) -> dict[str, Any]:
+    """Compose Today's study queue with FSRS/SM-2 Retrievability ordering and Virtual Catch-up."""
+    mode = backlog_mode if backlog_mode in BACKLOG_MODES else "virtual"
+    order = review_order if review_order in REVIEW_ORDERS else "auto"
+    resolved_order = ("desc_r" if overdue_cards else "asc_r") if order == "auto" else ("desc_r" if order == "desc_r" else "asc_r")
+
+    combined = [*today_cards, *overdue_cards]
+    r_map = {card.card_id: card_retrievability_on_offset(card, today_date, 0) for card in combined}
+
+    def sort_key(card: ScheduledCard) -> tuple[Any, ...]:
+        r = r_map[card.card_id]
+        if resolved_order == "desc_r":
+            return (-r, -card.stability, card.due_offset, card.card_id)
+        return (r, card.stability, card.due_offset, card.card_id)
+
+    cap_limit = min(max(1, int(max_session)), max(MIN_DAILY_CAP, min(MAX_DAILY_CAP, int(daily_cap))))
+    if mode == "virtual":
+        ranked_today = sorted(today_cards, key=sort_key)
+        if len(ranked_today) >= cap_limit:
+            selected = ranked_today[:cap_limit]
+        else:
+            remaining = cap_limit - len(ranked_today)
+            ranked_overdue = sorted(overdue_cards, key=sort_key)[:remaining]
+            selected = sorted([*ranked_today, *ranked_overdue], key=sort_key)
+        total_pool = len(today_cards) + len(overdue_cards)
+    else:
+        selected = sorted(today_cards, key=sort_key)[:max(1, int(max_session))]
+        total_pool = len(today_cards)
+
+    today_included = sum(1 for card in selected if card.due_offset == 0)
+    overdue_included = sum(1 for card in selected if card.due_offset < 0)
+    return {
+        "mode": mode,
+        "order": order,
+        "resolved_order": resolved_order,
+        "count": len(selected),
+        "today_included": today_included,
+        "overdue_included": overdue_included,
+        "deferred_count": max(0, total_pool - len(selected)),
+        "avg_r": round(sum(r_map[card.card_id] for card in selected) * 100 / len(selected), 1) if selected else None,
+        "card_ids": [card.card_id for card in selected],
     }
 
 
@@ -382,6 +461,10 @@ def collect_daily_schedule(
     daily_cap: int = DEFAULT_DAILY_CAP,
     horizon_days: int = HORIZON_DISPLAY_DAYS,
     safe_r: float = DEFAULT_SAFE_R,
+    backlog_mode: str = "virtual",
+    review_order: str = "auto",
+    safe_floor_r: int = DEFAULT_SAFE_FLOOR_R,
+    max_shift_days: int = DEFAULT_MAX_SHIFT_DAYS,
 ) -> dict[str, Any]:
     """Read studied day-scheduled cards from Anki and build the Daily Schedule snapshot."""
     cutoff = int(col.sched.day_cutoff)
@@ -409,9 +492,22 @@ def collect_daily_schedule(
         include_children=include_children,
     )
 
+    clamped_floor = max(MIN_SAFE_FLOOR_R, min(MAX_SAFE_FLOOR_R, int(safe_floor_r)))
+    clamped_shift = max(MIN_MAX_SHIFT_DAYS, min(MAX_MAX_SHIFT_DAYS, int(max_shift_days)))
     if not scope_dids:
-        empty_plan = plan_redistribution([], {}, today_date, daily_cap=daily_cap, safe_r=safe_r)
-        return _empty_schedule_payload(today_date, daily_cap, scope_mode, origin_decks, empty_plan)
+        empty_plan = plan_redistribution(
+            [],
+            {},
+            today_date,
+            daily_cap=daily_cap,
+            safe_r=safe_r,
+            max_window=clamped_shift,
+            min_target_r=clamped_floor / 100.0,
+        )
+        empty_session = build_session_queue(
+            [], [], today_date, daily_cap=daily_cap, backlog_mode=backlog_mode, review_order=review_order
+        )
+        return _empty_schedule_payload(today_date, daily_cap, scope_mode, origin_decks, empty_plan, empty_session)
 
     placeholders = ",".join("?" for _ in scope_dids)
     # Only cards that have graduated to day-based queues (2=review, 3=day-learn)
@@ -599,6 +695,16 @@ def collect_daily_schedule(
         today_date,
         daily_cap=daily_cap,
         safe_r=safe_r,
+        max_window=clamped_shift,
+        min_target_r=clamped_floor / 100.0,
+    )
+    session_queue = build_session_queue(
+        today_ranked,
+        overdue,
+        today_date,
+        daily_cap=daily_cap,
+        backlog_mode=backlog_mode,
+        review_order=review_order,
     )
 
     return {
@@ -616,6 +722,7 @@ def collect_daily_schedule(
             "days": overdue_days,
         },
         "today_bucket": today_summary,
+        "session_queue": session_queue,
         "future": {
             "horizon_days": horizon_days,
             "total_in_horizon": sum(d["count"] for d in future_days),
@@ -633,6 +740,7 @@ def _empty_schedule_payload(
     scope_mode: str,
     origin_decks: dict[int, str],
     empty_plan: dict[str, Any],
+    empty_session: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "today": today_date.isoformat(),
@@ -646,6 +754,11 @@ def _empty_schedule_payload(
             "date": today_date.isoformat(), "locked": False, "count": 0,
             "review_count": 0, "day_learn_count": 0, "avg_r": None, "min_r": None,
             "tiers": {"critical": 0, "due": 0, "strong": 0}, "decks": [], "cohorts": [], "cards": [], "card_ids": [],
+        },
+        "session_queue": empty_session or {
+            "mode": "virtual", "order": "auto", "resolved_order": "asc_r",
+            "count": 0, "today_included": 0, "overdue_included": 0, "deferred_count": 0,
+            "avg_r": None, "card_ids": [],
         },
         "future": {"horizon_days": HORIZON_DISPLAY_DAYS, "total_in_horizon": 0, "beyond_horizon_count": 0, "days": []},
         "plan": empty_plan,

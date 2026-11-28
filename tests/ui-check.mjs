@@ -265,15 +265,19 @@ try {
   await new Promise(r => setTimeout(r, 380));
   assert.equal(await evaluate(`document.getElementById('nos-edge-right').classList.contains('is-open') && !document.querySelector('.rail').classList.contains('is-open')`), true,
     'Hovering right edge must reveal right dock and hide previous dock');
-  // Hover top edge & test Wallpaper Peek toggle.
+  // Hover top edge -> verify signature AnkiNOS brand logo replaced study button & Wallpaper Peek toggle.
   await cdp('Input.dispatchMouseEvent', {type: 'mouseMoved', x: 800, y: 6});
   await new Promise(r => setTimeout(r, 360));
   assert.equal(await evaluate(`document.getElementById('nos-edge-top').classList.contains('is-open')`), true, 'Hovering top edge must reveal top dock');
+  assert.equal(await evaluate(`!!document.querySelector('#nos-edge-top #edge-brand-about') && !document.querySelector('#nos-edge-top [data-action="edge_study_now"]')`), true, 'Top edge dock must show signature AnkiNOS brand button instead of Study');
+  await shot('layout-edges.png');
+  await click('#edge-brand-about');
+  assert.equal(await evaluate(`document.getElementById('about-dialog').open`), true, 'Clicking top edge AnkiNOS logo must open About dialog');
+  await click('#about-close');
   await click('#edge-peek-toggle');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.edgesPeek`), 'true', 'Wallpaper peek button must toggle pure wallpaper view');
   await click('#edge-peek-toggle');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.edgesPeek`), undefined);
-  await shot('layout-edges.png');
   await evaluate(`window.AnkiNOS.receive({event:'settings',payload:window.__originalLayoutSettings})`);
   assert.equal(await evaluate(`document.querySelectorAll('.rail .rail-main > button').length`), 5,
     'Leaving edges layout must restore all buttons back to the primary rail');
@@ -410,7 +414,7 @@ try {
   await click('#studio-launcher');
   assert.equal(await evaluate(`document.getElementById('studio-dialog').open`),true);
   assert.equal(await evaluate(`document.getElementById('studio-gallery').textContent.includes('Chưa có ảnh')`),true);
-  assert.equal(await evaluate(`document.querySelectorAll('#studio-targets [data-studio-slot]').length`),4);
+  assert.equal(await evaluate(`document.querySelectorAll('#studio-targets [data-studio-slot]').length`),5);
   assert.equal(await evaluate(`document.querySelectorAll('#studio-dialog [data-image-fit],#studio-dialog [data-image-position]').length`),0);
   await shot('media-studio-empty.png');
   const photoId='a'.repeat(32), profileId='b'.repeat(20);
@@ -451,6 +455,23 @@ try {
   assert.equal(await evaluate(`document.getElementById('nos-app').style.getPropertyValue('--wall-blur')`),'8px');
   await click('[data-studio-slot="image_dashboard"]');
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_dashboard`),null);
+  // Test Profile Cover, Avatar assignment, interactive framing zoom/grid/reset, and Lightbox viewing.
+  await click('[data-studio-slot="image_cover"]');
+  await click('[data-studio-slot="image_avatar"]');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_cover`),photoId);
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_avatar`),photoId);
+  assert.equal(await evaluate(`document.getElementById('studio-preview').dataset.frameSlot`),'avatar');
+  await click('#studio-grid-toggle');
+  assert.equal(await evaluate(`document.getElementById('studio-preview').dataset.grid`),'off');
+  await click('#studio-grid-toggle');
+  assert.equal(await evaluate(`document.getElementById('studio-preview').dataset.grid`),'on');
+  await evaluate(`(()=>{const z=document.getElementById('studio-zoom');z.value='140';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_frames.avatar.zoom`),140);
+  await click('#studio-frame-reset');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_frames.avatar.zoom`),100);
+  await click('[data-studio-frame="cover"]');
+  assert.equal(await evaluate(`document.getElementById('studio-preview').dataset.frameSlot`),'cover');
+  await shot('media-studio-framing.png');
   await evaluate(`document.getElementById('studio-image-name').value='Xe 350Z'`);
   await click('#studio-rename');
   assert.equal(await evaluate(`document.querySelector('.nos-studio-tile strong').textContent`),'Xe 350Z');
@@ -467,9 +488,56 @@ try {
     'Moved photo must appear in chosen album');
   await click('#studio-close');
   assert.equal(await evaluate(`document.getElementById('studio-dialog').open`),false);
+  // Open Profile panel to verify Facebook-style cover banner + clickable avatar/cover lightbox.
+  await click('#profile-toggle');
+  assert.equal(await evaluate(`!document.getElementById('profile-panel').hidden && !document.getElementById('profile-cover-img').hidden && !document.getElementById('profile-avatar-img').hidden`),true,'Profile must display assigned cover photo and avatar');
+  await shot('profile-with-cover.png');
+  await click('#profile-cover-view');
+  assert.equal(await evaluate(`document.getElementById('image-lightbox-dialog').open && document.getElementById('lightbox-image').getAttribute('src').includes('${photoId}')`),true,'Clicking cover photo must open full-size lightbox');
+  await click('#lightbox-close');
+  assert.equal(await evaluate(`document.getElementById('image-lightbox-dialog').open`),false);
   await click('[data-action="collapse_activity"]');
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('activity-body')).display`),'none');
   await click('[data-action="collapse_activity"]');
+  await click('[data-action="collapse_launchpad"]');
+  assert.equal(await evaluate(`getComputedStyle(document.getElementById('study-launchpad-body')).display`),'none','Your next step panel must collapse cleanly');
+  await click('[data-action="collapse_launchpad"]');
+  assert.equal(await evaluate(`getComputedStyle(document.getElementById('study-launchpad-body')).display!=='none'`),true);
+  await click('#brand-about');
+  assert.equal(await evaluate(`document.getElementById('about-dialog').open && document.getElementById('about-dialog').textContent.includes('v1.0.0 Beta')`),true,'Logo NOS must open About v1.0.0 Beta');
+  await click('#about-copy-diag');
+  assert.equal(await evaluate(`!document.getElementById('toast').hidden && document.getElementById('toast').textContent.includes('hỗ trợ')`),true,'Copy support info must confirm via toast');
+  await shot('about-dialog.png');
+  await click('#about-close');
+  assert.equal(await evaluate(`document.getElementById('about-dialog').open`),false);
+  // Test first-run fullscreen frosted-glass Welcome Overlay show, screenshot & dismiss, plus short laptop viewports.
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),welcome_dismissed:false}})`);
+  assert.equal(await evaluate(`!document.getElementById('welcome-overlay').hidden && getComputedStyle(document.getElementById('welcome-overlay')).position === 'fixed'`),true,'Welcome overlay must cover the viewport when not dismissed');
+  await new Promise(r => setTimeout(r, 320));
+  await shot('welcome-overlay.png');
+  await click('#welcome-dismiss');
+  assert.equal(await evaluate(`document.getElementById('welcome-overlay').hidden && window.AnkiNOS.getSettings().welcome_dismissed === true`),true,'Dismissing welcome overlay must persist');
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),welcome_dismissed:false}})`);
+  await click('#welcome-open-guide');
+  assert.equal(await evaluate(`document.getElementById('welcome-overlay').hidden && document.getElementById('guide-dialog').open`),true,'Clicking Read User Guide on welcome overlay must dismiss overlay and open Guide');
+  await click('#guide-close');
+  for (const [w, h] of [[1092, 614], [910, 512]]) {
+    await cdp('Emulation.setDeviceMetricsOverride', {width: w, height: h, deviceScaleFactor: 1, mobile: false});
+    assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`), true, `No horizontal overflow at ${w}x${h}`);
+  }
+  await cdp('Emulation.setDeviceMetricsOverride', {width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false});
+  // Empty 0-card profile edge case must render cleanly with zero JS errors.
+  const prevSnap = await evaluate(`window.AnkiNOS.getSnapshot()`);
+  await evaluate(`window.AnkiNOS.receive({event:'snapshot',payload:{...window.AnkiNOS.getSnapshot(),due:0,total_cards:0,days:{},decks:[],stats:{retention:null,pace:0,milliseconds:0,reviews:0,streak:0,tested:0}}})`);
+  assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`), true, 'Empty 0-card profile must not overflow');
+  await evaluate(`window.AnkiNOS.receive({event:'snapshot',payload:${JSON.stringify(prevSnap)}})`);
+  await click('#guide-toggle');
+  assert.equal(await evaluate(`document.getElementById('guide-dialog').open`),true,'Guide toggle must open user guide');
+  await click('[data-guide-select="scheduler"]');
+  assert.equal(await evaluate(`!document.getElementById('gpane-scheduler').hidden`),true,'Guide must switch to ANOS Scheduler tab');
+  await shot('guide-dialog.png');
+  await click('#guide-close');
+  assert.equal(await evaluate(`document.getElementById('guide-dialog').open`),false);
   await click('#library-toggle');
   assert.equal(await evaluate(`document.getElementById('library-dialog').open`),true);
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.page`),'home','Opening the library must not navigate away');
@@ -509,9 +577,66 @@ try {
   await evaluate(`(()=>{const p=document.getElementById('stats-period');p.value='0';p.dispatchEvent(new Event('change',{bubbles:true}))})()`);
   assert.equal(await evaluate(`document.getElementById('stats-metric-scope').textContent.includes('toàn bộ lịch sử')`),true);
   assert(await evaluate(`document.querySelectorAll('#stats-report .stats-native-card').length`) >= 13);
+  // Reviews card must show Total reviews in BOTH count mode and Time mode (matching native Anki).
+  assert.equal(await evaluate(`document.querySelector('#stats-report [data-stats-section="reviews"] .stats-card-foot').textContent.includes('Tổng lượt ôn:')`),true,'Reviews card must display total reviews in count mode');
+  await click('#stats-report [data-card-section="reviews"][data-card-field="time"]');
+  assert.equal(await evaluate(`(()=>{const foot=document.querySelector('#stats-report [data-stats-section="reviews"] .stats-card-foot').textContent;return foot.includes('Tổng thời gian:') && foot.includes('Tổng lượt ôn:') && foot.includes('Thời gian trả lời trung bình:');})()`),true,'Reviews card in Time mode must display Total time, Total reviews, and Average answer time');
+  await click('#stats-report [data-card-section="reviews"][data-card-field="time"]');
+  assert.equal(await evaluate(`document.querySelector('#stats-report [data-stats-section="calendar"] .stats-card-foot').textContent.includes('Tổng toàn bộ:')`),true,'Calendar card must display all-time total reviews');
   await shot('statistics.png');
   await click('.rail-main [data-action="page"][data-value="home"]');
   assert.equal(await evaluate(`document.getElementById('stats-page').hidden`),true);
+  // Test Simplified Chinese (zh-cn) language pack switch in Settings -> Language -> Apply, then restore vi.
+  await click('.rail-bottom [data-action="preferences"]');
+  // Test compact side-dock toggle, custom text color, and Reviewer tab controls.
+  await click('#settings-dock-toggle');
+  assert.equal(await evaluate(`document.getElementById('settings-dialog').classList.contains('is-docked') && document.getElementById('settings-panel').getBoundingClientRect().width <= 445`),true,'Side-dock button must convert Settings into a compact right-side drawer');
+  await click('[data-set-text-color="#f5e6c8"]');
+  await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+  assert.equal(await evaluate(`document.getElementById('theme-preview').style.getPropertyValue('--text').toLowerCase()`),'#f5e6c8','Custom text color must preview immediately');
+  await click('[data-set-text-color="auto"]');
+  await click('.settings-sidebar [data-settings-tab="reviewer"]');
+  await evaluate(`(()=>{const r=document.getElementById('set-reviewer-card-opacity');r.value='64';r.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+  assert.equal(await evaluate(`document.getElementById('reviewer-card-opacity-val').textContent === '64%' && document.getElementById('reviewer-settings-preview').style.getPropertyValue('--nos-card-alpha') === '64%'`),true,'Reviewer card opacity slider must update live preview');
+  await evaluate(`(()=>{const c=document.getElementById('set-rating-again');c.value='#ff4466';c.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+  assert.equal(await evaluate(`document.getElementById('reviewer-settings-preview').style.getPropertyValue('--rating-1').toLowerCase()`),'#ff4466','Custom rating button color must update live preview');
+  await click('#btn-reset-rating-colors');
+  await evaluate(`(()=>{const r=document.getElementById('set-reviewer-card-opacity');r.value='100';r.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  await click('#settings-dock-toggle');
+  assert.equal(await evaluate(`!document.getElementById('settings-dialog').classList.contains('is-docked')`),true);
+  await click('.settings-sidebar [data-settings-tab="language"]');
+  assert.equal(await evaluate(`!!document.querySelector('#language-grid [data-set-language="zh-cn"]')`),true,'Simplified Chinese language option must be present');
+  await click('#language-grid [data-set-language="zh-cn"]');
+  await click('#btn-apply-settings');
+  assert.equal(await evaluate(`document.documentElement.lang === 'zh-cn' && document.getElementById('stats-toggle').textContent.includes('统计') && document.documentElement.scrollWidth <= innerWidth`),true,'Applying zh-cn must translate dashboard cleanly without overflow');
+  await click('#language-grid [data-set-language="vi"]');
+  await click('#btn-apply-settings');
+  assert.equal(await evaluate(`document.documentElement.lang`),'vi');
+  await click('#settings-close');
+  // Test rapid switching across all 6 layouts + non-overlapping dock hover spacing.
+  for (const layoutId of ['bento', 'dock', 'edges', 'sidebar', 'zen', 'edges', 'dock']) {
+    await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),layout:${JSON.stringify(layoutId)}}})`);
+    await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+    assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`),true,`Layout ${layoutId} must not overflow after rapid switch`);
+  }
+  // Verify Dock buttons maintain positive horizontal spacing (zero overlap) even at peak hover magnification.
+  assert.equal(await evaluate(`(()=>{
+    const items = Array.from(document.querySelectorAll('#nos-app .rail .rail-main > button'));
+    if (items.length < 3) return false;
+    items[0].style.setProperty('--mag', '1.22');
+    items[1].style.setProperty('--mag', '1.45');
+    items[2].style.setProperty('--mag', '1.22');
+    const r0 = items[0].getBoundingClientRect();
+    const r1 = items[1].getBoundingClientRect();
+    const r2 = items[2].getBoundingClientRect();
+    items.forEach(n => n.style.removeProperty('--mag'));
+    return (r1.left - r0.right) >= 4 && (r2.left - r1.right) >= 4;
+  })()`),true,'Magnified Dock buttons must keep positive spacing with zero overlap');
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),layout:'aurora'}})`);
+  await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.rail')).opacity === '1' && document.querySelectorAll('.topbar-actions > #guide-toggle, .topbar-actions > #layout-toggle, .topbar-actions > #fullscreen-toggle, .topbar-actions > #profile-toggle').length === 4`),true,'Returning from edges/dock to aurora must cleanly restore rail visibility and topbar buttons');
   await click('[data-action="period"][data-value="month"]');
   assert(await evaluate(`document.querySelectorAll('.month-map .heat-cell').length`) >= 28);
   assert(await evaluate(`(()=>{const r=document.querySelector('.month-map .heat-cell:not(.blank)').getBoundingClientRect();return Math.abs(r.width-r.height)<.1})()`),
@@ -556,6 +681,7 @@ try {
   assert.equal(await evaluate(`document.getElementById('stat-retention').textContent`),'0%');
   assert.equal(await evaluate(`document.querySelector('#spark-retention .spark-zero-bar') !== null`),true,'Measured zero must have a visible bar');
   await evaluate(`(()=>{const leaf=(id,name,parent,children=[])=>({id,name,full_name:parent?parent+'::'+name:name,total:1,new:1,learn:0,review:0,retention:null,children,filtered:false});const w2=leaf('w2','Words','Course::Unit 2');const w10=leaf('w10','Words','Course::Unit 10');window.AnkiNOS.receive({event:'snapshot',payload:{today:'2026-11-13',profile:'Test',days:{},due:3,total_cards:3,stats:{retention:null,pace:null,milliseconds:0,reviews:0,streak:0,tested:0},decks:[leaf('p','Course','',[leaf('u10','Unit 10','Course',[w10]),leaf('u2','Unit 2','Course',[w2])]),leaf('o','Other','',[leaf('ow','Words','Other')])],settings:{goal:200,resources:[],favorites:[]}}});document.getElementById('library-search').value='';document.getElementById('library-search').dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
   await click('#library-toggle');
   await click('[data-action="expand"][data-id="p"]');
   assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#children-p > .deck-group > .deck-row .deck-name')).map(x=>x.textContent)`),['Unit 2','Unit 10']);
@@ -705,6 +831,10 @@ try {
     await evaluate(`document.getElementById('nos-review-shell').style.zoom='${scale/100}'`);
     assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),`Reviewer must fit at ${scale}% scale`);
   }
+  // Wide card table/equation inside #qa must scroll inside #nos-review-card without overflowing the page.
+  await evaluate(`document.getElementById('nos-review-shell').style.zoom='1'; const w=document.createElement('div'); w.id='wide-test'; w.style.width='1400px'; w.textContent='Wide table'; document.getElementById('qa').append(w);`);
+  assert(await evaluate(`document.documentElement.scrollWidth <= innerWidth`), 'Wide flashcard content must not cause page horizontal overflow');
+  await evaluate(`document.getElementById('wide-test')?.remove()`);
   assert.deepEqual(errors,[],'JavaScript errors');
   console.log('PASS: profile, collapse, nested decks, grid, Vietnamese search, filters, chart periods, mobile layout, escaped deck names; screenshots in previews/');
 } finally {

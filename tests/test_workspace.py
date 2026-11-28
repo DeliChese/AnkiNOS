@@ -47,3 +47,27 @@ class WorkspaceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.save('b','deck1','Other','bad','cross-collection blocked',identifier=gid,allow_deck_change=True)
 
+    def test_pin_color_tags_sort_and_duplicate(self):
+        first=self.store.save('a','','Ghi chú chung','Beta note','Nội dung 1',pinned=False,color='blue',tags='#Ngữ pháp, dễ nhầm, ngữ pháp',allow_deck_change=True)
+        second=self.store.save('a','','Ghi chú chung','Alpha note','Nội dung 2',pinned=True,color='mint',tags='ôn thi',allow_deck_change=True)
+        row1=self.store.get('a',first)
+        self.assertEqual(row1['color'],'blue')
+        self.assertEqual(row1['tags'],'Ngữ pháp, dễ nhầm')
+        # Pinned floats first
+        listed=self.store.list('a',None)
+        self.assertEqual([r['id'] for r in listed],[second,first])
+        # Filter by color, pinned_only, and accent-insensitive tag search
+        self.assertEqual([r['id'] for r in self.store.list('a',None,color='blue')],[first])
+        self.assertEqual([r['id'] for r in self.store.list('a',None,pinned_only=True)],[second])
+        self.assertEqual([r['id'] for r in self.store.list('a',None,query='de nham')],[first])
+        # Toggle pin and duplicate
+        self.assertTrue(self.store.toggle_pin('a',first))
+        self.assertEqual(len(self.store.list('a',None,pinned_only=True)),2)
+        copy_id=self.store.duplicate('a',first)
+        copy=self.store.get('a',copy_id)
+        self.assertIn('(Bản sao)',copy['title'])
+        self.assertEqual(copy['color'],'blue')
+        self.assertEqual(copy['pinned'],0)
+        # Sort by title (pinned first, then title asc)
+        self.assertEqual(self.store.list('a',None,sort='title')[0]['id'],second)
+

@@ -76,10 +76,14 @@
     const imageUrl = [selected?.wall_url, selected?.url].find(url => url && safe.test(url)) || '';
     app.dataset.customBackground = imageUrl ? 'true' : 'false';
     const int = (v, lo, hi, d) => Number.isInteger(v) ? Math.min(hi, Math.max(lo, v)) : d, blur = int(st.wallpaper_blur, 0, 24, 0);
+    const frame = st.image_frames?.overview || {};
+    const fx = int(frame.x, 0, 100, 50), fy = int(frame.y, 0, 100, 50), fz = int(frame.zoom, 100, 250, 100);
     app.style.setProperty('--wall-fit', st.image_fit_overview === 'contain' ? 'contain' : 'cover');
     app.style.setProperty('--wall-dim', String(int(st.wallpaper_dim, 0, 80, 28) / 100));
     app.style.setProperty('--wall-blur', blur + 'px');
-    app.style.setProperty('--wall-scale', blur ? '1.06' : '1');
+    app.style.setProperty('--wall-pos-x', fx + '%');
+    app.style.setProperty('--wall-pos-y', fy + '%');
+    app.style.setProperty('--wall-scale', ((fz / 100) * (blur ? 1.06 : 1)).toFixed(3));
     const wallpaperImage=app.querySelector('.nos-wallpaper-image');
     if (wallpaperImage) {
       if(imageUrl && wallpaperImage.getAttribute('src')!==imageUrl) wallpaperImage.src=imageUrl;
@@ -136,7 +140,7 @@
     $('overview-today-message').textContent=data.partial?'Bạn có thể bắt đầu ngay. Thống kê đang cập nhật.':data.today_reviews?'Những điều đã học đang dần trở nên quen thuộc.':'Chưa có lượt ôn hôm nay. Bắt đầu từ một thẻ nhé.';
     $('overview-today-time').textContent=data.today_milliseconds==null?'—':time(data.today_milliseconds);
     $('overview-retention').textContent=data.retention==null?'—':`${n(data.retention)}%`;
-    $('overview-retention').title=data.retention==null?'Chưa có lượt ôn đến hạn trong 30 ngày.':'Tỷ lệ trả lời đúng ở các lượt ôn đến hạn trong 30 ngày.';
+    $('overview-retention').title=data.retention==null?'Chưa có lượt ôn trong hôm nay.':'Tỷ lệ trả lời đúng trong các lượt ôn hôm nay.';
     $('overview-total').textContent=data.total==null?'— thẻ':`${n(data.total)} thẻ`;
     $('overview-children').textContent=data.children?`Gồm ${n(data.children)} bộ thẻ con`:'';
     $('overview-children-button').hidden=!data.children;
@@ -271,8 +275,15 @@
       requestIdleCallback(fetchFull,{timeout:1200});
     else setTimeout(fetchFull,600);
   } else command('snapshot');
-  if (native) setInterval(()=>{
-    if(!document.hidden && !state.started && !snapshotPending &&
-       performance.now()-lastSnapshotAt>150000) command('snapshot');
-  },180000);
+  if (native) {
+    const syncLive=()=>{
+      if(!document.hidden && !state.started && !snapshotPending &&
+         performance.now()-lastSnapshotAt>3000) command('snapshot');
+    };
+    setInterval(()=>{
+      if(!document.hidden && !state.started && !snapshotPending &&
+         performance.now()-lastSnapshotAt>15000) command('snapshot');
+    },20000);
+    window.addEventListener('focus',syncLive,{passive:true});
+  }
 })();

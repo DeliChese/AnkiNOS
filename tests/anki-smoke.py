@@ -90,7 +90,16 @@ def main():
     assert aqt.mw._review_heatmap.render_for_view(SimpleNamespace(name='overview')) == ''
     assert heatmap_calls==[], "Do not compute heatmap data before discarding its HTML"
     assert aqt.mw._review_heatmap.render_for_view(SimpleNamespace(name='stats')) == 'native heatmap'
-    until("!!window.AnkiNOS && document.getElementById('connection').textContent.includes('Bộ sưu tập Anki')")
+    # Fresh -l en_US profile must auto-detect English out of the box and show Welcome overlay.
+    until("!!window.AnkiNOS && document.documentElement.lang === 'en' && document.getElementById('connection').textContent.includes('Anki collection')")
+    assert js("!document.getElementById('welcome-overlay').hidden"), "First-run welcome overlay must appear on a new profile"
+    js("document.getElementById('welcome-dismiss').click()")
+    until("document.getElementById('welcome-overlay').hidden")
+    assert aqt.mw.addonManager.getConfig("NOS")["profiles"][aqt.mw.pm.name].get("welcome_dismissed") is True
+    # Switch explicitly to Vietnamese so the remaining Vietnamese smoke assertions verify explicit override too.
+    integration.save_settings({"language": "vi"})
+    integration.send("settings", integration.public_settings())
+    until("document.documentElement.lang === 'vi' && document.getElementById('connection').textContent.includes('Bộ sưu tập Anki')")
     js("document.querySelector('[data-action=addons]').click()")
     end = time.monotonic() + 5
     addon_dialog = aqt.mw.findChild(AddonsDialog)
@@ -391,6 +400,13 @@ def main():
     until("typeof _showQuestion === 'function' && !!document.getElementById('qa')")
     until("!!window.NOSReview && document.getElementById('qa').textContent.includes('disposable AnkiNOS')")
     assert js("document.getElementById('nos-review-shell').dataset.colorTheme") == "mononoke"
+    # Custom UI text color must theme the Reviewer header without touching #qa card text color.
+    qa_color_before = js("getComputedStyle(document.getElementById('qa')).color")
+    js("window.NOSTheme.apply(document.getElementById('nos-review-shell'), {theme:'night', color_theme:'mononoke', accent:'auto', text_color:'custom', custom_text_color:'#ff2288'}, true)")
+    assert js("getComputedStyle(document.getElementById('nos-review-header')).color") == "rgb(255, 34, 136)"
+    assert js("getComputedStyle(document.getElementById('qa')).color") == qa_color_before, "Custom UI text color must NEVER alter #qa flashcard text color"
+    assert js("getComputedStyle(document.getElementById('qa')).getPropertyValue('--text').trim()") == "", "AnkiNOS --text must not leak into #qa"
+    js("window.NOSTheme.apply(document.getElementById('nos-review-shell'), {theme:'dusk', color_theme:'mononoke', accent:'custom', custom_accent:'#91b78a'}, true)")
     review_ready_ms=round((time.perf_counter()-review_started)*1000)
     wait(150)
     assert aqt.mw.reviewer.card is not None
@@ -398,6 +414,12 @@ def main():
     until("!!document.getElementById('ansbut')",bottom)
     assert js("document.documentElement.dataset.colorTheme",bottom) == "mononoke"
     assert js("document.documentElement.dataset.nosRatings",bottom) == "true"
+    # Even when Anki's own locale is en_US, Reviewer header and bottom bar must match AnkiNOS's active language (vi here).
+    assert js("document.querySelector('#nos-review-header .nos-back-label')?.textContent?.trim()") == "Bộ thẻ"
+    assert js("document.getElementById('nos-review-side')?.textContent?.trim()") == "Mặt trước"
+    assert js("Array.from(document.getElementById('ansbut').childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join('')", bottom) == "Hiện đáp án"
+    assert js("Array.from(document.querySelector('button[onclick*=\"edit\"]').childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join('')", bottom) == "Sửa"
+    assert js("Array.from(document.querySelector('button[onclick*=\"more\"]').childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join('')", bottom) == "Thêm ⋯"
     flip_started=time.perf_counter()
     js("(()=>{document.getElementById('ansbut').click();return true})()",bottom)
     until("document.getElementById('qa').textContent.includes('Test answer')")
@@ -408,6 +430,26 @@ def main():
     assert js("getComputedStyle(document.getElementById('nos-review-card')).opacity") == '1'
     assert js("document.querySelector('[data-ease=\"3\"]').hasAttribute('data-nos-ready')",bottom)
     assert js("document.querySelector('[data-ease=\"3\"]').getAttribute('onclick').includes('ease3')",bottom)
+    assert js("Array.from(document.querySelectorAll('button[data-ease]')).map(b=>Array.from(b.childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join(''))", bottom) == ["Quên", "Khó", "Tốt", "Dễ"]
+    # Verify live language switch in Reviewer + BottomBar to zh-cn, en, and back to vi without touching #qa.
+    js("window.NOSReview.setLanguage('zh-cn')")
+    js("window.NOSRatings.setLanguage('zh-cn')", bottom)
+    assert js("document.getElementById('nos-review-side')?.textContent?.trim()") == "答案"
+    assert js("document.getElementById('nos-focus-start')?.textContent?.trim()") == "专注"
+    assert js("Array.from(document.querySelectorAll('button[data-ease]')).map(b=>Array.from(b.childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join(''))", bottom) == ["重来", "困难", "良好", "简单"]
+    assert js("document.getElementById('qa').textContent.includes('Test answer')")
+    js("window.NOSReview.setLanguage('en')")
+    js("window.NOSRatings.setLanguage('en')", bottom)
+    assert js("document.getElementById('nos-review-side')?.textContent?.trim()") == "Answer"
+    assert js("Array.from(document.querySelectorAll('button[data-ease]')).map(b=>Array.from(b.childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join(''))", bottom) == ["Again", "Hard", "Good", "Easy"]
+    js("window.NOSReview.setLanguage('vi')")
+    js("window.NOSRatings.setLanguage('vi')", bottom)
+    assert js("""Array.from(document.querySelectorAll('button[data-ease]')).every(btn => {
+      const span = btn.querySelector('.nobold');
+      if (!span || !span.textContent.trim()) return false;
+      const b = btn.getBoundingClientRect(), s = span.getBoundingClientRect();
+      return s.height > 0 && s.top >= b.top - 1 && s.bottom <= b.bottom + 1 && s.left >= b.left - 1 && s.right <= b.right + 1;
+    })""", bottom), "Native due interval labels (.nobold) must be visible inside rating buttons and never clipped"
     assert js("getComputedStyle(document.querySelector('[data-ease=\"1\"]')).color !== getComputedStyle(document.querySelector('[data-ease=\"4\"]')).color",bottom)
     assert js("document.getElementById('nos-review-side').textContent") == "Đáp án"
     js("(()=>{document.querySelector('[data-ease=\"3\"]').click();return true})()",bottom)
@@ -501,6 +543,23 @@ def main():
     while reviewer_ui.focus_store().cards == before and time.monotonic() < end:
         wait(30)
     assert reviewer_ui.focus_store().cards == before + 1
+    # Verify live reviewer bottom card counts match col.sched.counts() after answering.
+    expected_counts = list(col.sched.counts())
+    def bottom_js(code):
+        box = []
+        aqt.mw.bottomWeb.evalWithCallback(code, lambda v: box.append(v))
+        deadline = time.monotonic() + 5
+        while not box and time.monotonic() < deadline:
+            wait(20)
+        return box[0] if box else None
+    end = time.monotonic() + 5
+    live_counts = None
+    while time.monotonic() < end:
+        live_counts = bottom_js("(() => { const el = document.querySelector('#ansbut .stattxt'); if (!el) return null; return ['.new-count','.learn-count','.review-count'].map(s => Number((el.querySelector(s)?.textContent || '').replace(/\\D+/g, '') || 0)); })()")
+        if live_counts == expected_counts:
+            break
+        wait(40)
+    assert live_counts == expected_counts, f"Reviewer bottom counts {live_counts} != real sched counts {expected_counts}"
     reviewer_ui.focus_store().elapsed = 1800
     reviewer_ui.focus_store().running_since = time.monotonic()
     reviewer_ui._focus_tick()
@@ -545,9 +604,10 @@ def main():
     assert not aqt.mw.toolbarWeb.isHidden() and not aqt.mw.bottomWeb.isHidden()
     integration._toggle(True)
     until("!!window.NOSStudy")
-    # The native deck browser can be restored without disabling the add-on.
+    # The native deck browser can be restored without disabling the add-on,
+    # and provides an unmistakable one-click return button back to AnkiNOS.
     integration._toggle(False)
-    until("!document.getElementById('nos-app') && !!document.getElementById('studiedToday')")
+    until("!document.getElementById('nos-app') && !!document.getElementById('studiedToday') && !!document.getElementById('nos-return-btn')")
     assert not aqt.mw.toolbarWeb.isHidden() and not aqt.mw.bottomWeb.isHidden()
     assert not any(action.text().startswith("AnkiNOS") for action in aqt.mw.form.menuTools.actions())
     from aqt import utils as aqt_utils
@@ -560,13 +620,17 @@ def main():
             wait(30)
         assert (base / "native-mode.nosbackup").is_file()
         assert "sao lưu" in info.call_args.args[0]
-    integration._toggle(True)
+    js("(() => { document.getElementById('nos-return-btn').click(); return true; })()")
     until("!!window.AnkiNOS && document.getElementById('connection')?.textContent.includes('Bộ sưu tập Anki')")
-    # Live bilingual switch (vi -> en -> vi) across WebView and native Qt helper.
+    # Live multilingual switch (vi -> en -> zh-cn -> vi) across WebView and native Qt helper.
     integration.save_settings({"language": "en"})
     integration.send("settings", integration.public_settings())
     until("document.documentElement.lang === 'en' && document.getElementById('connection')?.textContent.includes('Anki collection')")
     assert integration._t("AnkiNOS — Lệnh nhanh") == "AnkiNOS — Quick Commands"
+    integration.save_settings({"language": "zh-cn"})
+    integration.send("settings", integration.public_settings())
+    until("document.documentElement.lang === 'zh-cn' && document.getElementById('connection')?.textContent.includes('Anki 集合')")
+    assert integration._t("AnkiNOS — Lệnh nhanh") == "AnkiNOS — 快捷命令"
     integration.save_settings({"theme":"dusk", "layout":"aurora", "language":"vi", "activity_collapsed":False})
     integration.send("settings",integration.public_settings())
     until("document.documentElement.lang === 'vi'")

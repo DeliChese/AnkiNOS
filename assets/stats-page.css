@@ -63,7 +63,7 @@
 /* Charts */
 #nos-app .stats-native-card .stats-chart { display: block; width: 100%; min-height: 165px; max-height: 255px; overflow: visible; }
 #nos-app .stats-native-card .stats-chart .stats-plot-grid { stroke: var(--edge, #e6f0ff19); stroke-width: 1; }
-#nos-app .stats-native-card .stats-axis-txt { fill: var(--muted, #dde9ffb4); font-size: 9.5px; font-family: 'Segoe UI', system-ui, sans-serif; }
+#nos-app .stats-native-card .stats-axis-txt { fill: var(--muted, #dde9ffb4); font-size: 9.5px; font-family: var(--nos-font, 'Segoe UI', system-ui, sans-serif); }
 #nos-app .stats-native-card .stats-chart .stats-bar,
 #nos-app .stats-native-card .stats-chart .stats-stack-bar { transition: opacity 110ms ease; cursor: default; }
 #nos-app .stats-native-card .stats-chart .stats-bar:hover,

@@ -46,11 +46,73 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(theme.clean_theme_settings({"glass_opacity": bad}), {})
 
     def test_language_is_validated(self):
-        for code in ("vi", "en"):
+        for code in ("auto", "vi", "en", "zh-cn"):
             self.assertEqual(theme.clean_theme_settings({"language": code}), {"language": code})
-        for invalid in ("fr", "EN", "", None, 1, True, ["en"]):
+        for invalid in ("fr", "EN", "ZH-CN", "", None, 1, True, ["en"]):
             self.assertEqual(theme.clean_theme_settings({"language": invalid}), {})
         self.assertIn(theme.DEFAULT_LANGUAGE, theme.LANGUAGES)
+
+    def test_extensible_auto_language_resolution(self):
+        # Current installed packs: vi + en + zh-cn
+        self.assertEqual(theme.resolve_system_language("vi_VN"), "vi")
+        self.assertEqual(theme.resolve_system_language("vi"), "vi")
+        self.assertEqual(theme.resolve_system_language("en_US"), "en")
+        self.assertEqual(theme.resolve_system_language("en-GB"), "en")
+        self.assertEqual(theme.resolve_system_language("zh_CN"), "zh-cn")
+        self.assertEqual(theme.resolve_system_language("zh-Hans"), "zh-cn")
+        self.assertEqual(theme.resolve_system_language("zh"), "zh-cn")
+        # Traditional Chinese and unsupported locales fall back to English
+        self.assertEqual(theme.resolve_system_language("zh_TW"), "en")
+        self.assertEqual(theme.resolve_system_language("ja_JP"), "en")
+        self.assertEqual(theme.resolve_system_language("fr_FR"), "en")
+        # Empty/missing locale falls back to DEFAULT_LANGUAGE
+        self.assertEqual(theme.resolve_system_language(""), theme.DEFAULT_LANGUAGE)
+        self.assertEqual(theme.resolve_system_language(None), theme.DEFAULT_LANGUAGE)
+        # Future i18n expansion: simply adding packs to `supported` enables automatic matching
+        future = {"vi", "en", "ja", "zh-cn", "zh-tw", "pt-br", "ko"}
+        self.assertEqual(theme.resolve_system_language("ja_JP", future), "ja")
+        self.assertEqual(theme.resolve_system_language("zh_CN", future), "zh-cn")
+        self.assertEqual(theme.resolve_system_language("zh-Hans", future), "zh-cn")
+        self.assertEqual(theme.resolve_system_language("zh_TW", future), "zh-tw")
+        self.assertEqual(theme.resolve_system_language("pt_BR", future), "pt-br")
+        self.assertEqual(theme.resolve_system_language("ko-KR", future), "ko")
+        self.assertEqual(theme.resolve_system_language("de_DE", future), "en")
+
+    def test_sixteen_palettes_and_font_library_are_validated(self):
+        self.assertEqual(len(theme.COLOR_THEMES), 16)
+        for palette in ("gruvbox", "everforest", "kanagawa", "sakura", "matcha", "synthwave", "espresso", "oceanic"):
+            self.assertEqual(theme.clean_theme_settings({"color_theme": palette}), {"color_theme": palette})
+        self.assertEqual(len(theme.FONT_FAMILIES), 8)
+        for font in theme.FONT_FAMILIES:
+            self.assertEqual(theme.clean_theme_settings({"font_family": font}), {"font_family": font})
+        for bad in ("comic-sans", "", None, 123, True, ["serif"]):
+            self.assertEqual(theme.clean_theme_settings({"font_family": bad}), {})
+        self.assertIn(theme.DEFAULT_FONT, theme.FONT_FAMILIES)
+
+    def test_text_color_and_reviewer_customization_are_validated(self):
+        valid = {
+            "text_color": "custom",
+            "custom_text_color": "#F5E6C8",
+            "rating_colors": "custom",
+            "rating_color_again": "#FF3355",
+            "rating_color_hard": "#EEAA22",
+            "rating_color_good": "#3399FF",
+            "rating_color_easy": "#22CC88",
+            "reviewer_card_opacity": 64,
+        }
+        cleaned = theme.clean_theme_settings(valid)
+        self.assertEqual(cleaned["text_color"], "custom")
+        self.assertEqual(cleaned["custom_text_color"], "#f5e6c8")
+        self.assertEqual(cleaned["rating_colors"], "custom")
+        self.assertEqual(cleaned["rating_color_again"], "#ff3355")
+        self.assertEqual(cleaned["rating_color_easy"], "#22cc88")
+        self.assertEqual(cleaned["reviewer_card_opacity"], 64)
+        for bad in (19, 101, "64", True, None, 64.5):
+            self.assertEqual(theme.clean_theme_settings({"reviewer_card_opacity": bad}), {})
+        for bad_hex in ("white", "#fff", "#12345678", "#zzzzzz", 123):
+            self.assertEqual(theme.clean_theme_settings({"custom_text_color": bad_hex, "rating_color_again": bad_hex}), {})
+        for bad_mode in ("manual", "", None, 1, True):
+            self.assertEqual(theme.clean_theme_settings({"text_color": bad_mode, "rating_colors": bad_mode}), {})
 
 
 if __name__ == "__main__":

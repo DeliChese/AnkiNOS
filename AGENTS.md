@@ -1,8 +1,21 @@
 # AnkiNOS — Agent Working Guide
 
-AnkiNOS (`NOS`) is an offline, zero-dependency Anki desktop add-on (Anki `>= 25.02`, Python 3.12+, PyQt6) providing a glassmorphism Dashboard, Smart Daily Memory Scheduler, Native Statistics workspace, Media Studio, Focus Mode, Quick Commands (`Ctrl+K`), Contextual Notebook, 6 Layouts, 8 Color Palettes, and full Vietnamese/English i18n.
+AnkiNOS (`NOS`) is an offline, zero-dependency Anki desktop add-on (Anki `>= 25.02`, Python 3.12+, PyQt6) providing a glassmorphism Dashboard, Smart Daily Memory Scheduler, Native Statistics workspace, Media Studio, Focus Mode, Quick Commands (`Ctrl+K`), Contextual Notebook, 6 Layouts, 12 Color Palettes, 8 Offline Font Presets, User Guide, and full Vietnamese/English i18n.
 
 **Stack**: Pure Python (`anki`/`aqt` only in Qt/hook modules) + Vanilla ES2022 JS + CSS + HTML. **No npm, no bundler, no CDN, no external pip packages.**
+
+---
+
+## Versioning & About Policy (For Future AI Sessions)
+
+- **Baseline release**: The first public beta version is **`v1.0.0 Beta`** (`manifest.json`: `"version": "1.0.0-beta"`).
+- **Single source locations to keep in sync when bumping version**:
+  1. `manifest.json` (`"version": "<semver>"`, e.g., `"1.0.0-beta"` → `"1.0.0-beta.2"` → `"1.0.0"` → `"1.1.0"`).
+  2. `ankios-ui.html`: `#brand-about` `title`, `#about-dialog` `.version-pill` + specs row, and `#guide-dialog` footer link (`Về AnkiNOS (v...)`).
+  3. `assets/i18n-en.js`: matching English strings for any updated version labels or About/Guide copy.
+- **When to bump & update About**:
+  - When a future session ships a notable user-facing feature set, release milestone, or user explicitly asks to cut a new release, bump the version following semver (`1.0.0-beta.N` for beta iterations, `1.0.0` for stable GA, `1.x.0` for new features, `1.x.y` for bugfixes) and keep `#about-dialog` concise, accurate, and professional (never bloating it with raw commit logs).
+  - Keep `#guide-dialog` (and inline quick-help panels on complex views like ANOS Scheduler) updated whenever a complex workflow changes so learners always have accurate offline guidance.
 
 ---
 

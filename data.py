@@ -71,9 +71,24 @@ def quick_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = Non
         "due": sum(d["new"] + d["learn"] + d["review"] for d in decks),
         "total_cards": 0,
         "trends": {},
-        "stats": {"retention": None, "pace": None, "milliseconds": 0, "reviews": 0, "streak": 0, "tested": 0},
+        "stats": {
+            "retention": None, "true_retention": None, "correct": 0, "tested": 0,
+            "pace": None, "milliseconds": 0, "reviews": 0, "streak": 0,
+        },
         "partial": True,
     }
+
+
+def _pace_per_min(reviews: int, milliseconds: int) -> float | None:
+    """Realistic study speed in reviews/minute without exploding on tiny samples.
+
+    Floors active time at 1 minute so studying a handful of cards (e.g. 10 cards
+    in 40 seconds) never extrapolates into hundreds or thousands of cards/hour.
+    """
+    if reviews <= 0:
+        return None
+    minutes = max(1.0, max(0, milliseconds) / 60_000)
+    return round(reviews / minutes, 1)
 
 
 def metric_change(current: float | int | None, previous: float | int | None, comparison: str) -> dict[str, Any]:
@@ -107,8 +122,9 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
     daily = [] if unchanged else col.db.all(
         """SELECT date(id / 1000, 'unixepoch', 'localtime', ?),
                   count(*), coalesce(sum(time), 0),
-                  sum(CASE WHEN type = 1 THEN 1 ELSE 0 END),
-                  sum(CASE WHEN type = 1 AND ease > 1 THEN 1 ELSE 0 END)
+                  sum(CASE WHEN ease > 1 THEN 1 ELSE 0 END),
+                  sum(CASE WHEN type = 1 OR (type = 3 AND lastIvl > 0) THEN 1 ELSE 0 END),
+                  sum(CASE WHEN (type = 1 OR (type = 3 AND lastIvl > 0)) AND ease > 1 THEN 1 ELSE 0 END)
            FROM revlog WHERE ease > 0 AND type < 4 AND id >= ?
            GROUP BY 1 ORDER BY 1""",
         offset, start_ms,
@@ -116,16 +132,15 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
     days = dict(cached['days']) if unchanged else {
         **({key:value for key,value in cached['days'].items() if key < refresh_day} if incremental else {}),
         **{
-        date: {"reviews": int(count), "milliseconds": int(ms),
-               "tested": int(tested), "passed": int(passed)}
-        for date, count, ms, tested, passed in daily if date and date <= today.isoformat()
+        date: {"reviews": int(count), "milliseconds": int(ms), "correct": int(correct or 0),
+               "tested": int(tested or 0), "passed": int(passed or 0)}
+        for date, count, ms, correct, tested, passed in daily if date and date <= today.isoformat()
         },
     }
-    start_30 = today - timedelta(days=29)
-    recent = [v for k, v in days.items() if start_30.isoformat() <= k <= today.isoformat()]
-    tested = sum(v["tested"] for v in recent)
-    passed = sum(v["passed"] for v in recent)
-    today_data = days.get(today.isoformat(), {"reviews": 0, "milliseconds": 0})
+    today_data = days.get(today.isoformat(), {"reviews": 0, "milliseconds": 0, "correct": 0, "tested": 0, "passed": 0})
+    tested = int(today_data.get("tested", 0))
+    passed = int(today_data.get("passed", 0))
+    correct = int(today_data.get("correct", 0))
     # A streak remains active before the first review today if yesterday was studied.
     cursor = today if today_data["reviews"] else today - timedelta(days=1)
     streak = cached['streak'] if unchanged else 0
@@ -159,15 +174,15 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
     filtered_counts = cached['filtered_counts'] if unchanged else dict(col.db.all(
         "SELECT did, count(*) FROM cards WHERE odid != 0 GROUP BY 1"
     ))
-    since = int(datetime.combine(start_30, datetime.min.time()).replace(hour=rollover).timestamp() * 1000)
+    today_start_ms = int((end - timedelta(days=1)).timestamp() * 1000)
     deck_retention = cached['retention'] if unchanged else {
-        int(did): (int(total), int(passed))
-        for did, total, passed in col.db.all(
+        int(did): (int(total), int(passed_cnt))
+        for did, total, passed_cnt in col.db.all(
             """SELECT CASE WHEN c.odid != 0 THEN c.odid ELSE c.did END,
                       count(*), sum(CASE WHEN r.ease > 1 THEN 1 ELSE 0 END)
                FROM revlog r JOIN cards c ON c.id = r.cid
-               WHERE r.id >= ? AND r.id < ? AND r.type = 1 AND r.ease > 0
-               GROUP BY 1""", since, cutoff * 1000
+               WHERE r.id >= ? AND r.id < ? AND r.ease > 0 AND r.type < 4
+               GROUP BY 1""", today_start_ms, cutoff * 1000
         )
     }
     tree = due_tree if due_tree is not None else col.sched.deck_due_tree()
@@ -215,13 +230,13 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
         aggregate(record)
     total_ms = int(today_data["milliseconds"])
     reviews = int(today_data["reviews"])
-    pace = round(reviews / (total_ms / 3_600_000)) if total_ms else None
-    previous_30 = [v for k, v in days.items()
-                   if (today - timedelta(days=59)).isoformat() <= k < start_30.isoformat()]
-    previous_tested = sum(v["tested"] for v in previous_30)
-    previous_passed = sum(v["passed"] for v in previous_30)
-    retention = round(passed * 100 / tested, 1) if tested else None
-    previous_retention = round(previous_passed * 100 / previous_tested, 1) if previous_tested else None
+    pace = _pace_per_min(reviews, total_ms)
+    retention = round(correct * 100 / reviews, 1) if reviews else None
+    true_retention = round(passed * 100 / tested, 1) if tested else None
+    yesterday_data = days.get((today - timedelta(days=1)).isoformat(), {"reviews": 0, "correct": 0})
+    yesterday_reviews_full = int(yesterday_data.get("reviews", 0))
+    yesterday_correct_full = int(yesterday_data.get("correct", 0))
+    previous_retention = round(yesterday_correct_full * 100 / yesterday_reviews_full, 1) if yesterday_reviews_full else None
     # Compare partial today with the same local clock time yesterday, not a full day.
     yesterday_start = (end - timedelta(days=2)).timestamp() * 1000
     yesterday_now = (datetime.now() - timedelta(days=1)).timestamp() * 1000
@@ -230,9 +245,9 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
         "WHERE id >= ? AND id <= ? AND ease > 0 AND type < 4",
         int(yesterday_start), int(yesterday_now),
     )
-    previous_pace = round(previous_reviews / (previous_ms / 3_600_000)) if previous_ms else None
+    previous_pace = _pace_per_min(int(previous_reviews or 0), int(previous_ms or 0))
     trends = {
-        "retention": metric_change(retention, previous_retention, "30 ngày trước"),
+        "retention": metric_change(retention, previous_retention, "hôm qua"),
         "pace": metric_change(pace, previous_pace, "cùng giờ hôm qua"),
         "milliseconds": metric_change(total_ms, previous_ms, "cùng giờ hôm qua"),
         "reviews": metric_change(reviews, previous_reviews, "cùng giờ hôm qua"),
@@ -244,9 +259,10 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
         "due": sum(d["new"] + d["learn"] + d["review"] for d in decks),
         "total_cards": sum(int(c) for c in counts.values()),
         "trends": trends,
-        "stats": {"retention": retention,
+        "stats": {"retention": retention, "true_retention": true_retention,
+                  "correct": correct, "tested": tested,
                   "pace": pace, "milliseconds": total_ms, "reviews": reviews,
-                  "streak": streak, "tested": tested},
+                  "streak": streak},
     }
     # Store only read-only aggregates, never the UI payload/settings. A new
     # payload and live scheduler counts are returned even on a cache hit.
@@ -264,12 +280,14 @@ def collect_history_year(col: Any, year: int, *, revision: int | None = None) ->
     end = int(datetime(year+1,1,1,rollover).timestamp()*1000)
     rows = col.db.all(
         """SELECT date(id/1000,'unixepoch','localtime',?), count(*), coalesce(sum(time),0),
-                  sum(CASE WHEN type=1 THEN 1 ELSE 0 END),
-                  sum(CASE WHEN type=1 AND ease>1 THEN 1 ELSE 0 END)
+                  sum(CASE WHEN ease>1 THEN 1 ELSE 0 END),
+                  sum(CASE WHEN type=1 OR (type=3 AND lastIvl>0) THEN 1 ELSE 0 END),
+                  sum(CASE WHEN (type=1 OR (type=3 AND lastIvl>0)) AND ease>1 THEN 1 ELSE 0 END)
            FROM revlog WHERE id>=? AND id<? AND ease>0 AND type<4 GROUP BY 1""",
         f'-{rollover} hours', start, end)
-    days = {date:{'reviews':int(count),'milliseconds':int(ms),'tested':int(tested),'passed':int(passed)}
-            for date,count,ms,tested,passed in rows if date}
+    days = {date:{'reviews':int(count),'milliseconds':int(ms),'correct':int(correct or 0),
+                  'tested':int(tested or 0),'passed':int(passed or 0)}
+            for date,count,ms,correct,tested,passed in rows if date}
     cached = _AGGREGATES
     if cached and cached['col'] is col and cached['revision'] == revision:
         # Copy on write: an already-delivered snapshot must not change beneath
@@ -310,23 +328,19 @@ def collect_overview_snapshot(col: Any) -> dict[str, Any]:
     args = [*ids, *ids]
     cutoff = datetime.fromtimestamp(col.sched.day_cutoff)
     start = int((cutoff - timedelta(days=1)).timestamp() * 1000)
-    since = int((cutoff - timedelta(days=30)).timestamp() * 1000)
     total = int(col.db.scalar(f"SELECT count(*) FROM cards c WHERE {scope}", *args))
-    reviews, milliseconds = col.db.first(
-        f"SELECT count(*), coalesce(sum(r.time),0) FROM revlog r JOIN cards c ON c.id=r.cid "
+    reviews, milliseconds, correct = col.db.first(
+        f"SELECT count(*), coalesce(sum(r.time),0), coalesce(sum(CASE WHEN r.ease>1 THEN 1 ELSE 0 END),0) "
+        f"FROM revlog r JOIN cards c ON c.id=r.cid "
         f"WHERE {scope} AND r.id>=? AND r.id<? AND r.ease>0 AND r.type<4",
         *args, start, int(cutoff.timestamp()*1000),
     )
-    tested, passed = col.db.first(
-        f"SELECT count(*), coalesce(sum(CASE WHEN r.ease>1 THEN 1 ELSE 0 END),0) "
-        f"FROM revlog r JOIN cards c ON c.id=r.cid WHERE {scope} "
-        "AND r.id>=? AND r.id<? AND r.type=1 AND r.ease>0",
-        *args, since, int(cutoff.timestamp()*1000),
-    )
+    reviews_int = int(reviews or 0)
+    correct_int = int(correct or 0)
     snapshot.update({
         "total": total, "children": len(ids)-1, "has_buried": bool(col.sched.have_buried()),
-        "today_reviews": int(reviews), "today_milliseconds": int(milliseconds),
-        "retention": round(passed*100/tested,1) if tested else None,
+        "today_reviews": reviews_int, "today_milliseconds": int(milliseconds or 0),
+        "retention": round(correct_int*100/reviews_int,1) if reviews_int else None,
         "partial": False,
     })
     return snapshot

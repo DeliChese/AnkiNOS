@@ -192,9 +192,37 @@
   }
 
   const languages = () => Object.values(meta);
+  const ALIASES = {
+    zh: 'zh-cn', zh_cn: 'zh-cn', zh_hans: 'zh-cn', zh_hans_cn: 'zh-cn', zh_hans_sg: 'zh-cn', zh_sg: 'zh-cn',
+    zh_tw: 'zh-tw', zh_hant: 'zh-tw', zh_hant_tw: 'zh-tw', zh_hk: 'zh-tw', zh_hant_hk: 'zh-tw',
+    pt_br: 'pt-br', nb: 'no',
+  };
+  /** Resolve any Anki/browser locale (e.g. 'vi_VN', 'en_US', 'zh_CN', 'ja_JP') to the
+   *  best registered pack. Automatically picks up future packs registered via register(). */
+  function resolve(rawLocale) {
+    if (typeof rawLocale === 'string') {
+      const normalized = rawLocale.trim().replace(/-/g, '_').toLowerCase();
+      if (normalized) {
+        const aliased = ALIASES[normalized];
+        if (aliased) {
+          if (known(aliased)) return aliased;
+          return known('en') ? 'en' : SOURCE;
+        }
+        const hyphenated = normalized.replace(/_/g, '-');
+        if (known(normalized)) return normalized;
+        if (known(hyphenated)) return hyphenated;
+        const base = normalized.split('_')[0];
+        const aliasedBase = ALIASES[base];
+        if (aliasedBase && known(aliasedBase)) return aliasedBase;
+        if (known(base)) return base;
+        if (known('en')) return 'en';
+      }
+    }
+    return SOURCE;
+  }
 
   window.NOSI18n = {
-    SOURCE, register, set, languages, translate, numberFormat, dateFormat, locale,
+    SOURCE, register, set, languages, resolve, translate, numberFormat, dateFormat, locale,
     t: text => translate(text, current),
     language: () => current,
     has: known,

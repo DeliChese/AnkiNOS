@@ -18,9 +18,12 @@
     image_dashboard: 'Dashboard',
     image_overview: 'Chuẩn bị học',
     image_review: 'Lúc ôn tập',
+    image_cover: 'Ảnh bìa hồ sơ',
     image_avatar: 'Avatar'
   };
+  const FRAME_SLOTS = ['dashboard', 'overview', 'review', 'cover', 'avatar'];
   let selected = null, album = 'all', editing = null, pendingAlbumName = '';
+  let activeFrame = 'dashboard', showGrid = true;
   let searchText = '';
   let gallerySignature = '';
   let albumsSignature = '';
@@ -129,18 +132,66 @@
   const wallFit = () => getData().image_fit_dashboard === 'contain' ? 'contain' : 'cover';
   const wallDim = () => Number.isInteger(getData().wallpaper_dim) ? getData().wallpaper_dim : 28;
   const wallBlur = () => Number.isInteger(getData().wallpaper_blur) ? getData().wallpaper_blur : 0;
+  const clampInt = (v, lo, hi, d) => Number.isInteger(v) ? Math.min(hi, Math.max(lo, v)) : d;
+  function getFrame(surface = activeFrame) {
+    const raw = getData().image_frames?.[surface] || {};
+    return {
+      x: clampInt(raw.x, 0, 100, 50),
+      y: clampInt(raw.y, 0, 100, 50),
+      zoom: clampInt(raw.zoom, 100, 250, 100),
+    };
+  }
+  function updateFrameLive(surface, nextFrame, persist = false) {
+    const clean = {
+      x: Math.round(Math.min(100, Math.max(0, nextFrame.x))),
+      y: Math.round(Math.min(100, Math.max(0, nextFrame.y))),
+      zoom: Math.round(Math.min(250, Math.max(100, nextFrame.zoom))),
+    };
+    const merged = {...(getData().image_frames || {}), [surface]: clean};
+    getData().image_frames = merged;
+    showDisplayOptions();
+    if (persist) {
+      saveDisplay({image_frames: {[surface]: clean}});
+    } else {
+      window.AnkiNOS?.studioUpdate?.({image_frames: merged});
+    }
+  }
   function showDisplayOptions() {
-    const fit = wallFit(), dim = wallDim(), blur = wallBlur(), preview = $('studio-preview');
+    const isProfileMedia = activeFrame === 'avatar' || activeFrame === 'cover';
+    const fit = isProfileMedia ? 'cover' : wallFit();
+    const dim = isProfileMedia ? 0 : wallDim();
+    const blur = isProfileMedia ? 0 : wallBlur();
+    const frame = getFrame(activeFrame);
+    const scale = (frame.zoom / 100) * (blur ? 1.06 : 1);
+    const preview = $('studio-preview');
+    preview.dataset.frameSlot = activeFrame;
+    preview.dataset.grid = showGrid ? 'on' : 'off';
+    preview.dataset.draggable = selected ? 'true' : 'false';
     preview.style.setProperty('--wall-fit', fit);
     preview.style.setProperty('--wall-dim', String(dim / 100));
     preview.style.setProperty('--wall-blur', blur + 'px');
-    preview.style.setProperty('--wall-scale', blur ? '1.06' : '1');
+    preview.style.setProperty('--wall-pos-x', frame.x + '%');
+    preview.style.setProperty('--wall-pos-y', frame.y + '%');
+    preview.style.setProperty('--wall-scale', scale.toFixed(3));
+    for (const tab of $('studio-frame-tabs')?.querySelectorAll('[data-studio-frame]') || []) {
+      const on = tab.dataset.studioFrame === activeFrame;
+      tab.classList.toggle('active', on);
+      tab.setAttribute('aria-selected', String(on));
+    }
+    if ($('studio-grid-toggle')) {
+      $('studio-grid-toggle').setAttribute('aria-pressed', String(showGrid));
+      $('studio-grid-toggle').classList.toggle('active', showGrid);
+    }
+    if ($('studio-frame-coords')) $('studio-frame-coords').textContent = `${frame.x}% · ${frame.y}%`;
+    if ($('studio-zoom') && document.activeElement !== $('studio-zoom')) $('studio-zoom').value = String(frame.zoom);
+    if ($('studio-zoom-out')) $('studio-zoom-out').textContent = frame.zoom + '%';
+    if ($('studio-drag-hint')) $('studio-drag-hint').hidden = !selected;
     for (const button of $('studio-fit').querySelectorAll('[data-studio-fit]'))
-      button.setAttribute('aria-pressed', String(button.dataset.studioFit === fit));
-    if (document.activeElement !== $('studio-dim')) $('studio-dim').value = String(dim);
-    if (document.activeElement !== $('studio-blur')) $('studio-blur').value = String(blur);
-    $('studio-dim-out').textContent = dim + '%';
-    $('studio-blur-out').textContent = blur + ' px';
+      button.setAttribute('aria-pressed', String(button.dataset.studioFit === wallFit()));
+    if (document.activeElement !== $('studio-dim')) $('studio-dim').value = String(wallDim());
+    if (document.activeElement !== $('studio-blur')) $('studio-blur').value = String(wallBlur());
+    $('studio-dim-out').textContent = wallDim() + '%';
+    $('studio-blur-out').textContent = wallBlur() + ' px';
   }
   function showInspector() {
     const image = photos().find(p => p.id === selected);
@@ -210,8 +261,12 @@
     }
     showInspector();
   }
-  function open() {
-    if (dialog.open) return;
+  function open(opts = {}) {
+    if (opts && typeof opts === 'object') {
+      if (opts.slot && FRAME_SLOTS.includes(opts.slot)) activeFrame = opts.slot;
+      if (opts.photoId && photos().some(p => p.id === opts.photoId)) selected = opts.photoId;
+    }
+    if (dialog.open) { render(); return; }
     cancelPreparation();
     // Prepare while hidden, avoiding a second layout immediately after showModal.
     render();
@@ -319,6 +374,21 @@
       status('Đã xóa album; ảnh được giữ nguyên.');
       return;
     }
+    if (button.dataset.studioFrame && FRAME_SLOTS.includes(button.dataset.studioFrame)) {
+      activeFrame = button.dataset.studioFrame;
+      showDisplayOptions();
+      return;
+    }
+    if (button.id === 'studio-grid-toggle') {
+      showGrid = !showGrid;
+      showDisplayOptions();
+      return;
+    }
+    if (button.id === 'studio-frame-reset') {
+      updateFrameLive(activeFrame, {x: 50, y: 50, zoom: 100}, true);
+      status('Đã đặt lại khung ảnh về giữa (100%).');
+      return;
+    }
     if (button.dataset.studioFit) {
       const fit = button.dataset.studioFit === 'contain' ? 'contain' : 'cover';
       saveDisplay({image_fit_dashboard: fit, image_fit_overview: fit, image_fit_review: fit});
@@ -328,6 +398,8 @@
     if (button.id === 'studio-remove-image') {deletePhoto();return;}
     const slot=button.dataset.studioSlot;
     if (slot && Object.hasOwn(TARGETS,slot) && selected) {
+      const surface = slot.replace(/^image_/, '');
+      if (FRAME_SLOTS.includes(surface)) activeFrame = surface;
       const value=getData()[slot] === selected ? null : selected;
       window.AnkiNOS?.studioUpdate?.({[slot]:value});
       command('image_assign',{slot,id:value});
@@ -359,6 +431,57 @@
       if (Number.isInteger(value)) saveDisplay({[key]: value});
     });
   }
+  $('studio-zoom')?.addEventListener('input', event => {
+    const value = Number(event.target.value);
+    if (!Number.isInteger(value)) return;
+    const frame = getFrame(activeFrame);
+    updateFrameLive(activeFrame, {...frame, zoom: value}, false);
+  });
+  $('studio-zoom')?.addEventListener('change', event => {
+    const value = Number(event.target.value);
+    if (!Number.isInteger(value)) return;
+    const frame = getFrame(activeFrame);
+    updateFrameLive(activeFrame, {...frame, zoom: value}, true);
+  });
+  // Interactive drag-to-pan framing directly inside #studio-preview (non-destructive).
+  let dragState = null;
+  $('studio-preview')?.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || !selected) return;
+    const preview = $('studio-preview');
+    const rect = preview.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const start = getFrame(activeFrame);
+    dragState = {pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, rect, frame: start, moved: false};
+    preview.classList.add('is-dragging');
+    preview.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  });
+  $('studio-preview')?.addEventListener('pointermove', event => {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    const dx = ((event.clientX - dragState.startX) / dragState.rect.width) * 100;
+    const dy = ((event.clientY - dragState.startY) / dragState.rect.height) * 100;
+    dragState.moved = true;
+    const next = {
+      x: Math.round(Math.min(100, Math.max(0, dragState.frame.x - dx))),
+      y: Math.round(Math.min(100, Math.max(0, dragState.frame.y - dy))),
+      zoom: dragState.frame.zoom,
+    };
+    updateFrameLive(activeFrame, next, false);
+  });
+  const finishDrag = event => {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    const preview = $('studio-preview');
+    preview.classList.remove('is-dragging');
+    preview.releasePointerCapture?.(event.pointerId);
+    const shouldSave = dragState.moved;
+    dragState = null;
+    if (shouldSave) {
+      updateFrameLive(activeFrame, getFrame(activeFrame), true);
+      status('Đã lưu góc căn khung ảnh.');
+    }
+  };
+  $('studio-preview')?.addEventListener('pointerup', finishDrag);
+  $('studio-preview')?.addEventListener('pointercancel', finishDrag);
   function saveAlbum() {
     const name = $('studio-album-title').value.trim();
     if (!name || name.length > 80) {status('Tên album phải có từ 1 đến 80 ký tự.',true);return;}

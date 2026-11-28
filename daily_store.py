@@ -10,7 +10,19 @@ import time
 from typing import Any
 from uuid import uuid4
 
-from .daily_scheduler import DEFAULT_DAILY_CAP, MAX_DAILY_CAP, MIN_DAILY_CAP
+from .daily_scheduler import (
+    BACKLOG_MODES,
+    DEFAULT_DAILY_CAP,
+    DEFAULT_MAX_SHIFT_DAYS,
+    DEFAULT_SAFE_FLOOR_R,
+    MAX_DAILY_CAP,
+    MAX_MAX_SHIFT_DAYS,
+    MAX_SAFE_FLOOR_R,
+    MIN_DAILY_CAP,
+    MIN_MAX_SHIFT_DAYS,
+    MIN_SAFE_FLOOR_R,
+    REVIEW_ORDERS,
+)
 from .media_store import profile_dir
 
 SCHEMA_VERSION = 1
@@ -97,12 +109,28 @@ def clean_daily_config(raw: Any) -> dict[str, Any]:
         daily_cap = max(MIN_DAILY_CAP, min(MAX_DAILY_CAP, int(cap_raw)))
     except (TypeError, ValueError):
         daily_cap = DEFAULT_DAILY_CAP
+    backlog_mode = raw.get("backlog_mode") if raw.get("backlog_mode") in BACKLOG_MODES else "virtual"
+    review_order = raw.get("review_order") if raw.get("review_order") in REVIEW_ORDERS else "auto"
+    try:
+        safe_floor_r = max(MIN_SAFE_FLOOR_R, min(MAX_SAFE_FLOOR_R, int(raw.get("safe_floor_r", DEFAULT_SAFE_FLOOR_R))))
+    except (TypeError, ValueError):
+        safe_floor_r = DEFAULT_SAFE_FLOOR_R
+    try:
+        max_shift_days = max(MIN_MAX_SHIFT_DAYS, min(MAX_MAX_SHIFT_DAYS, int(raw.get("max_shift_days", DEFAULT_MAX_SHIFT_DAYS))))
+    except (TypeError, ValueError):
+        max_shift_days = DEFAULT_MAX_SHIFT_DAYS
+    auto_clean_filtered = raw.get("auto_clean_filtered") is not False
     active_preset_id = raw.get("active_preset_id") if isinstance(raw.get("active_preset_id"), str) else ""
     return {
         "scope_mode": scope_mode,
         "deck_names": deck_names,
         "include_children": include_children,
         "daily_cap": daily_cap,
+        "backlog_mode": backlog_mode,
+        "review_order": review_order,
+        "safe_floor_r": safe_floor_r,
+        "max_shift_days": max_shift_days,
+        "auto_clean_filtered": auto_clean_filtered,
         "auto_reschedule": raw.get("auto_reschedule") is True,
         "active_preset_id": active_preset_id[:64],
     }

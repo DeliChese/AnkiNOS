@@ -84,11 +84,34 @@ class PythonI18nTests(unittest.TestCase):
         )
         vi = i18n.format_restore_preview(**kwargs, lang="vi")
         en = i18n.format_restore_preview(**kwargs, lang="en")
+        zh = i18n.format_restore_preview(**kwargs, lang="zh-cn")
         self.assertIn("Xem trước khôi phục AnkiNOS", vi)
         self.assertIn("AnkiNOS Restore Preview", en)
         self.assertIn("Source profile: Work", en)
         self.assertIn("Destination profile: <b>Home</b>", en)
         self.assertNotIn("Hồ sơ", en)
+        self.assertIn("AnkiNOS 恢复预览", zh)
+        self.assertIn("源配置文件：Work", zh)
+        self.assertIn("目标配置文件：<b>Home</b>", zh)
+        self.assertNotIn("Hồ sơ", zh)
+
+    def test_zh_cn_dict_parity_and_translations(self):
+        self.assertEqual(set(i18n._ZH_CN_DICT.keys()), set(i18n._EN_DICT.keys()))
+        self.assertEqual(i18n.translate("Tạo bộ thẻ", "zh-cn"), "新建牌组")
+        self.assertEqual(i18n.translate("AnkiNOS — Lệnh nhanh", "zh-cn"), "AnkiNOS — 快捷命令")
+        self.assertEqual(i18n.translate("Quay lại giao diện AnkiNOS", "zh-cn"), "返回 AnkiNOS 界面")
+        self.assertEqual(i18n.translate("Đã thêm 3 ảnh.", "zh-cn"), "已添加 3 张图片。")
+        self.assertEqual(
+            i18n.translate("Không thể xử lý gói sao lưu: Gói sao lưu vượt giới hạn dung lượng.", "zh-cn"),
+            "无法处理备份包：备份包超出允许的最大容量。",
+        )
+        self.assertEqual(
+            i18n.translate(
+                "Xóa bộ thẻ <b>English</b>, 2 bộ con và 15 thẻ?<br>Bạn có thể dùng Hoàn tác của Anki sau khi xóa.",
+                "zh-cn",
+            ),
+            "确定删除牌组 <b>English</b>、2 个子牌组和 15 张卡片吗？<br>删除后可使用 Anki 撤销。",
+        )
 
 
 if __name__ == "__main__":

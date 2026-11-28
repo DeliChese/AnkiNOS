@@ -1,0 +1,22 @@
+name: Feature Idea or Translation / Góp ý tính năng hoặc Dịch ngôn ngữ
+description: Suggest an improvement or help translate AnkiNOS into another language.
+title: "[Idea / i18n]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Category / Phân loại
+      options:
+        - Feature / UX improvement
+        - New language translation (i18n)
+        - Theme / Layout suggestion
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details / Nội dung chi tiết
+      description: Tell us what would help your daily study workflow, or which language locale (e.g. ja, ko, zh-cn, fr, de) you'd like to translate.
+    validations:
+      required: true

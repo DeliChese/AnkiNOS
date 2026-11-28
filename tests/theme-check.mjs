@@ -46,7 +46,8 @@ try {
 
   const shot=async name=>{const data=await cdp('Page.captureScreenshot',{format:'png'});await writeFile(join(root,'previews',name),Buffer.from(data.data,'base64'));};
   async function navigate(file, ready) {
-    await cdp('Page.navigate',{url:pathToFileURL(join(root,file)).href});
+    const [rel, query] = file.split('?');
+    await cdp('Page.navigate',{url:pathToFileURL(join(root,rel)).href+(query?'?'+query:'')});
     for(let i=0;i<100;i++){if(await evaluate(ready))return;await new Promise(r=>setTimeout(r,50));}
     assert.fail('Page not ready: '+file);
   }
@@ -61,10 +62,16 @@ try {
     }
     return results.length;
   })()`);
-  assert.equal(matrix,440);
+  assert.equal(matrix,880);
   const original=await evaluate(`window.AnkiNOS.getSettings()`);
   await click('.rail-bottom [data-action="preferences"]');
-  assert.equal(await evaluate(`document.querySelectorAll('[data-set-palette]').length`),8);
+  assert.equal(await evaluate(`document.querySelectorAll('[data-set-palette]').length`),16);
+  assert.equal(await evaluate(`document.querySelectorAll('[data-set-font]').length`),8);
+  await click('[data-set-font="serif"]');
+  await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+  assert.equal(await evaluate(`document.getElementById('theme-preview').style.getPropertyValue('--nos-font').includes('Georgia')`),true);
+  await click('[data-set-font="system"]');
+  await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
   await click('[data-set-palette="mononoke"]');
   await click('[data-set-theme="light"]');
   await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
@@ -82,7 +89,7 @@ try {
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().custom_accent`),'#000000');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.colorTheme`),'rosepine');
   await click('#settings-close');
-  for(const color_theme of ['nos','tokyo','mononoke','catppuccin','rosepine','nord','solarized','dracula'])for(const theme of ['light','night','oled']) {
+  for(const color_theme of ['nos','tokyo','mononoke','catppuccin','rosepine','nord','solarized','dracula','gruvbox','everforest','kanagawa','sakura'])for(const theme of ['light','night','oled']) {
     await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),color_theme:${JSON.stringify(color_theme)},theme:${JSON.stringify(theme)},accent:'auto'}})`);
     assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),true);
     assert.equal(await evaluate(`document.querySelector('.study-launchpad').style.background`),'');
@@ -101,6 +108,15 @@ try {
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('nos-app')).getPropertyValue('--surface').trim()`),'#ffffff');
   await cdp('Emulation.setEmulatedMedia',{media:'screen',features:[{name:'prefers-color-scheme',value:'light'}]});
   await click('.rail-main [data-action="page"][data-value="home"]');
+  // Verify launcher ("Chức năng") menu buttons/icons follow the active light palette instead of hardcoded blue/dark colors.
+  await click('#launcher-toggle');
+  const launcherColors = await evaluate(`({
+    panelBg: getComputedStyle(document.getElementById('launcher')).backgroundColor,
+    iconColor: getComputedStyle(document.querySelector('#launcher .launcher-grid .icon')).color,
+    expectedBlue: getComputedStyle(document.getElementById('nos-app')).getPropertyValue('--blue').trim(),
+  })`);
+  assert.notEqual(launcherColors.iconColor, 'rgb(202, 224, 255)', 'Launcher icons must follow theme --blue, not hardcoded #cae0ff');
+  await click('#launcher-toggle');
   await click('#library-toggle');
   await shot('theme-library-light.png');
   await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
@@ -123,13 +139,66 @@ try {
   await evaluate(`window.NOSTheme.apply(document.getElementById('nos-review-shell'),{theme:'light',color_theme:'rosepine',accent:'auto'},true)`);
   const cardAfter=await evaluate(`({fg:getComputedStyle(document.getElementById('qa')).color,bg:getComputedStyle(document.getElementById('nos-review-card')).backgroundColor})`);
   assert.deepEqual(cardAfter,cardBefore,'Card styles survive the theme change');
+  await evaluate(`window.NOSTheme.apply(document.getElementById('nos-review-shell'),{theme:'night',color_theme:'matcha',accent:'auto',text_color:'custom',custom_text_color:'#ff2288'},true)`);
+  const customTextCheck=await evaluate(`({
+    headerFg: getComputedStyle(document.getElementById('nos-review-header')).color,
+    qaFg: getComputedStyle(document.getElementById('qa')).color,
+    qaTextVar: getComputedStyle(document.getElementById('qa')).getPropertyValue('--text').trim(),
+  })`);
+  assert.equal(customTextCheck.headerFg, 'rgb(255, 34, 136)', 'Custom UI text color applies to Reviewer header');
+  assert.equal(customTextCheck.qaFg, cardBefore.fg, 'Custom UI text color must NEVER alter #qa flashcard text color');
+  assert.equal(customTextCheck.qaTextVar, '', 'AnkiNOS --text variable must not leak into #qa');
+  await evaluate(`window.NOSTheme.apply(document.getElementById('nos-review-shell'),{theme:'light',color_theme:'rosepine',accent:'auto'},true)`);
   await shot('theme-review-light.png');
+  for (const [lang, expected] of [
+    ['en', {back: 'Decks', side: 'Front', focus: 'Focus', note: 'Notes', opt: '25 min', progress: '8 reviews in this session'}],
+    ['zh-cn', {back: '牌组', side: '正面', focus: '专注', note: '笔记', opt: '25 分钟', progress: '本次会话已复习 8 次'}],
+  ]) {
+    await navigate('ankios-review.html?lang='+lang, `!!window.NOSReview && document.documentElement.lang===${JSON.stringify(lang)}`);
+    const revI18n = await evaluate(`({
+      back: document.querySelector('#nos-review-header .nos-back-label')?.textContent?.trim(),
+      side: document.getElementById('nos-review-side')?.textContent?.trim(),
+      focus: document.getElementById('nos-focus-start')?.textContent?.trim(),
+      note: document.querySelector('[data-nos-review="notebook"]')?.textContent?.trim(),
+      opt: document.querySelector('#nos-focus-duration option[value="25"]')?.textContent?.trim(),
+      progress: document.getElementById('nos-review-progress')?.textContent?.trim(),
+      qa: document.getElementById('qa')?.textContent?.trim(),
+    })`);
+    assert.equal(revI18n.back, expected.back, `Reviewer back button (${lang})`);
+    assert.equal(revI18n.side, expected.side, `Reviewer side pill (${lang})`);
+    assert.equal(revI18n.focus, expected.focus, `Reviewer focus button (${lang})`);
+    assert.equal(revI18n.note, expected.note, `Reviewer note button (${lang})`);
+    assert.equal(revI18n.opt, expected.opt, `Reviewer focus option (${lang})`);
+    assert.equal(revI18n.progress, expected.progress, `Reviewer progress (${lang})`);
+    assert.ok(revI18n.qa.includes('Cụm từ này có nghĩa là gì?'), `#qa content must stay untouched (${lang})`);
+  }
   await navigate('assets/reviewer-controls-preview.html',`document.documentElement.dataset.nosRatings==='true'`);
   await evaluate(`window.NOSTheme.apply(document.documentElement,{theme:'light',color_theme:'rosepine',accent:'auto'},true);showPreviewAnswer()`);
   assert.equal(await evaluate(`document.querySelectorAll('button[data-ease]').length`),4);
   assert.equal(await evaluate(`Array.from(document.querySelectorAll('button[data-ease]')).every(b => !!b.querySelector('.nos-btn-fill') && b.getBoundingClientRect().height <= 54)`), true, 'Rating buttons must stay compact and have radial fill element');
   assert.equal(await evaluate(`['--on-danger','--on-warning','--on-blue','--on-success'].every(v => !!getComputedStyle(document.documentElement).getPropertyValue(v).trim())`), true, 'Rating hover contrast tokens must be defined');
   await shot('theme-ratings-light.png');
+  for (const [lang, expected] of [
+    ['en', {edit: 'Edit', ans: 'Show Answer', more: 'More ⋯', ease: ['Again', 'Hard', 'Good', 'Easy'], due: ['<1m', '6m', '10m', '4d']}],
+    ['zh-cn', {edit: '编辑', ans: '显示答案', more: '更多 ⋯', ease: ['重来', '困难', '良好', '简单'], due: ['<1 分钟', '6 分钟', '10 分钟', '4 天']}],
+  ]) {
+    await navigate('assets/reviewer-controls-preview.html?lang='+lang, `document.documentElement.dataset.nosRatings==='true' && document.documentElement.lang===${JSON.stringify(lang)}`);
+    const qState = await evaluate(`({
+      edit: document.querySelector('td.stat:first-child > button')?.textContent?.trim(),
+      ans: Array.from(document.getElementById('ansbut').childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join(''),
+      more: document.querySelector('td.stat:last-child > button')?.textContent?.trim(),
+    })`);
+    assert.equal(qState.edit, expected.edit, `Bottom edit (${lang})`);
+    assert.equal(qState.ans, expected.ans, `Bottom show answer (${lang})`);
+    assert.equal(qState.more, expected.more, `Bottom more (${lang})`);
+    await evaluate(`showPreviewAnswer()`);
+    const aState = await evaluate(`({
+      ease: Array.from(document.querySelectorAll('button[data-ease]')).map(b=>Array.from(b.childNodes).filter(n=>n.nodeType===3).map(n=>n.nodeValue.trim()).join('')),
+      due: Array.from(document.querySelectorAll('button[data-ease] .nobold')).map(s=>s.textContent.trim()),
+    })`);
+    assert.deepEqual(aState.ease, expected.ease, `Bottom ease labels (${lang})`);
+    assert.deepEqual(aState.due, expected.due, `Bottom due intervals (${lang})`);
+  }
   await navigate('ankios-tools.html',`!!window.NOSTool`);
   await evaluate(`window.NOSTheme.apply(document.getElementById('nos-tool'),{theme:'light',color_theme:'rosepine',accent:'auto'},true)`);
   await shot('theme-notebook-light.png');

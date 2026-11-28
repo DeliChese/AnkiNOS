@@ -17,16 +17,18 @@ from aqt.deckbrowser import DeckBrowser
 from aqt.overview import Overview
 from aqt.operations import QueryOp
 from aqt.operations.deck import add_deck, remove_decks
-from aqt.qt import QAction, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QColor, QImage, QImageReader, QPainter, QSize, QInputDialog, QLabel, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, Qt, qconnect
+from aqt.qt import QAction, QApplication, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QColor, QImage, QImageReader, QLocale, QPainter, QSize, QInputDialog, QLabel, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, Qt, qconnect
 from aqt.utils import askUser, getOnlyText, showWarning
 
 from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, quick_snapshot, clear_snapshot_cache
 from .i18n import format_restore_preview, translate as _translate_text
-from .theme_settings import DEFAULT_GLASS_BLUR, DEFAULT_GLASS_OPACITY, DEFAULT_LANGUAGE, DEFAULT_LAYOUT, DEFAULT_SIDEBAR_SIDE, THEME_DEFAULTS, clean_theme_settings
+from .theme_settings import (DEFAULT_FONT, DEFAULT_GLASS_BLUR, DEFAULT_GLASS_OPACITY, DEFAULT_LANGUAGE, DEFAULT_LAYOUT,
+                             DEFAULT_REVIEWER_CARD_OPACITY, DEFAULT_SIDEBAR_SIDE, LANGUAGE_AUTO, THEME_DEFAULTS,
+                             clean_theme_settings, resolve_system_language)
 from .media_store import (MAX_IMAGES, MAX_IMAGE_BYTES, SLOTS, THUMBNAIL_SUFFIX, WALLPAPER_SUFFIX, WALLPAPER_MAX_SIDE,
                           WALLPAPER_DIM_MAX, WALLPAPER_BLUR_MAX, IMAGE_FITS,
                           IMAGE_POSITIONS, add_image, delete_image, public_images,
-                          valid_images, valid_albums, MAX_ALBUMS, profile_dir)
+                          valid_images, valid_albums, valid_image_frames, MAX_ALBUMS, profile_dir)
 
 ROOT = Path(__file__).resolve().parent
 MODULE = __package__ or "NOS"
@@ -44,6 +46,8 @@ _config_cache: dict[str, Any] | None = None
 _navigating = False
 _library_focus: str | None = None
 _dashboard_tree: Any = None
+_dashboard_tree_rev = -1
+_refresh_queued = False
 _data_revision = 0
 _review_changes_only = True
 _history_queries: set[tuple[int, str, int]] = set()
@@ -70,17 +74,79 @@ def enabled() -> bool:
     return _integration_ready and not _session_error and bool(config().get("enabled", True))
 
 
+def _anki_locale() -> str:
+    """Return Anki's active interface locale (fallback: profile meta, then OS locale)."""
+    try:
+        from anki import lang as anki_lang
+        current = getattr(anki_lang, "current_lang", "")
+        if isinstance(current, str) and current.strip():
+            return current.strip()
+    except Exception:
+        pass
+    try:
+        meta_lang = getattr(mw.pm, "meta", {}).get("defaultLang", "")
+        if isinstance(meta_lang, str) and meta_lang.strip():
+            return meta_lang.strip()
+    except Exception:
+        pass
+    try:
+        sys_locale = QLocale.system().name()
+        if isinstance(sys_locale, str) and sys_locale.strip():
+            return sys_locale.strip()
+    except Exception:
+        pass
+    return ""
+
+
 def _lang() -> str:
     try:
         if getattr(mw, "pm", None) and mw.pm.name:
             return str(settings().get("language", DEFAULT_LANGUAGE))
     except Exception:
         pass
-    return DEFAULT_LANGUAGE
+    return resolve_system_language(_anki_locale())
 
 
 def _t(text: str) -> str:
     return _translate_text(text, _lang())
+
+
+def _copy_diagnostics(client: Any = None) -> None:
+    import platform
+    import sys
+    from importlib.metadata import PackageNotFoundError, version
+    try:
+        anki_version = version("anki")
+    except PackageNotFoundError:
+        anki_version = "unknown"
+    try:
+        manifest_ver = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8")).get("version", "1.0.0-beta")
+    except Exception:
+        manifest_ver = "1.0.0-beta"
+    s = settings()
+    info = client if isinstance(client, dict) else {}
+    vw = info.get("width") if isinstance(info.get("width"), int) else 0
+    vh = info.get("height") if isinstance(info.get("height"), int) else 0
+    dpr = info.get("dpr") if isinstance(info.get("dpr"), (int, float)) else 1
+    try:
+        addon_count = len(mw.addonManager.allAddons())
+    except Exception:
+        addon_count = 0
+    lines = [
+        f"AnkiNOS: v1.0.0 Beta ({manifest_ver})",
+        f"Anki: {anki_version}",
+        f"OS: {platform.system()} {platform.release()} ({platform.machine()}) · Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        f"Locale: anki={s.get('anki_locale') or 'unknown'} · pref={s.get('language_pref')} · active={s.get('language')}",
+        f"Display: {vw}x{vh} @{dpr}x · scale={s.get('ui_scale', 100)}%",
+        f"UI: layout={s.get('layout')} · theme={s.get('theme')}/{s.get('color_theme')} · font={s.get('font_family')} · blur={s.get('blur')} · anim={s.get('animations')} · lite={bool(s.get('lite_mode', False))}",
+        f"Add-ons installed: {addon_count}",
+        f"Session error: {_session_error or 'none'}",
+    ]
+    report = "\n".join(lines)
+    clipboard = QApplication.clipboard()
+    if clipboard is not None:
+        clipboard.setText(report)
+    send("diagnostics_copied", {"ok": True})
 
 
 def _fallback(error: Exception) -> None:
@@ -141,16 +207,92 @@ def _restore_chrome() -> None:
         widget.setVisible(visible)
 
 
+def _maybe_cleanup_daily_filtered_deck() -> None:
+    """Clean empty managed Daily Schedule filtered decks after leaving Reviewer."""
+    if not mw.col or mw.state != "deckBrowser" or _navigating or not enabled():
+        return
+    try:
+        from .daily_bridge import (
+            FILTERED_DECK_NAME,
+            LEGACY_EMPTY_PARENT_NAME,
+            LEGACY_FILTERED_DECK_NAMES,
+            cleanup_empty_filtered_decks_in_col,
+        )
+        from .daily_store import DailyStore
+
+        if not DailyStore(ROOT, mw.pm.name).get_config().get("auto_clean_filtered", True):
+            return
+        needs_cleanup = False
+        for name in (FILTERED_DECK_NAME, *LEGACY_FILTERED_DECK_NAMES):
+            did = mw.col.decks.id_for_name(name)
+            if did:
+                deck = mw.col.decks.get(did)
+                if deck and deck.get("dyn"):
+                    count = int(mw.col.db.scalar("SELECT count(*) FROM cards WHERE did = ?", did) or 0)
+                    if count == 0:
+                        needs_cleanup = True
+                        break
+        if not needs_cleanup:
+            pdid = mw.col.decks.id_for_name(LEGACY_EMPTY_PARENT_NAME)
+            if pdid:
+                pdeck = mw.col.decks.get(pdid)
+                if pdeck and not pdeck.get("dyn"):
+                    prefix = LEGACY_EMPTY_PARENT_NAME + "::"
+                    has_children = any(entry.name.startswith(prefix) for entry in mw.col.decks.all_names_and_ids())
+                    count = int(mw.col.db.scalar("SELECT count(*) FROM cards WHERE did = ? OR odid = ?", pdid, pdid) or 0)
+                    if not has_children and count == 0:
+                        needs_cleanup = True
+        if not needs_cleanup:
+            return
+
+        from anki.collection import OpChanges
+        from aqt.operations import CollectionOp
+
+        profile, generation = mw.pm.name, _generation
+
+        def op_clean(col: Any) -> Any:
+            changes = OpChanges()
+            removed = cleanup_empty_filtered_decks_in_col(col, changes=changes)
+            return type("_CleanupResult", (), {"changes": changes, "removed": removed})()
+
+        def done_clean(result: Any) -> None:
+            global _data_revision, _review_changes_only, _dashboard_tree, _prefetched_snapshot
+            if not getattr(result, "removed", False):
+                return
+            _dashboard_tree = None
+            _prefetched_snapshot = None
+            _data_revision += 1
+            _review_changes_only = False
+            clear_snapshot_cache()
+            _clear_support_cache()
+            if mw.col and mw.pm.name == profile and generation == _generation and mw.state == "deckBrowser" and not _navigating:
+                refresh()
+
+        CollectionOp(parent=mw, op=op_clean).success(done_clean).run_in_background(initiator=mw.deckBrowser)
+    except Exception:
+        pass
+
+
 def _state_changing(new: str, _old: str) -> None:
     global _overview_rendered, _overview_pending, _navigating, _live_context, _quick_plan
+    global _dashboard_tree, _dashboard_tree_rev, _prefetched_snapshot, _data_revision, _refresh_queued
     _live_context = None
     _navigating = False
     _overview_rendered = False
     _overview_pending = False
+    _refresh_queued = False
     if new not in {"overview", "review"}:
         _quick_plan = None
+    if _old == "review" and new in {"deckBrowser", "overview"}:
+        # Returning from studying cards must always fetch live queue counts and revlog totals.
+        _dashboard_tree = None
+        _dashboard_tree_rev = -1
+        _prefetched_snapshot = None
+        _data_revision += 1
     if new == "review" and mw.col and enabled():
         save_settings({"last_study_deck": str(mw.col.decks.selected())})
+    if _old == "review" and new == "deckBrowser" and mw.col and enabled():
+        QTimer.singleShot(0, _maybe_cleanup_daily_filtered_deck)
     # Restore before Anki applies the destination screen's own toolbar policy.
     if new not in {"deckBrowser", "overview"}:
         _restore_chrome()
@@ -324,25 +466,41 @@ def _begin_navigation() -> None:
 def settings() -> dict[str, Any]:
     profile = config().get("profiles", {}).get(mw.pm.name, {})
     cleaned = clean_theme_settings(profile)
+    anki_locale = _anki_locale()
+    lang_pref = cleaned.get("language", LANGUAGE_AUTO)
+    effective_lang = resolve_system_language(anki_locale) if lang_pref == LANGUAGE_AUTO else lang_pref
     return {"goal": 200, **THEME_DEFAULTS,
-            "activity_collapsed": False, "library_collapsed": False, "sidebar_collapsed": False,
+            "activity_collapsed": False, "launchpad_collapsed": False, "library_collapsed": False, "sidebar_collapsed": False,
+            "welcome_dismissed": False,
             "favorites": [], "colors": {}, "resources": [], "view": "list",
             "blur": True, "animations": True, "ui_scale": 100,
             "stat_retention": True, "stat_pace": True, "stat_time": True, "stat_studied": True,
             "heatmap_day": "monday", "heatmap_palette": "default",
             "images": [], "image_albums": [], "image_dashboard": None, "image_overview": None,
-            "image_review": None, "image_avatar": None,
+            "image_review": None, "image_avatar": None, "image_cover": None, "image_frames": {},
             "image_fit_dashboard": "cover", "image_fit_overview": "cover",
             "image_fit_review": "cover", "image_fit_avatar": "cover",
             "wallpaper_dim": 28, "wallpaper_blur": 0,
             "image_position_dashboard": "center", "image_position_overview": "center",
             "image_position_review": "center", "image_position_avatar": "center",
             **profile,
+            "image_frames": valid_image_frames(profile.get("image_frames")),
+            "text_color": cleaned.get("text_color", "auto"),
+            "custom_text_color": cleaned.get("custom_text_color", THEME_DEFAULTS["custom_text_color"]),
+            "rating_colors": cleaned.get("rating_colors", "auto"),
+            "rating_color_again": cleaned.get("rating_color_again", THEME_DEFAULTS["rating_color_again"]),
+            "rating_color_hard": cleaned.get("rating_color_hard", THEME_DEFAULTS["rating_color_hard"]),
+            "rating_color_good": cleaned.get("rating_color_good", THEME_DEFAULTS["rating_color_good"]),
+            "rating_color_easy": cleaned.get("rating_color_easy", THEME_DEFAULTS["rating_color_easy"]),
+            "reviewer_card_opacity": cleaned.get("reviewer_card_opacity", DEFAULT_REVIEWER_CARD_OPACITY),
+            "font_family": cleaned.get("font_family", DEFAULT_FONT),
             "layout": cleaned.get("layout", DEFAULT_LAYOUT),
             "sidebar_side": cleaned.get("sidebar_side", DEFAULT_SIDEBAR_SIDE),
             "glass_blur": cleaned.get("glass_blur", DEFAULT_GLASS_BLUR),
             "glass_opacity": cleaned.get("glass_opacity", DEFAULT_GLASS_OPACITY),
-            "language": cleaned.get("language", DEFAULT_LANGUAGE)}
+            "language_pref": lang_pref,
+            "anki_locale": anki_locale,
+            "language": effective_lang}
 
 
 def public_settings() -> dict[str, Any]:
@@ -632,7 +790,7 @@ def _deliver_snapshot(snapshot: dict[str, Any], profile_name: str, overview: boo
 
 
 def refresh(*, prefetch: bool = False) -> None:
-    global _active_query, _dashboard_tree, _prefetched_snapshot
+    global _active_query, _dashboard_tree, _dashboard_tree_rev, _prefetched_snapshot, _refresh_queued
     if _navigating or not mw.col or mw.state not in {"deckBrowser", "overview"} or not enabled():
         return
     overview = mw.state == "overview"
@@ -646,21 +804,25 @@ def refresh(*, prefetch: bool = False) -> None:
         return
     token = (_generation, mw.pm.name)
     if _active_query == token:
+        _refresh_queued = True
         return
     _active_query = token
+    _refresh_queued = False
     profile_name = mw.pm.name
     revision, review_only = _data_revision, _review_changes_only
-    tree = _dashboard_tree if not overview else None
+    tree = _dashboard_tree if (not overview and _dashboard_tree is not None and _dashboard_tree_rev == revision) else None
     if not overview:
         _dashboard_tree = None
+        _dashboard_tree_rev = -1
 
     def success(snapshot: dict[str, Any] | None) -> None:
-        global _active_query, _review_changes_only, _prefetched_snapshot
+        global _active_query, _review_changes_only, _prefetched_snapshot, _refresh_queued
         if _active_query == token:
             _active_query = None
         if token != (_generation, mw.pm.name) or not mw.col:
             return
-        if revision != _data_revision:
+        if _refresh_queued or revision != _data_revision:
+            _refresh_queued = False
             QTimer.singleShot(0, refresh)
             return
         if snapshot is None:
@@ -1081,7 +1243,7 @@ def _history_year(year: int) -> None:
 
 
 def _replace_content(content: Any, context: Any) -> None:
-    global _generation, _overview_rendered, _overview_pending, _dashboard_tree, _live_context, _prefetched_snapshot, _landing_page
+    global _generation, _overview_rendered, _overview_pending, _dashboard_tree, _dashboard_tree_rev, _live_context, _prefetched_snapshot, _landing_page
     if not isinstance(context, (DeckBrowser, Overview)) or not enabled():
         return
     _live_context = context
@@ -1091,6 +1253,7 @@ def _replace_content(content: Any, context: Any) -> None:
         _overview_rendered = _overview_pending = True
     else:
         _dashboard_tree = getattr(getattr(context, '_render_data', None), 'tree', None)
+        _dashboard_tree_rev = _data_revision if _dashboard_tree is not None else -1
     _generation += 1
     if _refresh_timer:
         _refresh_timer.stop()
@@ -1148,6 +1311,7 @@ def _replace_content(content: Any, context: Any) -> None:
     # Language support loads first so every page script can translate/format.
     content.js.append(f"{base}/i18n.js")
     content.js.append(f"{base}/i18n-en.js")
+    content.js.append(f"{base}/i18n-zh-cn.js")
     if overview:
         content.css = [p for p in content.css if p != "css/overview.css"]
         content.css.append(f"{base}/overview.css")
@@ -1401,9 +1565,9 @@ def _save_ui(values: Any) -> None:
         return
     patch: dict[str, Any] = clean_theme_settings(values)
     for key in (
-        "activity_collapsed", "library_collapsed", "sidebar_collapsed", "blur",
-        "animations", "lite_mode", "stat_retention", "stat_pace",
-        "stat_time", "stat_studied",
+        "activity_collapsed", "launchpad_collapsed", "library_collapsed", "sidebar_collapsed",
+        "welcome_dismissed", "blur", "animations", "lite_mode",
+        "stat_retention", "stat_pace", "stat_time", "stat_studied",
     ):
         if type(values.get(key)) is bool:
             patch[key] = values[key]
@@ -1439,6 +1603,12 @@ def _save_ui(values: Any) -> None:
             patch["image_fit_" + surface] = fit
         if isinstance(position, str) and position in IMAGE_POSITIONS:
             patch["image_position_" + surface] = position
+    if isinstance(values.get("image_frames"), dict):
+        incoming_frames = valid_image_frames(values["image_frames"])
+        if incoming_frames:
+            merged_frames = dict(valid_image_frames(settings().get("image_frames")))
+            merged_frames.update(incoming_frames)
+            patch["image_frames"] = merged_frames
     if patch:
         save_settings(patch)
 
@@ -1447,6 +1617,9 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
     global _library_focus, _data_revision, _review_changes_only, _quick_plan, _navigating
     if handled[0] or not isinstance(context, (DeckBrowser, Overview)) or not message.startswith("nos:"):
         return handled
+    if message == "nos:enable":
+        _toggle(True)
+        return (True, None)
     if not mw.col or mw.state not in {"deckBrowser", "overview"} or not enabled():
         return (True, None)
     if (isinstance(context, Overview) and mw.state != "overview") or (isinstance(context, DeckBrowser) and mw.state != "deckBrowser"):
@@ -1545,6 +1718,8 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             _backup_restore()
         elif action == "compatibility":
             _compatibility()
+        elif action == "copy_diagnostics":
+            _copy_diagnostics(command.get("client"))
         elif action == "native_mode":
             _toggle(False)
         elif action == "runtime_failure":
@@ -1662,13 +1837,14 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
 
 
 def _operation_finished(changes: Any, initiator: Any) -> None:
-    global _data_revision, _review_changes_only, _dashboard_tree, _prefetched_snapshot
+    global _data_revision, _review_changes_only, _dashboard_tree, _dashboard_tree_rev, _prefetched_snapshot
     if not any(getattr(changes, key, False) for key in ('card','note','deck','config','deck_config','notetype','study_queues','mtime')):
         return
     navigation_only = isinstance(initiator, DeckBrowser) and not any(
-        getattr(changes, key, False) for key in ('card','note','deck','notetype','deck_config'))
+        getattr(changes, key, False) for key in ('card','note','deck','notetype','deck_config','study_queues'))
     if not navigation_only:
         _dashboard_tree = None
+        _dashboard_tree_rev = -1
         _prefetched_snapshot = None
         _data_revision += 1
         # Answers and mark/flag operations initiated by Reviewer leave the
@@ -1679,7 +1855,7 @@ def _operation_finished(changes: Any, initiator: Any) -> None:
 
 
 def _profile_closing() -> None:
-    global _generation, _active_query, _library_focus, _dashboard_tree, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page, _prefetched_snapshot
+    global _generation, _active_query, _library_focus, _dashboard_tree, _dashboard_tree_rev, _refresh_queued, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page, _prefetched_snapshot
     _live_context = None
     _generation += 1
     _stats_request_serial += 1
@@ -1687,6 +1863,8 @@ def _profile_closing() -> None:
     _library_focus = None
     _landing_page = None
     _dashboard_tree = None
+    _dashboard_tree_rev = -1
+    _refresh_queued = False
     _prefetched_snapshot = None
     _data_revision += 1
     _review_changes_only = False
@@ -1710,6 +1888,55 @@ def _sync_finished(*_args: Any) -> None:
         _refresh_timer.start(120)
 
 
+def _native_return_banner_html() -> str:
+    """Compact one-click banner shown in native Anki UI so users can always return to AnkiNOS."""
+    label = html.escape(_t("Quay lại giao diện AnkiNOS"))
+    hint = html.escape(_t("Đang dùng giao diện Anki gốc · nhấn để bật lại AnkiNOS"))
+    return (
+        '<style id="nos-return-style">'
+        '#nos-return-banner{margin:18px auto 6px;max-width:520px;padding:10px 14px;border-radius:14px;'
+        'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;'
+        'background:rgba(71,125,235,.09);border:1px solid rgba(71,125,235,.32);'
+        'font:12.5px/1.45 "Segoe UI",system-ui,sans-serif;text-align:left;}'
+        '.nightMode #nos-return-banner{background:rgba(131,184,255,.12);border-color:rgba(131,184,255,.35);}'
+        '#nos-return-banner .nos-ret-copy{display:flex;flex-direction:column;gap:2px;min-width:160px;flex:1;}'
+        '#nos-return-banner .nos-ret-copy strong{font-size:12.5px;font-weight:700;}'
+        '#nos-return-banner .nos-ret-copy span{font-size:11.5px;opacity:.78;}'
+        '#nos-return-btn{cursor:pointer;padding:7px 14px;border-radius:999px;border:1px solid #477deb;'
+        'background:#477deb;color:#fff;font:600 12px/1.2 "Segoe UI",system-ui,sans-serif;'
+        'white-space:nowrap;transition:filter 160ms ease,transform 160ms ease;}'
+        '#nos-return-btn:hover{filter:brightness(1.08);transform:translateY(-1px);}'
+        '</style>'
+        '<div id="nos-return-banner">'
+        f'<div class="nos-ret-copy"><strong>✦ AnkiNOS</strong><span>{hint}</span></div>'
+        f'<button type="button" id="nos-return-btn" onclick="pycmd(\'nos:enable\')">✦ {label}</button>'
+        '</div>'
+    )
+
+
+def _inject_native_deckbrowser_return(_browser: Any, content: Any) -> None:
+    if _integration_ready and not enabled():
+        content.stats += _native_return_banner_html()
+
+
+def _inject_native_overview_return(_overview: Any, content: Any) -> None:
+    if _integration_ready and not enabled():
+        content.table += _native_return_banner_html()
+
+
+def _inject_native_toolbar_return(links: list[str], toolbar: Any) -> None:
+    if _integration_ready and not enabled():
+        links.append(
+            toolbar.create_link(
+                "nos_enable",
+                "✦ AnkiNOS",
+                lambda: _toggle(True),
+                tip=_t("Quay lại giao diện AnkiNOS"),
+                id="nos-enable",
+            )
+        )
+
+
 def _toggle(active: bool) -> None:
     global _session_error
     if active and not _integration_ready:
@@ -1721,6 +1948,8 @@ def _toggle(active: bool) -> None:
     mw.addonManager.writeConfig(MODULE, conf)
     if not active:
         _restore_chrome()
+    if getattr(mw, "toolbar", None):
+        mw.toolbar.redraw()
     if mw.col:
         mw.moveToState("deckBrowser")
 
@@ -1738,6 +1967,9 @@ def install() -> None:
     gui_hooks.profile_did_open.append(_guard_unused_heatmaps)
     gui_hooks.webview_will_set_content.append(replace_content)
     gui_hooks.webview_did_receive_js_message.append(bridge)
+    gui_hooks.deck_browser_will_render_content.append(_inject_native_deckbrowser_return)
+    gui_hooks.overview_will_render_content.append(_inject_native_overview_return)
+    gui_hooks.top_toolbar_did_init_links.append(_inject_native_toolbar_return)
     gui_hooks.operation_did_execute.append(_operation_finished)
     gui_hooks.profile_will_close.append(_profile_closing)
     gui_hooks.sync_did_finish.append(_sync_finished)

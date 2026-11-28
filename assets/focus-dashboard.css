@@ -1,4 +1,4 @@
-#nos-focus-history{margin:24px 0 32px;padding:24px;border:1px solid rgba(230,240,255,.25);border-radius:20px;background:rgba(41,55,88,.38);color:#f4f7ff;font-family:'Segoe UI',sans-serif}
+#nos-focus-history{margin:24px 0 32px;padding:24px;border:1px solid rgba(230,240,255,.25);border-radius:20px;background:rgba(41,55,88,.38);color:#f4f7ff;font-family:var(--nos-font,'Segoe UI',sans-serif)}
 #nos-focus-history *{box-sizing:border-box}
 #nos-focus-history h2{margin:0;font-size:18px;color:inherit}
 #nos-focus-history .nos-focus-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
