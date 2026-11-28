@@ -156,6 +156,26 @@ class PomodoroStoreTests(unittest.TestCase):
         self.assertEqual(clean["study_minutes"], 25)
         self.assertEqual(clean["sound_volume"], 80)
 
+    def test_removed_presets_and_existing_audio_migrate(self):
+        for old in ("zen", "chime", "digital", "wood"):
+            with self.subTest(old=old):
+                cfg = pomo.clean_pomodoro_settings({"sound_study_end": old, "sound_break_end": old})
+                self.assertEqual(cfg["sound_study_end"], "afterstudy")
+                self.assertEqual(cfg["sound_break_end"], "afterrest")
+        legacy = {"id": "a" * 32, "name": "ding.mp3", "ext": ".mp3"}
+        cfg = pomo.clean_pomodoro_settings({
+            "sound_study_end": "custom", "sound_break_end": "none", "custom_study_sound": legacy,
+        })
+        self.assertEqual(cfg["sound_study_end"], "custom")
+        self.assertEqual(cfg["sound_break_end"], "none")
+        self.assertEqual(cfg["custom_study_sound"], {**legacy, "start_ms": 0, "duration_ms": 15000})
+        cfg = pomo.clean_pomodoro_settings({
+            "custom_study_sound": {**legacy, "start_ms": -8, "duration_ms": 20000},
+            "custom_break_sound": {**legacy, "start_ms": True, "duration_ms": "8"},
+        })
+        self.assertEqual(cfg["custom_study_sound"], {**legacy, "start_ms": 0, "duration_ms": 15000})
+        self.assertEqual(cfg["custom_break_sound"], cfg["custom_study_sound"])
+
 
 if __name__ == "__main__":
     unittest.main()

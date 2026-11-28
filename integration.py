@@ -2047,7 +2047,7 @@ def install() -> None:
     _installed = True
     mw.addonManager.setWebExports(
         MODULE,
-        r"(?:assets/.*\.(?:css|js|png|webp)|user_files/[0-9a-f]{20}/(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|pomodoro_audio/[0-9a-f]{32}\.(?:mp3|wav|ogg)))",
+        r"(?:assets/.*\.(?:css|js|png|webp)|assets/(?:afterstudy|afterrest)\.mp3|user_files/[0-9a-f]{20}/(?:[0-9a-f]{32}(?:-thumb|-wall)?\.(?:png|jpg|webp)|pomodoro_audio/[0-9a-f]{32}\.(?:mp3|wav|ogg)))",
     )
     mw.addonManager.setConfigUpdatedAction(MODULE, _config_updated)
     _guard_unused_heatmaps()

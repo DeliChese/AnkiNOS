@@ -16,6 +16,9 @@ from aqt.webview import AnkiWebView
 
 from .i18n import translate as _tr_text
 from .pomodoro_store import (
+    MAX_ALERT_MS,
+    MAX_AUDIO_START_MS,
+    POMODORO_DEFAULTS,
     PomodoroStore,
     clean_pomodoro_settings,
     delete_custom_sound,
@@ -36,6 +39,7 @@ _tick_timer: QTimer | None = None
 _blur_guard: QObject | None = None
 _float_dialog: "PomodoroFloatDialog | None" = None
 _pending_start: tuple[str, str, dict[str, Any]] | None = None
+_sound_uploads: dict[str, object] = {}
 _tick_counter = 0
 _installed = False
 
@@ -138,17 +142,19 @@ def _current_deck_info() -> tuple[str, str]:
     return ("", "")
 
 
-def broadcast_state() -> None:
+def broadcast_state(*, edit_sound: str | None = None) -> None:
     if not callable(_enabled) or not _enabled():
         return
     try:
-        data = json.dumps(current_payload(), ensure_ascii=True)
+        payload = current_payload()
     except Exception:
         return
-    if mw.web and mw.state in {"deckBrowser", "overview", "review"}:
+    main_visible = bool(mw.web and mw.state in {"deckBrowser", "overview", "review"})
+    if main_visible:
+        data = json.dumps({**payload, "edit_sound": edit_sound}, ensure_ascii=True)
         mw.web.eval(f"window.NOSPomodoro && window.NOSPomodoro.receive({data});")
     if _float_dialog is not None and _float_dialog.live():
-        _float_dialog.send_state(data)
+        _float_dialog.send_state(json.dumps({**payload, "play_alert": not main_visible}, ensure_ascii=True))
 
 
 def sync_settings(public_values: dict[str, Any]) -> None:
@@ -159,7 +165,7 @@ def sync_settings(public_values: dict[str, Any]) -> None:
     broadcast_state()
 
 
-def _persist_pomo_patch(patch: dict[str, Any]) -> dict[str, Any]:
+def _persist_pomo_patch(patch: dict[str, Any]) -> None:
     merged = dict(_current_pomo_config())
     merged.update(patch)
     cleaned = clean_pomodoro_settings(merged)
@@ -169,12 +175,27 @@ def _persist_pomo_patch(patch: dict[str, Any]) -> dict[str, Any]:
         _store.update_config(cleaned)
     if callable(_broadcast_settings):
         _broadcast_settings()
-    return _public_pomo_config()
+
+
+def _sound_keys(slot: str) -> tuple[str, str]:
+    return ("custom_study_sound", "sound_study_end") if slot == "study" else ("custom_break_sound", "sound_break_end")
+
+
+def _discard_custom_sound(profile: str, entry: dict[str, Any] | None) -> None:
+    if not entry:
+        return
+    if mw.pm.name == profile:
+        cfg = _current_pomo_config()
+        for key in ("custom_study_sound", "custom_break_sound"):
+            if cfg[key] and cfg[key]["id"] == entry["id"] and cfg[key]["ext"] == entry["ext"]:
+                return
+    mw.taskman.run_in_background(lambda: delete_custom_sound(ROOT, profile, entry), uses_collection=False)
 
 
 def _pick_custom_sound(slot: str) -> None:
     if slot not in {"study", "break"}:
         return
+    profile = mw.pm.name
     title = _t("Chọn âm thanh báo hết giờ học") if slot == "study" else _t("Chọn âm thanh báo hết giờ nghỉ")
     path, _ = QFileDialog.getOpenFileName(
         mw,
@@ -182,31 +203,64 @@ def _pick_custom_sound(slot: str) -> None:
         "",
         _t("Tệp âm thanh (*.mp3 *.wav *.ogg)"),
     )
-    if not path:
+    if not path or mw.pm.name != profile:
         return
-    key = "custom_study_sound" if slot == "study" else "custom_break_sound"
-    sound_key = "sound_study_end" if slot == "study" else "sound_break_end"
-    cfg = _current_pomo_config()
-    try:
-        entry = save_custom_sound(ROOT, mw.pm.name, Path(path), previous=cfg.get(key))
-        _persist_pomo_patch({key: entry, sound_key: "custom"})
-        broadcast_state()
-    except (ValueError, OSError) as error:
-        showWarning("Pomodoro: " + _t(str(error)), parent=mw)
+    key, sound_key = _sound_keys(slot)
+    token = _sound_uploads[slot] = object()
+
+    def finish(future: Any) -> None:
+        current = _sound_uploads.get(slot) is token
+        if current:
+            _sound_uploads.pop(slot)
+        live = current and mw.pm.name == profile and callable(_enabled) and _enabled()
+        try:
+            entry = future.result()
+        except (ValueError, OSError) as error:
+            if live:
+                showWarning("Pomodoro: " + _t(str(error)), parent=mw)
+            return
+        if not live:
+            _discard_custom_sound(profile, entry)
+            return
+        previous = _current_pomo_config()[key]
+        try:
+            _persist_pomo_patch({key: entry, sound_key: "custom"})
+        except OSError as error:
+            _discard_custom_sound(profile, entry)
+            showWarning("Pomodoro: " + _t(str(error)), parent=mw)
+            return
+        _discard_custom_sound(profile, previous)
+        broadcast_state(edit_sound=slot)
+
+    mw.taskman.run_in_background(lambda: save_custom_sound(ROOT, profile, Path(path)), finish, uses_collection=False)
+
+
+def _trim_custom_sound(slot: str, payload: dict[str, Any]) -> None:
+    if slot not in {"study", "break"}:
+        return
+    key, _ = _sound_keys(slot)
+    entry = _current_pomo_config()[key]
+    start, duration = payload.get("start_ms"), payload.get("duration_ms")
+    if not entry or entry["id"] != payload.get("id"):
+        return
+    if type(start) is not int or not 0 <= start <= MAX_AUDIO_START_MS:
+        return
+    if type(duration) is not int or not 1 <= duration <= MAX_ALERT_MS:
+        return
+    _persist_pomo_patch({key: {**entry, "start_ms": start, "duration_ms": duration}})
 
 
 def _remove_custom_sound(slot: str) -> None:
     if slot not in {"study", "break"}:
         return
-    key = "custom_study_sound" if slot == "study" else "custom_break_sound"
-    sound_key = "sound_study_end" if slot == "study" else "sound_break_end"
+    _sound_uploads.pop(slot, None)
+    key, sound_key = _sound_keys(slot)
     cfg = _current_pomo_config()
-    delete_custom_sound(ROOT, mw.pm.name, cfg.get(key))
     patch: dict[str, Any] = {key: None}
     if cfg.get(sound_key) == "custom":
-        patch[sound_key] = "zen" if slot == "study" else "chime"
+        patch[sound_key] = POMODORO_DEFAULTS[sound_key]
     _persist_pomo_patch(patch)
-    broadcast_state()
+    _discard_custom_sound(mw.pm.name, cfg[key])
 
 
 def handle_action(payload: dict[str, Any]) -> None:
@@ -271,7 +325,8 @@ def handle_action(payload: dict[str, Any]) -> None:
             return
         elif op == "clear_sound":
             _remove_custom_sound(str(payload.get("slot") or "study"))
-            return
+        elif op == "trim_sound":
+            _trim_custom_sound(str(payload.get("slot") or ""), payload)
         elif op == "open_float":
             open_floating_widget()
             return
@@ -560,6 +615,7 @@ def _on_answered(_reviewer: Any, _card: Any, _ease: int) -> None:
 def _profile_close() -> None:
     global _store, _store_profile, _pending_start
     close_floating_widget()
+    _sound_uploads.clear()
     if _store is not None:
         _store.stop("stopped")
     _store = None

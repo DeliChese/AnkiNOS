@@ -9,6 +9,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -565,16 +566,48 @@ def main():
             break
         wait(40)
     assert live_counts == expected_counts, f"Reviewer bottom counts {live_counts} != real sched counts {expected_counts}"
+    js("""(() => {
+        window.__pomoPlays = [];
+        const original = AudioBufferSourceNode.prototype.start;
+        AudioBufferSourceNode.prototype.start = function (when, offset, duration) {
+            original.call(this, when, offset, duration);
+            window.__pomoPlays.push([offset, duration]);
+        };
+        window.NOSPomodoro.playAlert('study');
+    })()""")
+    until("window.__pomoPlays.length === 1")
+    assert 14 < js("window.__pomoPlays[0][1]") <= 15
+    js("window.NOSPomodoro.playAlert('break')")
+    until("window.__pomoPlays.length === 2")
+    assert 9 < js("window.__pomoPlays[1][1]") < 10
+    js("document.getElementById('nos-pomo-chip').click()")
+    with patch.object(pomodoro_ui.QFileDialog, "getOpenFileName", return_value=(str(addon / "assets" / "afterrest.mp3"), "")):
+        js("document.querySelector('[data-pomo-op=pick_sound][data-pomo-slot=study]').click()")
+        until("document.querySelector('.nos-pomo-trim').open")
+    until("!document.querySelector('[data-trim-action=save]').disabled")
+    js("""(() => {
+        for (const [id, value] of [['start', 1200], ['duration', 2400]]) {
+            const input = document.getElementById('nos-pomo-trim-' + id);
+            input.value = value;
+            input.dispatchEvent(new Event('input', {bubbles: true}));
+        }
+        document.querySelector('[data-trim-action=save]').click();
+    })()""")
+    until("window.NOSPomodoro.getConfig().custom_study_sound.duration_ms === 2400")
+    saved_clip = integration.settings()["pomodoro"]["custom_study_sound"]
+    assert saved_clip["start_ms"] == 1200 and saved_clip["duration_ms"] == 2400
+    js("window.NOSPomodoro.close()")
     pomodoro_ui.pomodoro_store().elapsed = 1500
     pomodoro_ui.pomodoro_store().running_since = time.monotonic()
     pomodoro_ui._tick()
     until("!document.getElementById('nos-pomo-banner').hidden")
+    until("window.__pomoPlays.length === 3")
+    assert js("window.__pomoPlays[2]") == [1.2, 2.4]
     assert js("document.getElementById('nos-pomo-banner').textContent.includes('1 lượt ôn')")
     assert not pomodoro_ui.pomodoro_store().status()["active"]
     aqt.mw.moveToState("deckBrowser")
     until("!!window.NOSStudy && !document.getElementById('study-now').disabled")
     # Exercise the production async export/preview/restore bridge on this profile.
-    from unittest.mock import patch
     backup_path = base / "profile.nosbackup"
     integration.save_settings({"theme": "night", "layout": "bento"})
     with patch.object(integration.QFileDialog, "getSaveFileName", return_value=(str(backup_path), "")):

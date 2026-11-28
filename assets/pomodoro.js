@@ -1,4 +1,4 @@
-/* AnkiNOS Pomodoro — Cross-surface Controller, 4 Clock UI Modes, Offline Web Audio Chimes & Floating Window. */
+/* AnkiNOS Pomodoro — cross-surface timer, offline alert sounds and floating window. */
 (function initNOSPomodoro() {
   'use strict';
   if (document.readyState === 'loading') {
@@ -15,6 +15,9 @@
 
   const tr = text => (window.NOSI18n ? window.NOSI18n.t(text) : text);
   const clamp = (v, lo, hi, d) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Math.round(Number(v)))) : d);
+  const assetsURL = document.querySelector('script[src$="/pomodoro.js"]')?.src || new URL('assets/pomodoro.js', document.baseURI);
+  const MAX_ALERT_MS = 15000;
+  const DEFAULT_SOUNDS = Object.freeze({study: 'afterstudy', break: 'afterrest'});
 
   const DEFAULT_CONFIG = {
     mode: 'classic',
@@ -27,8 +30,8 @@
     auto_start_break: false,
     auto_start_study: false,
     pause_on_blur: false,
-    sound_study_end: 'zen',
-    sound_break_end: 'chime',
+    sound_study_end: DEFAULT_SOUNDS.study,
+    sound_break_end: DEFAULT_SOUNDS.break,
     sound_volume: 75,
     custom_study_sound: null,
     custom_break_sound: null,
@@ -71,73 +74,85 @@
     return document.getElementById('nos-app')?.dataset.native === 'true' && typeof window.pycmd === 'function';
   };
 
-  /* ---------- Offline Audio Engine (Web Audio API + Optional Custom File) ---------- */
+  /* ---------- Offline Audio Alerts ---------- */
   let audioCtx = null;
-  function getAudioCtx() {
-    const Ctor = window.AudioContext || window.webkitAudioContext;
-    if (!Ctor) return null;
-    if (!audioCtx) audioCtx = new Ctor();
-    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-    return audioCtx;
+  let decoded = null;
+  let stopAlert = () => {};
+  let stopSoundTest = () => {};
+  const customSoundKey = slot => `custom_${slot}_sound`;
+  const soundKey = slot => `sound_${slot}_end`;
+  const soundVolume = () => clamp(config.sound_volume, 0, 100, 75) / 100;
+
+  function loadSound(url) {
+    if (decoded?.url === url) return decoded.buffer;
+    const buffer = (async () => {
+      audioCtx ||= new AudioContext();
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Audio fetch failed');
+      return audioCtx.decodeAudioData(await response.arrayBuffer());
+    })();
+    decoded = {url, buffer};
+    buffer.catch(() => { if (decoded?.buffer === buffer) decoded = null; });
+    return buffer;
   }
 
-  function playSynth(kind, volume, isBreakEnd) {
-    if (kind === 'none' || volume <= 0) return;
-    const ctx = getAudioCtx();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(Math.max(0.01, Math.min(1, volume)) * 0.42, now);
-    master.connect(ctx.destination);
-
-    const tone = (freq, start, dur, type = 'sine', amp = 1) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, now + start);
-      gain.gain.setValueAtTime(0.0001, now + start);
-      gain.gain.exponentialRampToValueAtTime(Math.max(0.001, amp), now + start + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
-      osc.connect(gain);
-      gain.connect(master);
-      osc.start(now + start);
-      osc.stop(now + start + dur + 0.04);
+  function playClip(entry, volume, onError) {
+    let stopped = false;
+    let source;
+    const buffer = loadSound(entry.url);
+    const ready = audioCtx?.state === 'suspended' ? audioCtx.resume() : undefined;
+    Promise.all([buffer, ready]).then(([audio]) => {
+      if (stopped) return;
+      const start = (entry.start_ms || 0) / 1000;
+      const duration = Math.min(entry.duration_ms || MAX_ALERT_MS, MAX_ALERT_MS) / 1000;
+      if (start >= audio.duration) throw new Error('Audio offset exceeds file duration');
+      const gain = audioCtx.createGain();
+      gain.gain.value = volume;
+      gain.connect(audioCtx.destination);
+      source = audioCtx.createBufferSource();
+      source.buffer = audio;
+      source.connect(gain);
+      source.onended = () => {
+        source.disconnect();
+        gain.disconnect();
+        source = null;
+      };
+      source.start(0, start, Math.min(duration, audio.duration - start));
+    }).catch(() => { if (!stopped) onError?.(); });
+    return () => {
+      stopped = true;
+      if (source) source.stop();
     };
+  }
 
-    if (kind === 'zen') {
-      const base = isBreakEnd ? 293.66 : 220;
-      tone(base, 0, 1.8, 'sine', 0.9);
-      tone(base * 1.5, 0.02, 1.5, 'sine', 0.42);
-      tone(base * 2, 0.05, 1.1, 'sine', 0.2);
-    } else if (kind === 'chime') {
-      const notes = isBreakEnd ? [523.25, 659.25, 783.99] : [659.25, 523.25];
-      notes.forEach((f, idx) => tone(f, idx * 0.19, 0.65, 'sine', 0.75));
-    } else if (kind === 'digital') {
-      const notes = isBreakEnd ? [740, 987.77] : [880, 659.25];
-      notes.forEach((f, idx) => tone(f, idx * 0.14, 0.22, 'triangle', 0.65));
-    } else if (kind === 'wood') {
-      const notes = isBreakEnd ? [520, 660, 780] : [620, 480];
-      notes.forEach((f, idx) => tone(f, idx * 0.13, 0.14, 'triangle', 0.8));
+  function playDefault(kind, volume) {
+    const url = new URL(`${kind}.mp3`, assetsURL);
+    if (url.protocol !== 'file:') {
+      return playClip({url: url.href}, volume);
     }
+    // File previews can load local media even when fetch() cannot read file URLs.
+    url.hash = `t=0,${MAX_ALERT_MS / 1000}`;
+    const audio = new Audio(url);
+    audio.volume = volume;
+    audio.play().catch(() => {});
+    return () => audio.pause();
+  }
+
+  function playSound(slot) {
+    const selected = config[soundKey(slot)];
+    const entry = config[customSoundKey(slot)];
+    const volume = soundVolume();
+    if (selected === 'none' || !volume) return () => {};
+    const preset = Object.values(DEFAULT_SOUNDS).includes(selected) ? selected : DEFAULT_SOUNDS[slot];
+    if (selected !== 'custom' || !entry?.url) return playDefault(preset, volume);
+    let stop = playClip(entry, volume, () => { stop = playDefault(preset, volume); });
+    return () => stop();
   }
 
   function playAlert(slot) {
-    const isBreakEnd = slot === 'break';
-    const soundKind = isBreakEnd ? config.sound_break_end : config.sound_study_end;
-    const customEntry = isBreakEnd ? config.custom_break_sound : config.custom_study_sound;
-    const vol = clamp(config.sound_volume, 0, 100, 75) / 100;
-    if (soundKind === 'none' || vol <= 0) return;
-    if (soundKind === 'custom' && customEntry && typeof customEntry.url === 'string' && customEntry.url) {
-      try {
-        const audio = new Audio(customEntry.url);
-        audio.volume = vol;
-        audio.play().catch(() => playSynth('chime', vol, isBreakEnd));
-        return;
-      } catch {
-        // Fall back cleanly to built-in chime
-      }
-    }
-    playSynth(soundKind === 'custom' ? 'chime' : soundKind, vol, isBreakEnd);
+    stopSoundTest();
+    stopAlert();
+    stopAlert = playSound(slot);
   }
 
   /* ---------- Command Bridge + Standalone Offline Simulator ---------- */
@@ -260,6 +275,18 @@
       if (!state.active) {
         state = {...state, mode: config.mode, target_seconds: modeTargetSeconds(config.mode, 'study')};
       }
+    } else if (op === 'trim_sound') {
+      const entry = config[customSoundKey(payload.slot)];
+      if (entry?.id === payload.id) {
+        config = {...config, [customSoundKey(payload.slot)]: {
+          ...entry, start_ms: payload.start_ms, duration_ms: payload.duration_ms,
+        }};
+      }
+    } else if (op === 'clear_sound') {
+      const {slot} = payload;
+      discardPreviewSound(slot);
+      const selected = config[soundKey(slot)];
+      config = {...config, [soundKey(slot)]: selected === 'custom' ? DEFAULT_SOUNDS[slot] : selected, [customSoundKey(slot)]: null};
     } else if (op === 'toggle_float') {
       floatOpen = !floatOpen;
     }
@@ -367,6 +394,7 @@
     if (boot.pomodoro) {
       config = {...DEFAULT_CONFIG, ...(boot.pomodoro.config || {})};
       state = {...DEFAULT_STATE, ...(boot.pomodoro.state || {})};
+      lastPlayedEventId = state.last_event?.event_id || 0;
       anchorMs = performance.now();
     }
 
@@ -463,7 +491,7 @@
         if (payload.state) {
           state = {...DEFAULT_STATE, ...payload.state};
           anchorMs = performance.now();
-          if (state.last_event) handleCompletionEvent(state.last_event);
+          if (state.last_event) handleCompletionEvent(state.last_event, payload.play_alert !== false);
         }
         renderFloat();
       },
@@ -512,7 +540,145 @@
   zenOverlay.setAttribute('aria-modal', 'true');
   zenOverlay.hidden = true;
 
-  hostContainer.append(ambientBar, banner, dockWidget, popover, zenOverlay);
+  const trimDialog = document.createElement('dialog');
+  trimDialog.className = 'nos-pomo-trim';
+  trimDialog.setAttribute('aria-labelledby', 'nos-pomo-trim-title');
+  trimDialog.innerHTML = `
+    <h2 id="nos-pomo-trim-title">Cắt âm báo</h2>
+    <p class="nos-pomo-trim-name" data-i18n-skip></p>
+    <p class="nos-pomo-trim-status" role="status"></p>
+    <fieldset disabled>
+      <label for="nos-pomo-trim-start">
+        <span>Điểm bắt đầu</span><output for="nos-pomo-trim-start" aria-hidden="true" data-i18n-skip></output>
+        <input type="range" id="nos-pomo-trim-start" min="0" step="1">
+      </label>
+      <label for="nos-pomo-trim-duration">
+        <span>Độ dài (tối đa 15 giây)</span><output for="nos-pomo-trim-duration" aria-hidden="true" data-i18n-skip></output>
+        <input type="range" id="nos-pomo-trim-duration" step="1">
+      </label>
+    </fieldset>
+    <div class="nos-pomo-trim-actions">
+      <button type="button" class="nos-pomo-btn" data-trim-action="preview" disabled>Nghe thử</button>
+      <button type="button" class="nos-pomo-btn" data-trim-action="cancel" autofocus>Hủy</button>
+      <button type="button" class="nos-pomo-btn primary" data-trim-action="save" disabled>Lưu đoạn báo</button>
+    </div>`;
+  const trimFields = trimDialog.querySelector('fieldset');
+  const trimStart = trimDialog.querySelector('#nos-pomo-trim-start');
+  const trimDuration = trimDialog.querySelector('#nos-pomo-trim-duration');
+  const trimStatus = trimDialog.querySelector('.nos-pomo-trim-status');
+  const trimPreview = trimDialog.querySelector('[data-trim-action="preview"]');
+  const trimSave = trimDialog.querySelector('[data-trim-action="save"]');
+  const previewPicker = document.createElement('input');
+  previewPicker.type = 'file';
+  previewPicker.accept = '.mp3,.wav,.ogg';
+  previewPicker.hidden = true;
+  let previewSlot;
+  let trimDraft = null;
+  let stopTrimPreview = () => {};
+  let previewUploadError = '';
+
+  hostContainer.append(ambientBar, banner, dockWidget, popover, zenOverlay, trimDialog, previewPicker);
+
+  function setTrimReady(ready, message = '') {
+    trimStatus.textContent = tr(message);
+    trimFields.disabled = trimPreview.disabled = trimSave.disabled = !ready;
+  }
+
+  function syncTrimFields(start, duration) {
+    const minDuration = Math.min(100, trimDraft.totalMs);
+    trimDraft.start_ms = Math.min(start, trimDraft.totalMs - minDuration);
+    trimStart.max = trimDraft.totalMs - minDuration;
+    trimStart.value = trimDraft.start_ms;
+    trimDuration.min = minDuration;
+    trimDuration.max = Math.min(MAX_ALERT_MS, trimDraft.totalMs - trimDraft.start_ms);
+    trimDraft.duration_ms = Math.max(minDuration, Math.min(Number(trimDuration.max), duration));
+    trimDuration.value = trimDraft.duration_ms;
+    const format = window.NOSI18n?.numberFormat({style: 'unit', unit: 'second', maximumFractionDigits: 3});
+    for (const input of [trimStart, trimDuration]) {
+      const value = Number(input.value) / 1000;
+      const label = format?.format(value) || `${value} s`;
+      input.closest('label').querySelector('output').textContent = label;
+      input.setAttribute('aria-valuetext', label);
+    }
+  }
+
+  function openTrim(slot) {
+    const entry = config[customSoundKey(slot)];
+    if (!entry?.url) return;
+    stopSoundTest();
+    stopTrimPreview();
+    const draft = trimDraft = {slot, id: entry.id, url: entry.url};
+    trimDialog.querySelector('.nos-pomo-trim-name').textContent = entry.name;
+    setTrimReady(false, 'Đang tải âm thanh…');
+    if (!trimDialog.open) trimDialog.showModal();
+    loadSound(entry.url).then(buffer => {
+      if (trimDraft !== draft) return;
+      draft.totalMs = Math.floor(buffer.duration * 1000);
+      if (draft.totalMs < 1) throw new Error('Empty audio');
+      syncTrimFields(entry.start_ms ?? 0, entry.duration_ms ?? MAX_ALERT_MS);
+      setTrimReady(true);
+    }).catch(() => {
+      if (trimDraft === draft) setTrimReady(false, 'Tệp âm thanh không phát được.');
+    });
+  }
+
+  function closeTrim(restoreFocus = true) {
+    if (!trimDraft) return;
+    const {slot} = trimDraft;
+    trimDraft = null;
+    stopTrimPreview();
+    trimDialog.close();
+    if (restoreFocus && popoverOpen) {
+      popover.querySelector(`[data-pomo-edit-sound="${slot}"]`)?.focus({preventScroll: true});
+    }
+  }
+
+  trimDialog.addEventListener('cancel', e => {
+    e.preventDefault();
+    closeTrim();
+  });
+  trimFields.addEventListener('input', () => {
+    stopTrimPreview();
+    syncTrimFields(Number(trimStart.value), Number(trimDuration.value));
+  });
+  trimDialog.addEventListener('click', e => {
+    const action = e.target.closest('[data-trim-action]')?.dataset.trimAction;
+    if (action === 'cancel') closeTrim();
+    if (!trimDraft || trimFields.disabled) return;
+    const {slot, id, start_ms, duration_ms} = trimDraft;
+    if (action === 'preview') {
+      stopTrimPreview();
+      stopTrimPreview = playClip(trimDraft, soundVolume());
+    } else if (action === 'save') {
+      closeTrim();
+      sendCommand({op: 'trim_sound', slot, id, start_ms, duration_ms});
+    }
+  });
+
+  function discardPreviewSound(slot) {
+    const url = config[customSoundKey(slot)]?.url;
+    if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+    if (decoded?.url === url) decoded = null;
+  }
+
+  previewPicker.addEventListener('change', () => {
+    const file = previewPicker.files[0];
+    previewPicker.value = '';
+    if (!file) return;
+    const problem = !/\.(mp3|wav|ogg)$/i.test(file.name) ? 'Chỉ hỗ trợ tệp âm thanh MP3, WAV hoặc OGG.'
+      : !file.size || file.size > 4 * 1024 * 1024 ? 'Tệp âm thanh phải nhỏ hơn 4 MB.' : '';
+    previewUploadError = problem;
+    if (problem) { renderPopover(); return; }
+    discardPreviewSound(previewSlot);
+    const url = URL.createObjectURL(file);
+    config = {
+      ...config,
+      [soundKey(previewSlot)]: 'custom',
+      [customSoundKey(previewSlot)]: {id: url, url, name: file.name, start_ms: 0, duration_ms: MAX_ALERT_MS},
+    };
+    renderPopover();
+    if (popoverOpen) openTrim(previewSlot);
+  });
 
   // Reviewer & Overview micro-chip mounting
   let chipBtn = document.getElementById('pomodoro-toggle') || document.getElementById('nos-pomo-chip');
@@ -573,28 +739,32 @@
     if (popoverOpen) {
       renderPopover();
       positionPopover(triggerEl);
+    } else {
+      stopSoundTest();
+      closeTrim(false);
     }
   }
 
   document.addEventListener('click', e => {
     if (!popoverOpen) return;
-    if (popover.contains(e.target)) return;
+    const path = e.composedPath();
+    if (path.includes(popover) || path.includes(trimDialog) || path.includes(previewPicker)) return;
     if (chipBtn && chipBtn.contains(e.target)) return;
     if (dockWidget.contains(e.target)) return;
     if (e.target.closest('[data-action="pomodoro"]')) return;
     togglePopover(null, false);
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' && !trimDialog.open) {
       if (zenOpen) { zenOpen = false; renderZen(); return; }
       if (popoverOpen) togglePopover(null, false);
     }
   });
 
-  function handleCompletionEvent(evt) {
+  function handleCompletionEvent(evt, play = true) {
     if (!evt || !evt.event_id || evt.event_id <= lastPlayedEventId) return;
     lastPlayedEventId = evt.event_id;
-    playAlert(evt.kind === 'break_done' ? 'break' : 'study');
+    if (play) playAlert(evt.kind === 'break_done' ? 'break' : 'study');
   }
 
   /* ---------- Renderers ---------- */
@@ -727,18 +897,36 @@
     const doneDots = state.cycle_count % cyclesMax;
     const dotsHtml = Array.from({length: cyclesMax}, (_, i) => `<i class="nos-pomo-cycle-dot${i < doneDots ? ' done' : ''}"></i>`).join('');
 
-    const soundOpts = (selected, customEntry) => {
-      const list = [
-        ['zen', tr('Chuông Zen')],
-        ['chime', tr('Chime nhẹ')],
-        ['digital', tr('Digital êm')],
-        ['wood', tr('Gõ gỗ Lo-fi')],
-        ['custom', customEntry ? `${tr('Tùy chỉnh')}: ${customEntry.name}` : tr('Âm thanh tùy chỉnh')],
-        ['none', tr('Im lặng (chỉ hiện chữ)')],
-      ];
-      return list.map(([val, lbl]) => `<option value="${val}"${selected === val ? ' selected' : ''}>${lbl}</option>`).join('');
+    const soundRow = slot => {
+      const study = slot === 'study';
+      const key = soundKey(slot);
+      const entry = config[customSoundKey(slot)];
+      const selected = config[key] === 'custom' && !entry ? DEFAULT_SOUNDS[slot] : config[key];
+      const defaultOptions = Object.values(DEFAULT_SOUNDS).map(name =>
+        `<option value="${name}"${selected === name ? ' selected' : ''} data-i18n-skip>${name}.mp3</option>`).join('');
+      const label = study ? 'Hết giờ học' : 'Hết giờ nghỉ';
+      const selectionLabel = study ? 'Âm báo hết giờ học' : 'Âm báo hết giờ nghỉ';
+      const previewLabel = study ? 'Nghe thử âm báo hết giờ học' : 'Nghe thử âm báo hết giờ nghỉ';
+      return `
+        <div class="nos-pomo-label">${tr(label)}</div>
+        <div class="nos-pomo-sound-row">
+          <select data-pomo-sound-select="${key}" aria-label="${tr(selectionLabel)}">
+            ${defaultOptions}
+            ${entry ? `<option value="custom"${selected === 'custom' ? ' selected' : ''}>${tr('Âm thanh tùy chỉnh')}</option>` : ''}
+            <option value="none"${selected === 'none' ? ' selected' : ''}>${tr('Im lặng (chỉ hiện chữ)')}</option>
+          </select>
+          <button type="button" class="nos-pomo-btn small" data-pomo-test-sound="${slot}" title="${tr(previewLabel)}" aria-label="${tr(previewLabel)}">▶</button>
+          <button type="button" class="nos-pomo-btn small" data-pomo-op="pick_sound" data-pomo-slot="${slot}" title="${tr('Chọn tệp âm thanh MP3/WAV/OGG')}" aria-label="${tr('Chọn tệp âm thanh MP3/WAV/OGG')}">+</button>
+        </div>
+        ${entry ? `<div class="nos-pomo-custom-file">
+          <span data-pomo-filename="${slot}" data-i18n-skip></span>
+          <button type="button" class="nos-pomo-btn small" data-pomo-edit-sound="${slot}">${tr('Cắt âm báo')}</button>
+          <button type="button" class="nos-pomo-btn small" data-pomo-op="clear_sound" data-pomo-slot="${slot}">${tr('Gỡ')}</button>
+        </div>` : ''}`;
     };
 
+    const scrollTop = popover.scrollTop;
+    const focusedEdit = popover.contains(document.activeElement) ? document.activeElement.dataset.pomoEditSound : '';
     popover.innerHTML = `
       <div class="nos-pomo-head">
         <div class="nos-pomo-head-title">
@@ -800,22 +988,9 @@
       <div class="nos-pomo-section">
         <span class="nos-pomo-label">${tr('Âm thanh báo hết giờ')}</span>
         <div class="nos-pomo-sound-box">
-          <div class="nos-pomo-label" style="font-weight:500">${tr('Hết giờ học')}</div>
-          <div class="nos-pomo-sound-row">
-            <select data-pomo-sound-select="sound_study_end" aria-label="${tr('Âm báo hết giờ học')}">${soundOpts(config.sound_study_end, config.custom_study_sound)}</select>
-            <button type="button" class="nos-pomo-btn small" data-pomo-test-sound="study" title="${tr('Nghe thử âm báo hết giờ học')}">▶</button>
-            <button type="button" class="nos-pomo-btn small" data-pomo-op="pick_sound" data-pomo-slot="study" title="${tr('Chọn tệp âm thanh MP3/WAV/OGG')}">+</button>
-          </div>
-          ${config.custom_study_sound ? `<div class="nos-pomo-custom-file"><span data-i18n-skip>♪ ${config.custom_study_sound.name}</span><button type="button" class="nos-pomo-btn small" data-pomo-op="clear_sound" data-pomo-slot="study">${tr('Gỡ')}</button></div>` : ''}
-
-          <div class="nos-pomo-label" style="font-weight:500;margin-top:2px">${tr('Hết giờ nghỉ')}</div>
-          <div class="nos-pomo-sound-row">
-            <select data-pomo-sound-select="sound_break_end" aria-label="${tr('Âm báo hết giờ nghỉ')}">${soundOpts(config.sound_break_end, config.custom_break_sound)}</select>
-            <button type="button" class="nos-pomo-btn small" data-pomo-test-sound="break" title="${tr('Nghe thử âm báo hết giờ nghỉ')}">▶</button>
-            <button type="button" class="nos-pomo-btn small" data-pomo-op="pick_sound" data-pomo-slot="break" title="${tr('Chọn tệp âm thanh MP3/WAV/OGG')}">+</button>
-          </div>
-          ${config.custom_break_sound ? `<div class="nos-pomo-custom-file"><span data-i18n-skip>♪ ${config.custom_break_sound.name}</span><button type="button" class="nos-pomo-btn small" data-pomo-op="clear_sound" data-pomo-slot="break">${tr('Gỡ')}</button></div>` : ''}
-
+          ${soundRow('study')}
+          ${soundRow('break')}
+          ${previewUploadError ? `<p class="nos-pomo-trim-status" role="status">${tr(previewUploadError)}</p>` : ''}
           <div class="nos-pomo-vol-row">
             <span>${tr('Âm lượng')}</span>
             <input type="range" id="nos-pomo-volume" min="0" max="100" value="${config.sound_volume}" aria-label="${tr('Âm lượng âm báo Pomodoro')}">
@@ -829,6 +1004,11 @@
         <label class="nos-pomo-toggle"><span>${tr('Tự động chuyển sang giờ nghỉ')}</span><input type="checkbox" data-pomo-bool="auto_start_break"${config.auto_start_break ? ' checked' : ''}></label>
         <label class="nos-pomo-toggle"><span>${tr('Tạm dừng khi rời cửa sổ Anki (pha học)')}</span><input type="checkbox" data-pomo-bool="pause_on_blur"${config.pause_on_blur ? ' checked' : ''}></label>
       </div>`;
+    for (const label of popover.querySelectorAll('[data-pomo-filename]')) {
+      label.textContent = config[customSoundKey(label.dataset.pomoFilename)].name;
+    }
+    popover.scrollTop = scrollTop;
+    if (focusedEdit) popover.querySelector(`[data-pomo-edit-sound="${focusedEdit}"]`)?.focus({preventScroll: true});
   }
 
   function renderAll() {
@@ -894,7 +1074,13 @@
     }
     const testBtn = e.target.closest('[data-pomo-test-sound]');
     if (testBtn) {
-      playAlert(testBtn.dataset.pomoTestSound);
+      stopSoundTest();
+      stopSoundTest = playSound(testBtn.dataset.pomoTestSound);
+      return;
+    }
+    const editBtn = e.target.closest('[data-pomo-edit-sound]');
+    if (editBtn) {
+      openTrim(editBtn.dataset.pomoEditSound);
       return;
     }
     if (e.target.closest('[data-dock-collapse]')) {
@@ -917,6 +1103,11 @@
       if (opBtn.dataset.pomoPhase) payload.phase = opBtn.dataset.pomoPhase;
       if (opBtn.dataset.pomoMinutes) payload.minutes = Number(opBtn.dataset.pomoMinutes);
       if (opBtn.dataset.pomoSlot) payload.slot = opBtn.dataset.pomoSlot;
+      if (op === 'pick_sound' && !isNative()) {
+        previewSlot = payload.slot;
+        previewPicker.click();
+        return;
+      }
       if (op === 'start') {
         dockCollapsed = false;
         payload.mode = config.mode;
@@ -966,20 +1157,25 @@
     }
   });
 
-  function receive(payload) {
+  function receive(payload, playCompletion = true) {
     if (!payload) return;
+    const previousConfig = config;
+    const prevActive = state.active;
+    const prevPhase = state.phase;
     if (payload.config) config = {...DEFAULT_CONFIG, ...payload.config};
     if (typeof payload.float_open === 'boolean') floatOpen = payload.float_open;
     if (payload.state) {
-      const prevActive = state.active;
-      const prevPhase = state.phase;
       state = {...DEFAULT_STATE, ...payload.state};
       anchorMs = performance.now();
       completionSent = false;
-      if (state.last_event) handleCompletionEvent(state.last_event);
-      if (prevActive !== state.active || prevPhase !== state.phase) {
-        if (popoverOpen) renderPopover();
+      if (state.last_event) handleCompletionEvent(state.last_event, playCompletion);
+    }
+    if (trimDraft && config[customSoundKey(trimDraft.slot)]?.id !== trimDraft.id) closeTrim();
+    if (popoverOpen) {
+      if (prevActive !== state.active || prevPhase !== state.phase || JSON.stringify(previousConfig) !== JSON.stringify(config)) {
+        renderPopover();
       }
+      if (payload.edit_sound && !trimDialog.open) openTrim(payload.edit_sound);
     }
     renderAll();
     document.dispatchEvent(new CustomEvent('nos:pomodoro', {detail: {state, config}}));
@@ -992,7 +1188,7 @@
   if (bootSource) {
     try {
       const parsed = JSON.parse(bootSource.textContent || '{}');
-      if (parsed.pomodoro) receive(parsed.pomodoro);
+      if (parsed.pomodoro) receive(parsed.pomodoro, false);
       else if (parsed.settings?.pomodoro) receive({config: parsed.settings.pomodoro});
     } catch {}
   }

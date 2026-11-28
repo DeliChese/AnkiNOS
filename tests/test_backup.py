@@ -285,7 +285,7 @@ class BackupTests(unittest.TestCase):
         store.stop("completed")
         snd_src = self.root / "ding.mp3"
         snd_src.write_bytes(b"ID3" + b"\x00" * 48)
-        entry = save_custom_sound(self.root, "Alice", snd_src)
+        entry = {**save_custom_sound(self.root, "Alice", snd_src), "start_ms": 1250, "duration_ms": 2750}
         settings = {**self.settings, "pomodoro": {"mode": "long", "ui_mode": "ring", "sound_study_end": "custom", "custom_study_sound": entry}}
         archive = backup.export_archive(self.root, "Alice", settings, self.root / "pomo.nosbackup")
         preview = backup.inspect_archive(self.root, archive)
@@ -293,6 +293,7 @@ class BackupTests(unittest.TestCase):
         restored = []
         backup.restore_archive(self.root, "Bob", archive, preview["archive_sha256"], {}, restored.append)
         self.assertEqual(restored[-1]["pomodoro"]["ui_mode"], "ring")
+        self.assertEqual(restored[-1]["pomodoro"]["custom_study_sound"], entry)
         bob_audio = backup.profile_dir(self.root, "Bob") / "pomodoro_audio" / f"{entry['id']}.mp3"
         self.assertTrue(bob_audio.is_file())
         self.assertGreaterEqual(PomodoroStore(self.root, "Bob").analytics(period="week")["summary"]["total_cards"], 1)

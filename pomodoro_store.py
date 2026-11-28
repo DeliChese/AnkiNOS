@@ -21,10 +21,12 @@ from .media_store import profile_dir
 MODES = ("classic", "long", "custom", "stopwatch")
 UI_MODES = ("pill", "ring", "flip", "ambient")
 PHASES = ("study", "break")
-SOUNDS = ("zen", "chime", "digital", "wood", "custom", "none")
+SOUNDS = ("afterstudy", "afterrest", "custom", "none")
 CORNERS = ("top-right", "top-left", "bottom-right", "bottom-left")
 AUDIO_EXTS = {".mp3", ".wav", ".ogg"}
 MAX_AUDIO_BYTES = 4 * 1024 * 1024
+MAX_ALERT_MS = 15_000
+MAX_AUDIO_START_MS = 2**53 - 1
 MAX_RECORDS = 10_000
 AUDIO_ID_RE = re.compile(r"[0-9a-f]{32}\Z")
 
@@ -39,8 +41,8 @@ POMODORO_DEFAULTS: dict[str, Any] = {
     "auto_start_break": False,
     "auto_start_study": False,
     "pause_on_blur": False,
-    "sound_study_end": "zen",
-    "sound_break_end": "chime",
+    "sound_study_end": "afterstudy",
+    "sound_break_end": "afterrest",
     "sound_volume": 75,
     "custom_study_sound": None,
     "custom_break_sound": None,
@@ -48,7 +50,7 @@ POMODORO_DEFAULTS: dict[str, Any] = {
 }
 
 
-def _clean_sound_entry(raw: Any) -> dict[str, str] | None:
+def _clean_sound_entry(raw: Any) -> dict[str, Any] | None:
     if not isinstance(raw, dict):
         return None
     sid = raw.get("id")
@@ -57,7 +59,15 @@ def _clean_sound_entry(raw: Any) -> dict[str, str] | None:
     if not isinstance(sid, str) or not AUDIO_ID_RE.fullmatch(sid) or ext not in AUDIO_EXTS:
         return None
     label = re.sub(r"[\x00-\x1f\x7f]+", " ", str(name or "Âm thanh tùy chỉnh")).strip()[:120]
-    return {"id": sid, "name": label or "Âm thanh tùy chỉnh", "ext": ext}
+    start, duration = raw.get("start_ms"), raw.get("duration_ms")
+    if type(start) is not int or not 0 <= start <= MAX_AUDIO_START_MS:
+        start = 0
+    if type(duration) is not int or duration < 1:
+        duration = MAX_ALERT_MS
+    return {
+        "id": sid, "name": label or "Âm thanh tùy chỉnh", "ext": ext,
+        "start_ms": start, "duration_ms": min(duration, MAX_ALERT_MS),
+    }
 
 
 def clean_pomodoro_settings(raw: Any) -> dict[str, Any]:
@@ -94,7 +104,10 @@ def clean_pomodoro_settings(raw: Any) -> dict[str, Any]:
 
 
 def audio_dir(root: Path, profile: str) -> Path:
-    return profile_dir(root, profile) / "pomodoro_audio"
+    folder = profile_dir(root.resolve(), profile) / "pomodoro_audio"
+    if folder.resolve() != folder:
+        raise ValueError("Đường dẫn âm thanh không hợp lệ.")
+    return folder
 
 
 def validate_audio_bytes(data: bytes, ext: str) -> bool:
@@ -110,17 +123,17 @@ def validate_audio_bytes(data: bytes, ext: str) -> bool:
     return False
 
 
-def save_custom_sound(root: Path, profile: str, source: Path, *, previous: dict[str, str] | None = None) -> dict[str, str]:
+def save_custom_sound(root: Path, profile: str, source: Path) -> dict[str, Any]:
     src = Path(source)
     if not src.is_file() or src.is_symlink():
         raise ValueError("Tệp âm thanh không tồn tại hoặc không hợp lệ.")
     ext = src.suffix.lower()
     if ext not in AUDIO_EXTS:
         raise ValueError("Chỉ hỗ trợ tệp âm thanh MP3, WAV hoặc OGG.")
-    size = src.stat().st_size
-    if size <= 0 or size > MAX_AUDIO_BYTES:
+    with src.open("rb") as audio:
+        data = audio.read(MAX_AUDIO_BYTES + 1)
+    if not data or len(data) > MAX_AUDIO_BYTES:
         raise ValueError("Tệp âm thanh phải nhỏ hơn 4 MB.")
-    data = src.read_bytes()
     if not validate_audio_bytes(data, ext):
         raise ValueError("Định dạng tệp âm thanh không hợp lệ.")
     sid = sha256(data + uuid4().bytes).hexdigest()[:32]
@@ -129,37 +142,43 @@ def save_custom_sound(root: Path, profile: str, source: Path, *, previous: dict[
     dest = folder / f"{sid}{ext}"
     if dest.resolve().parent != folder.resolve():
         raise ValueError("Đường dẫn âm thanh không hợp lệ.")
-    dest.write_bytes(data)
-    if previous:
-        delete_custom_sound(root, profile, previous)
+    audio = dest.open("xb")
+    try:
+        with audio:
+            audio.write(data)
+    except OSError:
+        dest.unlink(missing_ok=True)
+        raise
     label = re.sub(r"[\x00-\x1f\x7f]+", " ", src.name).strip()[:120] or f"sound{ext}"
-    return {"id": sid, "name": label, "ext": ext}
+    return {"id": sid, "name": label, "ext": ext, "start_ms": 0, "duration_ms": MAX_ALERT_MS}
 
 
-def delete_custom_sound(root: Path, profile: str, entry: dict[str, str] | None) -> None:
+def delete_custom_sound(root: Path, profile: str, entry: dict[str, Any] | None) -> None:
     cleaned = _clean_sound_entry(entry)
     if not cleaned:
         return
-    folder = audio_dir(root, profile)
-    if not folder.is_dir():
-        return
-    target = folder / f"{cleaned['id']}{cleaned['ext']}"
     try:
+        folder = audio_dir(root, profile)
+        target = folder / f"{cleaned['id']}{cleaned['ext']}"
         if target.is_file() and not target.is_symlink() and target.resolve().parent == folder.resolve():
             target.unlink(missing_ok=True)
-    except OSError:
+    except (ValueError, OSError):
         pass
 
 
 def public_pomodoro_settings(raw: Any, root: Path, profile: str, package: str) -> dict[str, Any]:
     cfg = clean_pomodoro_settings(raw)
     folder = profile_dir(root, profile)
-    aud = folder / "pomodoro_audio"
     for key in ("custom_study_sound", "custom_break_sound"):
         entry = cfg.get(key)
         if entry:
             fname = f"{entry['id']}{entry['ext']}"
-            if (aud / fname).is_file():
+            try:
+                target = audio_dir(root, profile) / fname
+                available = target.is_file() and target.resolve() == target
+            except (ValueError, OSError):
+                available = False
+            if available:
                 cfg[key] = {**entry, "url": f"/_addons/{package}/user_files/{folder.name}/pomodoro_audio/{fname}"}
             else:
                 cfg[key] = None
