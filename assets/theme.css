@@ -131,6 +131,11 @@ html[data-nos-theme="true"]:not(.tool-frameless):not(.nos-review-page), html[dat
 #nos-app[data-color-theme] #nos-focus-history { color:var(--text); background:var(--glass); border-color:var(--edge); }
 
 /* Theme picker and isolated draft preview. */
+#nos-app #appearance-dialog:not(.is-docked) .settings-panel { width:min(900px, 100%); height:min(700px, 100%); }
+#nos-app .appearance-media-link { border-top:1px solid var(--edge); }
+#nos-app .role-color-row label { flex:1; font-weight:600; }
+#nos-app .role-color-row input { width:38px; height:30px; padding:2px; border:1px solid var(--edge); border-radius:6px; background:var(--surface); cursor:pointer; }
+#nos-app .role-color-row button:disabled { color:var(--muted); cursor:default; }
 #nos-app .settings-panel { width:min(740px, 100%); max-width:100%; height:min(550px, 100%); max-height:100%; }
 #nos-app .settings-popover.is-docked .settings-panel { width:min(440px, 100%); height:100%; }
 #nos-app .settings-popover.is-docked .palette-grid,

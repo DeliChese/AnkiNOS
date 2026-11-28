@@ -64,16 +64,18 @@ try {
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.greeting > div'),'::before').animationName`), 'none');
   await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyL',altKey:true,shiftKey:true,bubbles:true}))`);
   assert.equal(await layout(), 'dock');
-  await click('.rail-bottom [data-action=preferences]');
+  await click('#appearance-toggle');
+  await click('[data-settings-tab="layout"]');
   await click('[data-layout-card=zen]');
   assert.equal(await layout(), 'dock', 'Layout selection should stay in the settings draft');
-  await click('#settings-close');
-  await click('.rail-bottom [data-action=preferences]');
+  await click('#appearance-close');
+  await click('#appearance-toggle');
+  await click('[data-settings-tab="layout"]');
   assert.equal(await evaluate(`document.querySelector('#layout-grid [aria-pressed=true]').dataset.layoutCard`), 'dock');
   await click('[data-layout-card=sidebar]');
-  await click('#btn-apply-settings');
+  await click('#btn-apply-appearance');
   assert.equal(await layout(), 'sidebar');
-  await click('#settings-close');
+  await click('#appearance-close');
 
   await updateLayoutSettings({layout: 'aurora', animations: true});
   await evaluate(`(()=>{for (let i=0;i<2;i++) document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyL',altKey:true,shiftKey:true,bubbles:true}))})()`);
@@ -87,6 +89,7 @@ try {
       const fits = selector => evaluate(`(()=>{const rect=document.querySelector('${selector}').getBoundingClientRect();return rect.width>0 && rect.left>=-1 && rect.right<=innerWidth+1 && rect.top>=-1 && rect.bottom<=innerHeight+1})()`);
       assert(await fits('.rail'), `${id} nav must fit ${width}px at ${scale}%`);
       assert(await fits('#launcher-toggle'), `${id} launcher button must be visible at ${width}px and ${scale}%`);
+      assert(await fits('#appearance-toggle'), `${id} appearance hub must fit ${width}px at ${scale}%`);
       assert(await fits('#layout-toggle'), `${id} layout button must be visible at ${width}px and ${scale}%`);
       await click('#layout-toggle');
       assert(await fits('#layout-menu'), `${id} layout picker must fit ${width}px at ${scale}%`);
@@ -154,12 +157,13 @@ try {
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.page`), 'stats', 'Single click on rail while library is open must switch tab immediately');
   await click('.rail-main [data-action="page"][data-value="home"]');
   // Sidebar position (Left / Right) via Settings draft -> Apply and via Layout menu.
-  await click('.rail-bottom [data-action="preferences"]');
-  await click('#settings-dialog [data-sidebar-side="right"]');
+  await click('#appearance-toggle');
+  await click('[data-settings-tab="layout"]');
+  await click('#appearance-dialog [data-sidebar-side="right"]');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.sidebarSide`), 'left', 'Sidebar side must remain in Settings draft until Apply');
-  await click('#btn-apply-settings');
+  await click('#btn-apply-appearance');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.sidebarSide`), 'right');
-  await click('#settings-close');
+  await click('#appearance-close');
   assert(await evaluate(`(()=>{const r=document.querySelector('.rail').getBoundingClientRect();return r.right >= innerWidth - 20 && r.left > innerWidth - 120})()`),
     'Right sidebar must dock on the right edge');
   const rightRailPoint = await evaluate(`(()=>{const r=document.querySelector('#stats-toggle').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
@@ -212,11 +216,14 @@ try {
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.rail.glass')).backdropFilter`), 'none',
     'Disabling blur must remove backdrop-filter');
   await updateLayoutSettings({blur: true, lite_mode: false});
-  await click('.rail-bottom [data-action="preferences"]');
+  await click('#appearance-toggle');
+  await click('[data-settings-tab="layout"]');
   await evaluate(`(()=>{const b=document.getElementById('set-glass-blur'),o=document.getElementById('set-glass-opacity');b.value='24';b.dispatchEvent(new Event('input',{bubbles:true}));o.value='56';o.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  await click('#btn-apply-settings');
+  await click('#btn-apply-appearance');
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('nos-app')).getPropertyValue('--glass-blur').trim()`), '24px', 'Glass blur slider must update --glass-blur token');
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('nos-app')).getPropertyValue('--glass-alpha').trim()`), '56%', 'Glass opacity slider must update --glass-alpha token');
+  await click('#appearance-close');
+  await click('.rail-bottom [data-action="preferences"]');
   await click('.settings-nav-btn[data-settings-tab="performance"]');
   await click('#set-lite-mode');
   await click('#btn-apply-settings');
@@ -279,7 +286,7 @@ try {
   await click('#edge-peek-toggle');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.edgesPeek`), undefined);
   await evaluate(`window.AnkiNOS.receive({event:'settings',payload:window.__originalLayoutSettings})`);
-  assert.equal(await evaluate(`document.querySelectorAll('.rail .rail-main > button').length`), 5,
+  assert.equal(await evaluate(`document.querySelectorAll('.rail .rail-main > button').length`), 6,
     'Leaving edges layout must restore all buttons back to the primary rail');
   // Updating hidden library preferences must not recreate all deck rows.
   await evaluate(`(()=>{window.__nosOldDeck=document.querySelector('#deck-list > .deck-group');
@@ -389,17 +396,20 @@ try {
     'No image crop or alignment controls');
   assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
 
+  assert.equal(await evaluate(`document.querySelector('#settings-dialog [data-settings-tab="appearance"], #settings-dialog [data-settings-tab="reviewer"]')`),null);
+  await click('#settings-close');
+  await click('#appearance-toggle');
   await click('[data-set-theme="night"]');
-  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),false);
+  assert.equal(await evaluate(`document.getElementById('btn-apply-appearance').disabled`),false);
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.theme`),'dusk','Draft must not repaint the dashboard until Apply');
-  await click('#btn-apply-settings');
+  await click('#btn-apply-appearance');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.theme`),'night');
-  assert.equal(await evaluate(`document.getElementById('btn-apply-settings').disabled`),true);
-  const closePoint=await evaluate(`(()=>{const r=document.getElementById('settings-close').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+  assert.equal(await evaluate(`document.getElementById('btn-apply-appearance').disabled`),true);
+  const closePoint=await evaluate(`(()=>{const r=document.getElementById('appearance-close').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',...closePoint,button:'left',clickCount:1});
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...closePoint,button:'left',clickCount:1});
-  assert.equal(await evaluate(`document.getElementById('settings-dialog').open`),false);
-  assert.equal(await evaluate(`getComputedStyle(document.getElementById('settings-dialog')).display`),'none','Closed settings dialog must not remain visible');
+  assert.equal(await evaluate(`document.getElementById('appearance-dialog').open`),false);
+  assert.equal(await evaluate(`getComputedStyle(document.getElementById('appearance-dialog')).display`),'none','Closed settings dialog must not remain visible');
   await click('.rail-bottom [data-action="preferences"]');
   await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
   assert.equal(await evaluate(`document.getElementById('settings-dialog').open`),false);
@@ -587,10 +597,10 @@ try {
   await click('.rail-main [data-action="page"][data-value="home"]');
   assert.equal(await evaluate(`document.getElementById('stats-page').hidden`),true);
   // Test Simplified Chinese (zh-cn) language pack switch in Settings -> Language -> Apply, then restore vi.
-  await click('.rail-bottom [data-action="preferences"]');
+  await click('#appearance-toggle');
   // Test compact side-dock toggle, custom text color, and Reviewer tab controls.
-  await click('#settings-dock-toggle');
-  assert.equal(await evaluate(`document.getElementById('settings-dialog').classList.contains('is-docked') && document.getElementById('settings-panel').getBoundingClientRect().width <= 445`),true,'Side-dock button must convert Settings into a compact right-side drawer');
+  await click('#appearance-dock-toggle');
+  assert.equal(await evaluate(`document.getElementById('appearance-dialog').classList.contains('is-docked') && document.getElementById('appearance-panel').getBoundingClientRect().width <= 445`),true,'Side-dock button must convert Settings into a compact right-side drawer');
   await click('[data-set-text-color="#f5e6c8"]');
   await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
   assert.equal(await evaluate(`document.getElementById('theme-preview').style.getPropertyValue('--text').toLowerCase()`),'#f5e6c8','Custom text color must preview immediately');
@@ -604,8 +614,10 @@ try {
   assert.equal(await evaluate(`document.getElementById('reviewer-settings-preview').style.getPropertyValue('--rating-1').toLowerCase()`),'#ff4466','Custom rating button color must update live preview');
   await click('#btn-reset-rating-colors');
   await evaluate(`(()=>{const r=document.getElementById('set-reviewer-card-opacity');r.value='100';r.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  await click('#settings-dock-toggle');
-  assert.equal(await evaluate(`!document.getElementById('settings-dialog').classList.contains('is-docked')`),true);
+  await click('#appearance-dock-toggle');
+  assert.equal(await evaluate(`!document.getElementById('appearance-dialog').classList.contains('is-docked')`),true);
+  await click('#appearance-close');
+  await click('.rail-bottom [data-action="preferences"]');
   await click('.settings-sidebar [data-settings-tab="language"]');
   assert.equal(await evaluate(`!!document.querySelector('#language-grid [data-set-language="zh-cn"]')`),true,'Simplified Chinese language option must be present');
   await click('#language-grid [data-set-language="zh-cn"]');

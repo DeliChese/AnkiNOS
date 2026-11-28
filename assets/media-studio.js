@@ -280,7 +280,7 @@
     if (searchFrame) { cancelAnimationFrame(searchFrame); searchFrame=0; }
     dialog.close();
     stopEditing();
-    const trigger = $('studio-launcher');
+    const trigger = $('appearance-dialog')?.open ? $('appearance-media') : $('studio-launcher');
     trigger?.focus({preventScroll:true});
   }
   function sync() {

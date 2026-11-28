@@ -119,7 +119,7 @@ class ToolDialog(QDialog):
         from .integration import settings
         appearance = {
             key: value for key, value in settings().items()
-            if key in {"theme", "color_theme", "accent", "custom_accent", "text_color", "custom_text_color", "font_family", "blur", "glass_blur", "glass_opacity", "animations", "lite_mode", "language"}
+            if key in {"theme", "color_theme", "theme_overrides", "accent", "custom_accent", "text_color", "custom_text_color", "font_family", "blur", "glass_blur", "glass_opacity", "animations", "lite_mode", "language"}
         }
         initial = {
             "settings": appearance,
@@ -461,7 +461,7 @@ def reset_tools():
 def sync_settings(raw_settings: dict[str, Any]) -> None:
     appearance = {
         key: value for key, value in raw_settings.items()
-        if key in {"theme", "color_theme", "accent", "custom_accent", "text_color", "custom_text_color", "font_family", "blur", "glass_blur", "glass_opacity", "animations", "lite_mode", "language"}
+        if key in {"theme", "color_theme", "theme_overrides", "accent", "custom_accent", "text_color", "custom_text_color", "font_family", "blur", "glass_blur", "glass_opacity", "animations", "lite_mode", "language"}
     }
     lang = str(appearance.get("language", "vi"))
     if _commands_action is not None:

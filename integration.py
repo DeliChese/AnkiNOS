@@ -120,9 +120,9 @@ def _copy_diagnostics(client: Any = None) -> None:
     except PackageNotFoundError:
         anki_version = "unknown"
     try:
-        manifest_ver = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8")).get("version", "1.0.0-beta")
+        manifest_ver = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8")).get("version", "unknown")
     except Exception:
-        manifest_ver = "1.0.0-beta"
+        manifest_ver = "unknown"
     s = settings()
     info = client if isinstance(client, dict) else {}
     vw = info.get("width") if isinstance(info.get("width"), int) else 0
@@ -133,7 +133,7 @@ def _copy_diagnostics(client: Any = None) -> None:
     except Exception:
         addon_count = 0
     lines = [
-        f"AnkiNOS: v1.0.0 Beta ({manifest_ver})",
+        f"AnkiNOS: {manifest_ver}",
         f"Anki: {anki_version}",
         f"OS: {platform.system()} {platform.release()} ({platform.machine()}) · Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         f"Locale: anki={s.get('anki_locale') or 'unknown'} · pref={s.get('language_pref')} · active={s.get('language')}",
@@ -485,6 +485,7 @@ def settings() -> dict[str, Any]:
             "image_position_review": "center", "image_position_avatar": "center",
             **profile,
             "image_frames": valid_image_frames(profile.get("image_frames")),
+            "theme_overrides": cleaned.get("theme_overrides", {}),
             "text_color": cleaned.get("text_color", "auto"),
             "custom_text_color": cleaned.get("custom_text_color", THEME_DEFAULTS["custom_text_color"]),
             "rating_colors": cleaned.get("rating_colors", "auto"),

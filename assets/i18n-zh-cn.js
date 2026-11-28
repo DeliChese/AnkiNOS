@@ -6,6 +6,24 @@
   if (!window.NOSI18n) return;
 
   const dict = {
+    "Tùy chỉnh giao diện": "自定义外观",
+    "Chủ đề": "主题",
+    "Bố cục & hiệu ứng": "布局与效果",
+    "Màu nâng cao": "高级颜色",
+    "Màu theo thành phần": "组件颜色",
+    "Màu tùy chỉnh dùng chung cho các bảng màu. AnkiNOS điều chỉnh độ tương phản để chữ và nút dễ đọc.": "自定义颜色适用于所有配色方案。AnkiNOS 会调整对比度，使文字和按钮清晰可读。",
+    "Mở Giao diện trên thanh điều hướng. Chọn chủ đề, chỉnh bố cục hoặc màu từng thành phần. Trong Phiên ôn tập, bạn có thể chỉnh nền khung thẻ và bốn nút trả lời. Nhấn Áp dụng để lưu theo hồ sơ. Ảnh nền riêng cho từng màn hình nằm trong Thư viện ảnh.": "从导航栏打开外观。选择主题、调整布局或设置各组件颜色。在复习界面中可调整卡片框和四个回答按钮。点击应用以保存到当前用户配置。各界面的壁纸可在图片库中设置。",
+    "Từ mục Giao diện, chọn giữa 6 bố cục, 16 bảng màu và 8 kiểu chữ. Bạn có thể phối màu riêng cho các bảng, trạng thái và nút trả lời.": "在外观中选择 6 种布局、16 套配色和 8 种字体，还可单独调整面板、状态和回答按钮的颜色。",
+    "Nền bảng": "面板背景",
+    "Dùng màu chủ đề cho nền bảng": "为面板背景使用主题颜色",
+    "Nút chính": "主按钮",
+    "Dùng màu chủ đề cho nút chính": "为主按钮使用主题颜色",
+    "Hoàn thành": "成功",
+    "Dùng màu chủ đề cho hoàn thành": "为成功使用主题颜色",
+    "Cảnh báo": "警告",
+    "Dùng màu chủ đề cho cảnh báo": "为警告使用主题颜色",
+    "Lỗi": "错误",
+    "Dùng màu chủ đề cho lỗi": "为错误使用主题颜色",
     // ── Page titles ───────────────────────────────────────────────────────
     "AnkiNOS — Không gian ghi nhớ": "AnkiNOS — 记忆空间",
     "AnkiNOS — Chuẩn bị học": "AnkiNOS — 学习准备",
@@ -1061,10 +1079,10 @@
     "Mở rộng bước tiếp theo": "展开下一步",
     "bước tiếp theo": "下一步",
 
-    // ── About dialog (v1.0.0 Beta) & User Guide ───────────────────────────
+    // ── About dialog (v1.0.0 Beta 2) & User Guide ───────────────────────────
     "Giới thiệu": "关于",
     "Giới thiệu AnkiNOS": "关于 AnkiNOS",
-    "Giới thiệu AnkiNOS (v1.0.0 Beta)": "关于 AnkiNOS (v1.0.0 Beta)",
+    "Giới thiệu AnkiNOS (v1.0.0 Beta 2)": "关于 AnkiNOS (v1.0.0 Beta 2)",
     "Đóng giới thiệu": "关闭关于窗口",
     "Không gian học tập kính mờ ngoại tuyến cho trí nhớ dài hạn": "专为长时记忆打造的离线毛玻璃学习空间",
     "AnkiNOS tái thiết kế trải nghiệm Anki trên máy tính theo hướng dịu mắt, gọn gàng và tập trung — giữ nguyên 100% lõi lặp lại ngắt quãng FSRS, mẫu thẻ gốc và quyền riêng tư ngoại tuyến của bạn.": "AnkiNOS 以更护眼、整洁、专注的方式重塑桌面端 Anki 体验——完整保留 100% 原生 FSRS 间隔重复算法、原始卡片模板与离线隐私。",
@@ -1095,7 +1113,6 @@
     "1. Điều hướng & Bố cục": "1. 导航与布局",
     "Thanh điều hướng giúp chuyển nhanh giữa Tổng quan, Lịch ôn, Thống kê, Thư viện bộ thẻ và Sổ tay. Nhấn logo NOS để mở Giới thiệu; nhấn nút Bố cục (hoặc Alt+Shift+L) để đổi giữa 6 phong cách: Cực quang, Bento, Dock nổi, Sidebar, Zen và 4 Cạnh.": "使用导航栏快速切换概览、复习日程、统计、牌组库和笔记本。点击 NOS 徽标打开“关于”；点击布局按钮（或按 Alt+Shift+L）在极光、Bento、悬浮 Dock、工作区、Zen 与四边模式间切换。",
     "2. Màu sắc, Kiểu chữ & Ảnh nền": "2. 配色、字体与壁纸",
-    "Vào Cài đặt → Giao diện để chọn 16 bảng màu chuẩn tương phản, 8 kiểu chữ ngoại tuyến và độ mờ kính. Mở Thư viện ảnh để gán ảnh nền riêng cho Trang chủ, Chuẩn bị học, Lúc ôn tập và Avatar — ảnh lưu hoàn toàn trên máy.": "进入“设置 → 外观”可选择 16 款 WCAG 配色、8 套离线字体和毛玻璃模糊度。打开图片库可为主页、准备页、复习界面和头像设置本地壁纸，图片全部保存在本机。",
     "3. Bắt đầu phiên học gọn nhẹ": "3. 轻松开启学习",
     "Khối “Bước tiếp theo của bạn” trên Trang chủ gợi ý bộ thẻ ưu tiên và ước lượng thời gian dựa trên tốc độ thực tế 30 ngày của bạn. Bạn có thể thu gọn khối này hoặc Heatmap bất cứ lúc nào để ngắm ảnh nền.": "主页的“你的下一步”卡片会推荐优先牌组，并根据近 30 天真实速度估算时长。你随时可以折叠该卡片或热力图以欣赏壁纸。",
     "ANOS Scheduler là gì?": "什么是 ANOS Scheduler？",
@@ -1132,7 +1149,7 @@
     "Tự động phát hiện bộ thẻ có tỷ lệ nhớ giảm mạnh so với 30 ngày trước hoặc các thẻ bị bấm Quên lặp lại nhiều lần, giúp bạn mở thẳng sang Duyệt thẻ để chỉnh lại nội dung thẻ khó.": "自动发现记忆率较前 30 天明显下降的牌组或多次点击“重来”的难点卡片，并支持一键在浏览器中打开修改。",
     "Gói sao lưu .nosbackup": ".nosbackup 备份包",
     "Vào Cài đặt → Dữ liệu (hoặc hộp thoại Giới thiệu) để xuất tệp .nosbackup chứa toàn bộ cài đặt giao diện, ảnh nền, Sổ tay, lịch sử Focus và Nhật ký lịch ôn. Khi khôi phục, AnkiNOS luôn tự tạo bản dự phòng an toàn trước.": "前往“设置 → 数据”（或“关于”窗口）导出包含全部设置、壁纸、笔记本、专注历史与日程日志的 .nosbackup 文件。恢复前会自动保留安全备份。",
-    "Về AnkiNOS (v1.0.0 Beta)": "关于 AnkiNOS (v1.0.0 Beta)",
+    "Về AnkiNOS (v1.0.0 Beta 2)": "关于 AnkiNOS (v1.0.0 Beta 2)",
     "Đã hiểu": "知道了",
     "Hiểu nhanh ANOS Scheduler — R, Gom thông minh & Dời lịch thật": "快速了解 ANOS Scheduler — R 指数、智能汇总与真实延期",
     "Chỉ số R (Xác suất nhớ)": "R 指数（记忆概率）",
@@ -1226,7 +1243,6 @@
     "Giữ nguyên thẻ học & An toàn trên máy": "保护原卡片与本地隐私",
     "Không sửa nội dung thẻ hay cách Anki tính ngày ôn. Mọi cài đặt và ảnh nền chỉ lưu trên máy bạn, và bạn luôn có thể quay về Anki gốc chỉ với 1 lần bấm.": "绝不修改你的卡片内容或 Anki 原生排程。所有设置与壁纸仅保存在你的电脑本地，随时可一键切回 Anki 原生界面。",
     "Tùy chỉnh không gian học theo ý thích": "按喜好定制学习空间",
-    "Chọn giữa 6 kiểu bố cục, 16 bộ màu dịu mắt, 8 kiểu chữ rõ nét và tự chọn ảnh nền, ảnh bìa yêu thích.": "自由切换 6 套布局、16 款护眼配色、8 种清晰字体，并自定义专属壁纸与封面。",
     "Xử lý thẻ quá hạn nhẹ nhàng & Thống kê rõ ràng": "轻松消化逾期卡片与清晰统计",
     "Chia nhỏ thẻ quá hạn theo sức học mỗi ngày (luôn hoàn tác được nếu muốn) và xem biểu đồ học tập ngay trong một nơi.": "按每日节奏分担积压的逾期卡片（随时可撤销），并在同一页面查看完整学习图表。",
     "Sổ tay học tập & Sao lưu dễ dàng": "随手记笔记与轻松备份",

@@ -131,7 +131,7 @@ def _review_content(content: Any, context: Any) -> None:
     appearance = {
         key: current_settings[key]
         for key in (
-            "theme", "color_theme", "accent", "custom_accent",
+            "theme", "color_theme", "theme_overrides", "accent", "custom_accent",
             "text_color", "custom_text_color",
             "rating_colors", "rating_color_again", "rating_color_hard", "rating_color_good", "rating_color_easy",
             "reviewer_card_opacity",

@@ -62,7 +62,7 @@
     <div class="nos-edge-handle" data-edge="right" aria-hidden="true" hidden><span></span></div>
 
     <aside class="nos-edge-dock glass" id="nos-edge-top" data-edge="top" aria-label="Tác vụ nhanh và nền" hidden>
-      <button type="button" class="rail-button edge-brand-btn" id="edge-brand-about" data-action="about" title="Giới thiệu AnkiNOS (v1.0.0 Beta)" aria-label="Giới thiệu AnkiNOS" aria-haspopup="dialog"><svg class="icon"><use href="#i-spark"/></svg><span data-i18n-skip>AnkiNOS</span></button>
+      <button type="button" class="rail-button edge-brand-btn" id="edge-brand-about" data-action="about" title="Giới thiệu AnkiNOS (v1.0.0 Beta 2)" aria-label="Giới thiệu AnkiNOS" aria-haspopup="dialog"><svg class="icon"><use href="#i-spark"/></svg><span data-i18n-skip>AnkiNOS</span></button>
       <button type="button" class="rail-button" data-action="sync" title="Đồng bộ Anki" aria-label="Đồng bộ Anki"><svg class="icon"><use href="#i-sync"/></svg><span>Đồng bộ</span></button>
       <button type="button" class="rail-button" id="edge-peek-toggle" data-action="edge_toggle_peek" title="Ngắm ảnh nền" aria-label="Ẩn hoặc hiện bảng để ngắm ảnh nền" aria-pressed="false"><svg class="icon"><use href="#i-eye"/></svg><span>Ngắm nền</span></button>
     </aside>
@@ -71,18 +71,18 @@
       <button type="button" class="rail-button" data-action="browse" title="Duyệt thẻ" aria-label="Duyệt thẻ"><svg class="icon"><use href="#i-search"/></svg><span>Duyệt thẻ</span></button>
     </aside>
     <aside class="nos-edge-dock glass" id="nos-edge-right" data-edge="right" aria-label="Cá nhân và hiển thị" hidden>
-      <button type="button" class="rail-button" data-action="studio" title="Thư viện ảnh nền" aria-label="Thư viện ảnh nền"><svg class="icon"><use href="#i-folder"/></svg><span>Ảnh nền</span></button>
     </aside>
 
     <aside class="rail glass" aria-label="Điều hướng chính">
       <svg class="rail-elastic" viewBox="0 0 32 500" preserveAspectRatio="none" aria-hidden="true"><path class="rail-elastic-path" d="M0,0 L0,500 Q0,250 0,0 Z"/></svg>
-      <button class="brand" id="brand-about" data-action="about" title="Giới thiệu AnkiNOS (v1.0.0 Beta)" aria-label="Giới thiệu AnkiNOS" aria-haspopup="dialog"><svg class="icon"><use href="#i-spark"/></svg><span>NOS</span></button>
+      <button class="brand" id="brand-about" data-action="about" title="Giới thiệu AnkiNOS (v1.0.0 Beta 2)" aria-label="Giới thiệu AnkiNOS" aria-haspopup="dialog"><svg class="icon"><use href="#i-spark"/></svg><span>NOS</span></button>
       <div class="rail-main">
         <button class="rail-button active" data-action="page" data-value="home" title="Tổng quan" aria-label="Tổng quan" aria-current="page"><svg class="icon"><use href="#i-home"/></svg><span>Tổng quan</span></button>
         <button class="rail-button" id="daily-toggle" data-action="page" data-value="daily" title="Lịch ôn" aria-label="Lịch ôn" aria-controls="daily-page" aria-current="false"><svg class="icon"><use href="#i-calendar"/></svg><span>Lịch ôn</span></button>
         <button class="rail-button" id="stats-toggle" data-action="page" data-value="stats" title="Thống kê" aria-label="Thống kê" aria-current="false"><svg class="icon"><use href="#i-chart"/></svg><span>Thống kê</span></button>
         <button class="rail-button" id="library-toggle" data-action="library" aria-haspopup="dialog" aria-expanded="false" aria-controls="library-dialog" title="Bộ thẻ & tài nguyên" aria-label="Bộ thẻ và tài nguyên"><svg class="icon"><use href="#i-layers"/></svg><span>Bộ thẻ</span></button>
         <button type="button" class="rail-button" id="study-notebook" title="Sổ tay" aria-label="Sổ tay"><svg class="icon"><use href="#i-file"/></svg><span>Sổ tay</span></button>
+        <button type="button" class="rail-button" id="appearance-toggle" data-action="appearance" title="Giao diện" aria-label="Giao diện" aria-controls="appearance-dialog" aria-haspopup="dialog"><svg class="icon"><use href="#i-moon"/></svg><span>Giao diện</span></button>
       </div>
       <div class="rail-bottom">
         <button class="rail-button" data-action="preferences" title="Cài đặt AnkiNOS" aria-label="Cài đặt AnkiNOS"><svg class="icon"><use href="#i-settings"/></svg><span>Cài đặt</span></button>
@@ -473,53 +473,31 @@
       </section>
     </dialog>
 
-    <dialog id="settings-dialog" class="settings-popover" aria-labelledby="settings-dialog-title" aria-modal="true">
-      <section class="settings-panel glass panel" id="settings-panel">
-        <div class="panel-heading settings-heading" id="settings-drag-handle" title="Kéo để di chuyển · Nhấn đúp để căn giữa">
+    <dialog id="appearance-dialog" class="settings-popover" aria-labelledby="appearance-dialog-title" aria-modal="true">
+      <section class="settings-panel glass panel" id="appearance-panel">
+        <div class="panel-heading settings-heading" id="appearance-drag-handle" title="Kéo để di chuyển · Nhấn đúp để căn giữa">
           <div class="heading-title">
-            <span class="section-icon settings-icon"><svg class="icon"><use href="#i-settings"/></svg></span>
+            <span class="section-icon settings-icon"><svg class="icon"><use href="#i-moon"/></svg></span>
             <div>
-              <h2 id="settings-dialog-title">Cài đặt AnkiNOS</h2>
+              <h2 id="appearance-dialog-title">Giao diện</h2>
               <p class="section-caption">Kéo thanh tiêu đề để di chuyển hoặc ghim sang cạnh</p>
             </div>
           </div>
           <div class="settings-head-actions">
-            <button type="button" class="icon-button settings-dock-btn" id="settings-dock-toggle" data-action="toggle_settings_dock" title="Ghim sang cạnh để xem trực tiếp" aria-label="Ghim sang cạnh để xem trực tiếp" aria-pressed="false"><svg class="icon small" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
-            <button class="icon-button library-header-close" id="settings-close" data-action="close_settings" title="Đóng (Esc)"><svg class="icon"><use href="#i-close"/></svg></button>
+            <button type="button" class="icon-button settings-dock-btn" id="appearance-dock-toggle" data-action="toggle_settings_dock" title="Ghim sang cạnh để xem trực tiếp" aria-label="Ghim sang cạnh để xem trực tiếp" aria-pressed="false"><svg class="icon small" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
+            <button class="icon-button library-header-close" id="appearance-close" data-action="close_settings" title="Đóng (Esc)"><svg class="icon"><use href="#i-close"/></svg></button>
           </div>
         </div>
 
-        <div class="settings-body" id="settings-body">
-          <nav class="settings-sidebar" id="settings-sidebar" aria-label="Danh mục cài đặt">
-            <button class="settings-nav-btn active" data-settings-tab="appearance"><svg class="icon small"><use href="#i-moon"/></svg>Giao diện</button>
-            <button class="settings-nav-btn" data-settings-tab="reviewer"><svg class="icon small"><use href="#i-play"/></svg>Phiên ôn tập</button>
-            <button class="settings-nav-btn" data-settings-tab="language"><svg class="icon small"><use href="#i-globe"/></svg>Ngôn ngữ</button>
-            <button class="settings-nav-btn" data-settings-tab="dashboard"><svg class="icon small"><use href="#i-chart"/></svg>Dashboard</button>
-            <button class="settings-nav-btn" data-settings-tab="goals"><svg class="icon small"><use href="#i-target"/></svg>Mục tiêu</button>
-            <button class="settings-nav-btn" data-settings-tab="performance"><svg class="icon small"><use href="#i-bolt"/></svg>Hiệu năng</button>
-            <button class="settings-nav-btn" data-settings-tab="shortcuts"><svg class="icon small"><use href="#i-link"/></svg>Phím tắt</button>
-            <button class="settings-nav-btn" data-settings-tab="data"><svg class="icon small"><use href="#i-folder"/></svg>Dữ liệu</button>
+        <div class="settings-body" id="appearance-body">
+          <nav class="settings-sidebar" id="appearance-sidebar" aria-label="Tùy chỉnh giao diện">
+            <button type="button" class="settings-nav-btn" data-settings-tab="appearance" aria-controls="stab-appearance"><svg class="icon small"><use href="#i-moon"/></svg>Chủ đề</button>
+            <button type="button" class="settings-nav-btn" data-settings-tab="layout" aria-controls="stab-layout"><svg class="icon small"><use href="#i-layers"/></svg>Bố cục &amp; hiệu ứng</button>
+            <button type="button" class="settings-nav-btn" data-settings-tab="colors" aria-controls="stab-colors"><svg class="icon small"><use href="#i-spark"/></svg>Màu nâng cao</button>
+            <button type="button" class="settings-nav-btn" data-settings-tab="reviewer" aria-controls="stab-reviewer"><svg class="icon small"><use href="#i-play"/></svg>Phiên ôn tập</button>
+            <button type="button" class="settings-nav-btn appearance-media-link" id="appearance-media" data-action="studio" aria-haspopup="dialog"><svg class="icon small"><use href="#i-folder"/></svg>Thư viện ảnh</button>
           </nav>
-
-          <div class="settings-content" id="settings-content">
-            <!-- TAB: Ngôn ngữ -->
-            <div class="settings-tab-pane" id="stab-language" hidden>
-              <div class="settings-card">
-                <div class="settings-group-title">Ngôn ngữ giao diện</div>
-                <p class="theme-help">Chọn ngôn ngữ hiển thị của AnkiNOS. Bản xem trước bên dưới đổi ngay, nhưng chỉ được lưu khi bạn nhấn Áp dụng.</p>
-                <div class="language-grid" id="language-grid" role="radiogroup" aria-label="Ngôn ngữ giao diện">
-                  <button type="button" class="language-card" data-set-language="auto" role="radio" aria-checked="false"><span class="language-code" data-i18n-skip>AUTO</span><div><strong>Tự động theo Anki</strong><small id="language-auto-note">Theo ngôn ngữ hiện tại của Anki</small></div></button>
-                  <button type="button" class="language-card" data-set-language="vi" role="radio" aria-checked="true" data-i18n-skip><span class="language-code">VI</span><div><strong>Tiếng Việt</strong><small>Vietnamese</small></div></button>
-                  <button type="button" class="language-card" data-set-language="en" role="radio" aria-checked="false" data-i18n-skip><span class="language-code">EN</span><div><strong>English</strong><small>Tiếng Anh</small></div></button>
-                  <button type="button" class="language-card" data-set-language="zh-cn" role="radio" aria-checked="false" data-i18n-skip><span class="language-code">简体</span><div><strong>简体中文</strong><small>Chinese (Simplified)</small></div></button>
-                </div>
-                <p class="theme-help">Menu gốc của Anki, hộp thoại hệ thống và các phần chưa được dịch vẫn giữ nguyên ngôn ngữ hiện tại.</p>
-              </div>
-              <section class="settings-card language-preview" id="language-preview" data-i18n-skip aria-live="polite"></section>
-            </div>
-
-            <!-- TAB 1: Giao diện -->
-            <div class="settings-tab-pane" id="stab-appearance">
+          <div class="settings-content" id="appearance-content">
               <section id="theme-preview" class="theme-preview" aria-label="Xem trước giao diện đang chọn">
                 <div class="theme-preview-head"><strong id="theme-preview-name">NOS Glass</strong><small id="theme-preview-meta">Xem trước · chưa lưu</small></div>
                 <div class="theme-preview-panel"><div><strong>Bước tiếp theo của bạn</strong><p>24 thẻ đang chờ · khoảng 8 phút · nhấn Áp dụng để lưu</p></div><span class="theme-preview-cta">Học ngay →</span></div>
@@ -529,21 +507,7 @@
                 </div>
               </section>
 
-              <div class="settings-card">
-                <div class="settings-group-title">Bố cục &amp; Thanh điều hướng</div>
-                <div class="nos-layout-grid" id="layout-grid" role="group" aria-label="Bố cục giao diện"></div>
-                <div class="settings-row" id="sidebar-side-row">
-                  <div>
-                    <strong>Vị trí sidebar</strong>
-                    <p>Áp dụng cho bố cục <b>Cực quang (Aurora)</b> và <b>Không gian làm việc (Sidebar)</b>. Không áp dụng cho Bento, Dock nổi, Zen và 4 Cạnh.</p>
-                  </div>
-                  <div class="sidebar-side-buttons" role="group" aria-label="Vị trí sidebar">
-                    <button type="button" class="side-btn active" data-sidebar-side="left" aria-pressed="true">Bên trái</button>
-                    <button type="button" class="side-btn" data-sidebar-side="right" aria-pressed="false">Bên phải</button>
-                  </div>
-                </div>
-              </div>
-
+            <div class="settings-tab-pane" id="stab-appearance">
               <div class="settings-card">
                 <div class="settings-group-title">Chế độ sáng / tối</div>
                 <div class="theme-options-grid">
@@ -604,6 +568,22 @@
                 </div>
                 <label class="custom-accent-label" for="set-custom-text">Màu chữ tùy chỉnh <input id="set-custom-text" type="color" value="#f3f6ff"><code id="custom-text-value" data-i18n-skip>auto</code></label>
               </div>
+            </div>
+            <div class="settings-tab-pane" id="stab-layout" hidden>
+              <div class="settings-card">
+                <div class="settings-group-title">Bố cục &amp; Thanh điều hướng</div>
+                <div class="nos-layout-grid" id="layout-grid" role="group" aria-label="Bố cục giao diện"></div>
+                <div class="settings-row" id="sidebar-side-row">
+                  <div>
+                    <strong>Vị trí sidebar</strong>
+                    <p>Áp dụng cho bố cục <b>Cực quang (Aurora)</b> và <b>Không gian làm việc (Sidebar)</b>. Không áp dụng cho Bento, Dock nổi, Zen và 4 Cạnh.</p>
+                  </div>
+                  <div class="sidebar-side-buttons" role="group" aria-label="Vị trí sidebar">
+                    <button type="button" class="side-btn active" data-sidebar-side="left" aria-pressed="true">Bên trái</button>
+                    <button type="button" class="side-btn" data-sidebar-side="right" aria-pressed="false">Bên phải</button>
+                  </div>
+                </div>
+              </div>
 
               <div class="settings-card">
                 <div class="settings-group-title">Kính mờ &amp; Hiệu ứng chuyển động</div>
@@ -645,9 +625,62 @@
                 </div>
                 <p class="settings-lite-hint" id="settings-lite-hint" hidden>Chế độ máy nhẹ (Lite Mode) đang bật — tự động tạm tắt kính mờ và chuyển động. Tắt Lite Mode ở mục Hiệu năng để tùy chỉnh lại.</p>
               </div>
+              <div class="settings-card">
+                <div class="settings-group-title">Thu phóng giao diện (UI Scale)</div>
+                <div class="settings-row">
+                  <div><strong>Kích thước giao diện</strong><p>Phù hợp cho màn hình độ phân giải cao hoặc laptop nhỏ</p></div>
+                  <div class="scale-buttons">
+                    <button class="scale-btn" data-scale="85">85%</button>
+                    <button class="scale-btn" data-scale="90">90%</button>
+                    <button class="scale-btn active" data-scale="100">100%</button>
+                    <button class="scale-btn" data-scale="110">110%</button>
+                    <button class="scale-btn" data-scale="120">120%</button>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            <!-- TAB: Phiên ôn tập (Reviewer) -->
+            <div class="settings-tab-pane" id="stab-colors" hidden>
+              <div class="settings-card">
+                <div class="settings-group-title">Màu theo thành phần</div>
+                <p class="theme-help">Màu tùy chỉnh dùng chung cho các bảng màu. AnkiNOS điều chỉnh độ tương phản để chữ và nút dễ đọc.</p>
+                <div class="settings-row role-color-row">
+                  <label for="role-surface">Nền bảng</label>
+                  <input type="color" id="role-surface" data-theme-role="surface">
+                  <button type="button" class="subtle-button" data-reset-role="surface" aria-label="Dùng màu chủ đề cho nền bảng">Theo theme</button>
+                </div>
+                <div class="settings-row role-color-row">
+                  <label for="role-primary">Nút chính</label>
+                  <input type="color" id="role-primary" data-theme-role="primary">
+                  <button type="button" class="subtle-button" data-reset-role="primary" aria-label="Dùng màu chủ đề cho nút chính">Theo theme</button>
+                </div>
+                <div class="settings-row role-color-row">
+                  <label for="role-success">Hoàn thành</label>
+                  <input type="color" id="role-success" data-theme-role="success">
+                  <button type="button" class="subtle-button" data-reset-role="success" aria-label="Dùng màu chủ đề cho hoàn thành">Theo theme</button>
+                </div>
+                <div class="settings-row role-color-row">
+                  <label for="role-warning">Cảnh báo</label>
+                  <input type="color" id="role-warning" data-theme-role="warning">
+                  <button type="button" class="subtle-button" data-reset-role="warning" aria-label="Dùng màu chủ đề cho cảnh báo">Theo theme</button>
+                </div>
+                <div class="settings-row role-color-row">
+                  <label for="role-danger">Lỗi</label>
+                  <input type="color" id="role-danger" data-theme-role="danger">
+                  <button type="button" class="subtle-button" data-reset-role="danger" aria-label="Dùng màu chủ đề cho lỗi">Theo theme</button>
+                </div>
+              </div>
+              <div class="settings-card">
+                <div class="settings-row">
+                  <div><strong>Bảng màu ô lịch</strong></div>
+                  <select id="set-heatmap-palette" class="nos-select">
+                    <option value="default">🔵 Xanh tím (Mặc định)</option>
+                    <option value="green">🟢 Xanh lá (GitHub)</option>
+                    <option value="orange">🟠 Cam lửa</option>
+                    <option value="purple">🟣 Tím lavender</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             <div class="settings-tab-pane" id="stab-reviewer" hidden>
               <section id="reviewer-settings-preview" class="reviewer-settings-preview" aria-label="Xem trước phiên ôn tập">
                 <div class="reviewer-preview-card">
@@ -702,6 +735,58 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <footer class="settings-footer">
+          <span id="appearance-save-status">Nhấn Áp dụng để lưu thay đổi</span>
+          <button class="primary-button" id="btn-apply-appearance" type="button" disabled>Áp dụng</button>
+        </footer>
+      </section>
+    </dialog>
+
+    <dialog id="settings-dialog" class="settings-popover" aria-labelledby="settings-dialog-title" aria-modal="true">
+      <section class="settings-panel glass panel" id="settings-panel">
+        <div class="panel-heading settings-heading" id="settings-drag-handle" title="Kéo để di chuyển · Nhấn đúp để căn giữa">
+          <div class="heading-title">
+            <span class="section-icon settings-icon"><svg class="icon"><use href="#i-settings"/></svg></span>
+            <div>
+              <h2 id="settings-dialog-title">Cài đặt AnkiNOS</h2>
+              <p class="section-caption">Kéo thanh tiêu đề để di chuyển hoặc ghim sang cạnh</p>
+            </div>
+          </div>
+          <div class="settings-head-actions">
+            <button type="button" class="icon-button settings-dock-btn" id="settings-dock-toggle" data-action="toggle_settings_dock" title="Ghim sang cạnh để xem trực tiếp" aria-label="Ghim sang cạnh để xem trực tiếp" aria-pressed="false"><svg class="icon small" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
+            <button class="icon-button library-header-close" id="settings-close" data-action="close_settings" title="Đóng (Esc)"><svg class="icon"><use href="#i-close"/></svg></button>
+          </div>
+        </div>
+
+        <div class="settings-body" id="settings-body">
+          <nav class="settings-sidebar" id="settings-sidebar" aria-label="Danh mục cài đặt">
+            <button class="settings-nav-btn active" data-settings-tab="language"><svg class="icon small"><use href="#i-globe"/></svg>Ngôn ngữ</button>
+            <button class="settings-nav-btn" data-settings-tab="dashboard"><svg class="icon small"><use href="#i-chart"/></svg>Dashboard</button>
+            <button class="settings-nav-btn" data-settings-tab="goals"><svg class="icon small"><use href="#i-target"/></svg>Mục tiêu</button>
+            <button class="settings-nav-btn" data-settings-tab="performance"><svg class="icon small"><use href="#i-bolt"/></svg>Hiệu năng</button>
+            <button class="settings-nav-btn" data-settings-tab="shortcuts"><svg class="icon small"><use href="#i-link"/></svg>Phím tắt</button>
+            <button class="settings-nav-btn" data-settings-tab="data"><svg class="icon small"><use href="#i-folder"/></svg>Dữ liệu</button>
+          </nav>
+
+          <div class="settings-content" id="settings-content">
+            <!-- TAB: Ngôn ngữ -->
+            <div class="settings-tab-pane" id="stab-language">
+              <div class="settings-card">
+                <div class="settings-group-title">Ngôn ngữ giao diện</div>
+                <p class="theme-help">Chọn ngôn ngữ hiển thị của AnkiNOS. Bản xem trước bên dưới đổi ngay, nhưng chỉ được lưu khi bạn nhấn Áp dụng.</p>
+                <div class="language-grid" id="language-grid" role="radiogroup" aria-label="Ngôn ngữ giao diện">
+                  <button type="button" class="language-card" data-set-language="auto" role="radio" aria-checked="false"><span class="language-code" data-i18n-skip>AUTO</span><div><strong>Tự động theo Anki</strong><small id="language-auto-note">Theo ngôn ngữ hiện tại của Anki</small></div></button>
+                  <button type="button" class="language-card" data-set-language="vi" role="radio" aria-checked="true" data-i18n-skip><span class="language-code">VI</span><div><strong>Tiếng Việt</strong><small>Vietnamese</small></div></button>
+                  <button type="button" class="language-card" data-set-language="en" role="radio" aria-checked="false" data-i18n-skip><span class="language-code">EN</span><div><strong>English</strong><small>Tiếng Anh</small></div></button>
+                  <button type="button" class="language-card" data-set-language="zh-cn" role="radio" aria-checked="false" data-i18n-skip><span class="language-code">简体</span><div><strong>简体中文</strong><small>Chinese (Simplified)</small></div></button>
+                </div>
+                <p class="theme-help">Menu gốc của Anki, hộp thoại hệ thống và các phần chưa được dịch vẫn giữ nguyên ngôn ngữ hiện tại.</p>
+              </div>
+              <section class="settings-card language-preview" id="language-preview" data-i18n-skip aria-live="polite"></section>
+            </div>
 
             <!-- TAB 2: Dashboard -->
             <div class="settings-tab-pane" id="stab-dashboard" hidden>
@@ -729,15 +814,6 @@
                 <select id="set-heatmap-day" class="nos-select">
                   <option value="monday">Thứ Hai</option>
                   <option value="sunday">Chủ Nhật</option>
-                </select>
-              </div>
-              <div class="settings-row">
-                <div><strong>Bảng màu ô lịch</strong></div>
-                <select id="set-heatmap-palette" class="nos-select">
-                  <option value="default">🔵 Xanh tím (Mặc định)</option>
-                  <option value="green">🟢 Xanh lá (GitHub)</option>
-                  <option value="orange">🟠 Cam lửa</option>
-                  <option value="purple">🟣 Tím lavender</option>
                 </select>
               </div>
             </div>
@@ -772,17 +848,6 @@
                 <label class="nos-switch"><input type="checkbox" id="set-lite-mode"><span class="nos-slider"></span></label>
               </div>
 
-              <div class="settings-group-title">Thu phóng giao diện (UI Scale)</div>
-              <div class="settings-row">
-                <div><strong>Kích thước giao diện</strong><p>Phù hợp cho màn hình độ phân giải cao hoặc laptop nhỏ</p></div>
-                <div class="scale-buttons">
-                  <button class="scale-btn" data-scale="85">85%</button>
-                  <button class="scale-btn" data-scale="90">90%</button>
-                  <button class="scale-btn active" data-scale="100">100%</button>
-                  <button class="scale-btn" data-scale="110">110%</button>
-                  <button class="scale-btn" data-scale="120">120%</button>
-                </div>
-              </div>
             </div>
 
             <!-- TAB 5: Phím tắt -->
@@ -960,7 +1025,7 @@
             <div>
               <div class="about-title-row">
                 <h2 id="about-title">AnkiNOS</h2>
-                <span class="version-pill" data-i18n-skip>v1.0.0 Beta</span>
+                <span class="version-pill" data-i18n-skip>v1.0.0 Beta 2</span>
               </div>
               <p class="section-caption">Không gian học tập kính mờ ngoại tuyến cho trí nhớ dài hạn</p>
             </div>
@@ -979,7 +1044,7 @@
             </article>
             <article class="about-pillar">
               <strong>Tùy chỉnh không gian học theo ý thích</strong>
-              <p>Chọn giữa 6 kiểu bố cục, 16 bộ màu dịu mắt, 8 kiểu chữ rõ nét và tự chọn ảnh nền, ảnh bìa yêu thích.</p>
+              <p>Từ mục Giao diện, chọn giữa 6 bố cục, 16 bảng màu và 8 kiểu chữ. Bạn có thể phối màu riêng cho các bảng, trạng thái và nút trả lời.</p>
             </article>
             <article class="about-pillar">
               <strong>Xử lý thẻ quá hạn nhẹ nhàng &amp; Thống kê rõ ràng</strong>
@@ -991,7 +1056,7 @@
             </article>
           </div>
           <div class="about-specs">
-            <div><span>Phiên bản</span><strong data-i18n-skip>v1.0.0 Beta</strong></div>
+            <div><span>Phiên bản</span><strong data-i18n-skip>v1.0.0 Beta 2</strong></div>
             <div><span>Yêu cầu Anki</span><strong data-i18n-skip>Anki ≥ 25.02</strong></div>
             <div><span>Hoạt động</span><strong>Hoàn toàn ngoại tuyến</strong></div>
             <div><span>Ngôn ngữ</span><strong>Tiếng Việt · English · 简体中文</strong></div>
@@ -1037,7 +1102,7 @@
               </article>
               <article class="guide-card">
                 <h3>2. Màu sắc, Kiểu chữ &amp; Ảnh nền</h3>
-                <p>Vào Cài đặt → Giao diện để chọn 16 bảng màu chuẩn tương phản, 8 kiểu chữ ngoại tuyến và độ mờ kính. Mở Thư viện ảnh để gán ảnh nền riêng cho Trang chủ, Chuẩn bị học, Lúc ôn tập và Avatar — ảnh lưu hoàn toàn trên máy.</p>
+                <p>Mở Giao diện trên thanh điều hướng. Chọn chủ đề, chỉnh bố cục hoặc màu từng thành phần. Trong Phiên ôn tập, bạn có thể chỉnh nền khung thẻ và bốn nút trả lời. Nhấn Áp dụng để lưu theo hồ sơ. Ảnh nền riêng cho từng màn hình nằm trong Thư viện ảnh.</p>
               </article>
               <article class="guide-card">
                 <h3>3. Bắt đầu phiên học gọn nhẹ</h3>
@@ -1123,7 +1188,7 @@
           </div>
         </div>
         <div class="info-modal-foot">
-          <button type="button" class="subtle-button" data-action="about">Về AnkiNOS (v1.0.0 Beta)</button>
+          <button type="button" class="subtle-button" data-action="about">Về AnkiNOS (v1.0.0 Beta 2)</button>
           <span class="toolbar-spacer"></span>
           <button type="button" class="primary-button" data-action="close_guide">Đã hiểu</button>
         </div>
@@ -1135,7 +1200,7 @@
         <div class="welcome-brand-pill" data-i18n-skip>
           <span class="welcome-logo-mark" aria-hidden="true"><svg class="icon"><use href="#i-spark"/></svg></span>
           <span class="welcome-wordmark">Anki<strong>NOS</strong></span>
-          <span class="version-pill">v1.0.0 Beta</span>
+          <span class="version-pill">v1.0.0 Beta 2</span>
         </div>
         <h1 id="welcome-title">Cảm ơn bạn đã dùng thử AnkiNOS!</h1>
         <p class="welcome-copy">AnkiNOS làm mới không gian học cho gọn và dịu mắt hơn mà vẫn giữ nguyên toàn bộ thẻ học của bạn. Vì có vài nút và cách dùng mới, bạn có thể xem nhanh Hướng dẫn hoặc vào Cài đặt bất cứ lúc nào.</p>

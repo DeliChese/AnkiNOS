@@ -117,13 +117,17 @@ def main():
     aqt.mw.moveToState("deckBrowser")
     until("!window.__oldDeckBrowser && window.NOSLayout && document.getElementById('nos-app').dataset.layout === 'dock'")
     until("!!window.AnkiNOS.getSnapshot()")
-    js("document.querySelector('.rail-bottom [data-action=preferences]').click()")
+    js("document.getElementById('appearance-toggle').click()")
+    js("document.querySelector('[data-settings-tab=layout]').click()")
     js("document.querySelector('[data-layout-card=aurora]').click()")
     assert integration.settings()["layout"] == "dock"
-    js("document.getElementById('btn-apply-settings').click()")
+    js("document.querySelector('[data-settings-tab=colors]').click()")
+    js("(()=>{const input=document.getElementById('role-primary');input.value='#f1c352';input.dispatchEvent(new Event('input',{bubbles:true}));return true})()")
+    js("document.getElementById('btn-apply-appearance').click()")
     until("document.getElementById('nos-app').dataset.layout === 'aurora'")
     assert aqt.mw.addonManager.getConfig("NOS")["profiles"][aqt.mw.pm.name]["layout"] == "aurora"
-    js("document.getElementById('settings-close').click()")
+    assert integration.settings()["theme_overrides"] == {"primary": "#f1c352"}
+    js("document.getElementById('appearance-close').click()")
     # An old import without a thumbnail must never decode its original in the
     # gallery's opening frame. Build its preview asynchronously and retain it.
     from aqt.qt import QImage
@@ -400,10 +404,11 @@ def main():
     until("typeof _showQuestion === 'function' && !!document.getElementById('qa')")
     until("!!window.NOSReview && document.getElementById('qa').textContent.includes('disposable AnkiNOS')")
     assert js("document.getElementById('nos-review-shell').dataset.colorTheme") == "mononoke"
+    assert js("document.getElementById('nos-review-header').style.getPropertyValue('--primary')") == "#f1c352"
     # Custom UI text color must theme the Reviewer header without touching #qa card text color.
     qa_color_before = js("getComputedStyle(document.getElementById('qa')).color")
-    js("window.NOSTheme.apply(document.getElementById('nos-review-shell'), {theme:'night', color_theme:'mononoke', accent:'auto', text_color:'custom', custom_text_color:'#ff2288'}, true)")
-    assert js("getComputedStyle(document.getElementById('nos-review-header')).color") == "rgb(255, 34, 136)"
+    js("window.NOSTheme.apply(document.getElementById('nos-review-shell'), {theme:'night', color_theme:'mononoke', accent:'auto', text_color:'custom', custom_text_color:'#ff88bb'}, true)")
+    assert js("getComputedStyle(document.getElementById('nos-review-header')).color") == "rgb(255, 136, 187)"
     assert js("getComputedStyle(document.getElementById('qa')).color") == qa_color_before, "Custom UI text color must NEVER alter #qa flashcard text color"
     assert js("getComputedStyle(document.getElementById('qa')).getPropertyValue('--text').trim()") == "", "AnkiNOS --text must not leak into #qa"
     js("window.NOSTheme.apply(document.getElementById('nos-review-shell'), {theme:'dusk', color_theme:'mononoke', accent:'custom', custom_accent:'#91b78a'}, true)")

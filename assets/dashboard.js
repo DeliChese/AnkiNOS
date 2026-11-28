@@ -24,7 +24,9 @@
   const popups = [['profile-panel','profile-toggle'],['launcher','launcher-toggle'],['add-menu','add-toggle'],['layout-menu','layout-toggle']];
   let toastTimer;
   let settingsDraft = null;
-  let settingsDirty = false;
+  let settingsEditor = null;
+  let settingsTrigger = null;
+  let pendingSettings = {};
   let settingsSyncFrame = 0;
   let lastAppliedSettings = '';
   let lastSnapshotAt = 0;
@@ -96,13 +98,13 @@
   function saveUI(patch) {
     if (settingsDraft) {
       Object.assign(settingsDraft, patch);
-      settingsDirty = true;
+      Object.assign(pendingSettings, patch);
       if (!settingsSyncFrame) settingsSyncFrame = requestAnimationFrame(() => {
         settingsSyncFrame = 0;
         if (settingsDraft) syncSettingsForm(settingsDraft);
       });
-      $('btn-apply-settings').disabled = false;
-      $('settings-save-status').textContent = 'Có thay đổi chưa áp dụng';
+      settingsEditor.querySelector('.settings-footer button').disabled = false;
+      settingsEditor.querySelector('.settings-footer span').textContent = 'Có thay đổi chưa áp dụng';
       return;
     }
     Object.assign(state.settings, patch);
@@ -111,10 +113,11 @@
   }
 
   function applySettingsDraft() {
-    if (!settingsDraft || !settingsDirty) return;
+    if (!settingsDraft || !Object.keys(pendingSettings).length) return;
     const previous = state.settings;
-    state.settings = {...settingsDraft};
-    settingsDirty = false;
+    const patch = pendingSettings;
+    pendingSettings = {};
+    state.settings = {...previous, ...patch};
     applySettings();
     if (state.snapshot) {
       if (previous.goal !== state.settings.goal) renderStats();
@@ -126,18 +129,18 @@
     }
     // Never send the image gallery (or large resource lists) back over pycmd.
     const keys = ['goal','layout','sidebar_side','theme','color_theme','accent','custom_accent',
-      'text_color','custom_text_color','rating_colors','rating_color_again','rating_color_hard','rating_color_good','rating_color_easy','reviewer_card_opacity',
+      'text_color','custom_text_color','theme_overrides','rating_colors','rating_color_again','rating_color_hard','rating_color_good','rating_color_easy','reviewer_card_opacity',
       'font_family','blur','glass_blur','glass_opacity','animations','lite_mode','ui_scale','language',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
       'activity_collapsed','launchpad_collapsed','library_collapsed','sidebar_collapsed','welcome_dismissed','view',
       // Image assignments belong exclusively to Studio and save immediately.
     ];
-    const values = Object.fromEntries(keys.filter(key => Object.hasOwn(state.settings,key))
+    const values = Object.fromEntries(keys.filter(key => Object.hasOwn(patch,key))
       .map(key => [key,state.settings[key]]));
-    if (state.settings.language_pref) values.language = state.settings.language_pref;
+    if (patch.language_pref) values.language = patch.language_pref;
     command('apply_settings', {values});
-    $('btn-apply-settings').disabled = true;
-    $('settings-save-status').textContent = 'Đã áp dụng · cấu hình lưu theo hồ sơ';
+    settingsEditor.querySelector('.settings-footer button').disabled = true;
+    settingsEditor.querySelector('.settings-footer span').textContent = 'Đã áp dụng · cấu hình lưu theo hồ sơ';
   }
 
   function setPopup(id, toggle, show) {
@@ -324,17 +327,17 @@
   function resetSettingsPosition() {
     settingsDragX = 0;
     settingsDragY = 0;
-    const panel = $('settings-panel');
+    const panel = settingsEditor?.querySelector('.settings-panel');
     if (panel) {
       panel.style.removeProperty('--drag-x');
       panel.style.removeProperty('--drag-y');
     }
-    $('settings-dialog')?.classList.remove('is-dragged');
+    settingsEditor?.classList.remove('is-dragged');
   }
 
   function setSettingsDocked(docked) {
-    const dialog = $('settings-dialog');
-    const btn = $('settings-dock-toggle');
+    const dialog = settingsEditor;
+    const btn = dialog?.querySelector('.settings-dock-btn');
     if (!dialog) return;
     dialog.classList.toggle('is-docked', !!docked);
     if (docked) resetSettingsPosition();
@@ -346,39 +349,49 @@
     }
   }
 
-  function openSettings(initialTab = 'appearance') {
+  function openSettings(dialog = $('settings-dialog'), trigger = document.activeElement) {
+    if (settingsEditor) return;
+    settingsEditor = dialog;
+    settingsTrigger = trigger;
     closePopups();
     closeLibrary(false);
-    const dialog = $('settings-dialog');
-    if (dialog.open) return;
     resetSettingsPosition();
     settingsDraft = {...state.settings};
-    settingsDirty = false;
-    switchSettingsTab(initialTab);
+    pendingSettings = {};
+    switchSettingsTab(dialog.querySelector('[data-settings-tab]').dataset.settingsTab);
     syncSettingsForm(settingsDraft);
-    $('btn-apply-settings').disabled = true;
-    $('settings-save-status').textContent = 'Nhấn Áp dụng để lưu thay đổi';
+    settingsEditor.querySelector('.settings-footer button').disabled = true;
+    settingsEditor.querySelector('.settings-footer span').textContent = 'Nhấn Áp dụng để lưu thay đổi';
     dialog.showModal();
     app.classList.add('settings-open');
-    $('settings-close')?.focus({preventScroll: true});
+    dialog.querySelector('[data-action="close_settings"]')?.focus({preventScroll: true});
   }
 
   function closeSettings(restoreFocus = true) {
-    const dialog = $('settings-dialog');
-    if (!dialog.open) return;
+    const dialog = settingsEditor;
+    if (!dialog) return;
     dialog.close();
     resetSettingsPosition();
     settingsDraft = null;
-    settingsDirty = false;
+    pendingSettings = {};
     app.classList.remove('settings-open');
-    if (restoreFocus) app.querySelector('[data-action="preferences"]')?.focus({preventScroll: true});
+    settingsEditor = null;
+    if (restoreFocus) {
+      const fallback = dialog.id === 'appearance-dialog' ? $('appearance-toggle') : app.querySelector('[data-action="preferences"]');
+      (settingsTrigger?.getClientRects().length && settingsTrigger !== document.body ? settingsTrigger : fallback)?.focus({preventScroll: true});
+    }
+    settingsTrigger = null;
   }
 
   function switchSettingsTab(tabName) {
-    app.querySelectorAll('.settings-nav-btn').forEach(btn => {
+    const content = settingsEditor.querySelector('.settings-content');
+    content.scrollTop = 0;
+    if (settingsEditor.id === 'appearance-dialog') $('theme-preview').hidden = tabName === 'reviewer';
+    settingsEditor.querySelectorAll('[data-settings-tab]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.settingsTab === tabName);
+      btn.setAttribute('aria-current', btn.dataset.settingsTab === tabName ? 'true' : 'false');
     });
-    app.querySelectorAll('.settings-tab-pane').forEach(pane => {
+    settingsEditor.querySelectorAll('.settings-tab-pane').forEach(pane => {
       pane.hidden = pane.id !== `stab-${tabName}`;
     });
   }
@@ -451,7 +464,7 @@
       btn.setAttribute('aria-checked', String(selected));
     });
     renderLanguagePreview(effectiveLang);
-    app.querySelectorAll('#settings-dialog .side-btn[data-sidebar-side]').forEach(btn => {
+    app.querySelectorAll('#appearance-dialog .side-btn[data-sidebar-side]').forEach(btn => {
       const selected = btn.dataset.sidebarSide === side;
       btn.classList.toggle('active', selected);
       btn.setAttribute('aria-pressed', String(selected));
@@ -500,7 +513,7 @@
     renderHeatmap();
     libraryRenderKey = '';
     if ($('library-dialog')?.open) renderLibrary();
-    if ($('settings-dialog')?.open) window.NOSTheme.sync(settingsDraft || state.settings);
+    if (settingsEditor) window.NOSTheme.sync(settingsDraft || state.settings);
   });
 
   function exportSettings() {
@@ -544,7 +557,7 @@
         goal: 200, layout: defaultLayout, sidebar_side: 'left', theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
         text_color: 'auto', custom_text_color: '#f3f6ff',
         rating_colors: 'auto', rating_color_again: '#f26d85', rating_color_hard: '#f0b85b', rating_color_good: '#6ea8fe', rating_color_easy: '#4fd19b',
-        reviewer_card_opacity: 100,
+        reviewer_card_opacity: 100, theme_overrides: {},
         font_family: 'system',
         blur: true, glass_blur: 16, glass_opacity: 74, animations: true, ui_scale: 100,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
@@ -596,7 +609,7 @@
     const sidebarSide = s.sidebar_side === 'right' ? 'right' : 'left';
     const signature = JSON.stringify([
       layout,sidebarSide,s.theme,s.color_theme,s.accent,s.custom_accent,
-      s.text_color,s.custom_text_color,s.rating_colors,s.rating_color_again,s.rating_color_hard,s.rating_color_good,s.rating_color_easy,s.reviewer_card_opacity,
+      s.text_color,s.custom_text_color,s.theme_overrides,s.rating_colors,s.rating_color_again,s.rating_color_hard,s.rating_color_good,s.rating_color_easy,s.reviewer_card_opacity,
       s.font_family,s.blur,s.glass_blur,s.glass_opacity,s.animations,s.lite_mode,s.ui_scale,s.language,s.language_pref,
       s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
       s.heatmap_palette,s.activity_collapsed,s.launchpad_collapsed,s.sidebar_collapsed,s.welcome_dismissed,s.view,
@@ -700,7 +713,7 @@
       button.classList.toggle('selected', selected);
       button.setAttribute('aria-pressed', String(selected));
     });
-    if (!settingsDirty && $('settings-dialog').open) syncSettingsForm();
+    if (settingsEditor) syncSettingsForm();
   }
 
   function duration(ms) {
@@ -1209,8 +1222,7 @@
       heatmapRevision++;
       state.snapshot = payload;
       state.settings = payload.settings || {};
-      if ($('settings-dialog').open && !settingsDirty) settingsDraft = {...state.settings};
-      else if (settingsDraft) settingsDraft.images = state.settings.images;
+      if (settingsEditor) settingsDraft = {...state.settings, ...pendingSettings};
       fullscreenState(native ? !!payload.fullscreen : !!document.fullscreenElement);
       state.calendar ??= payload.today;
       clearTimeout(refreshTimer);
@@ -1219,8 +1231,7 @@
       if ($('page-footnote')) $('page-footnote').textContent = native ? 'Dữ liệu từ bộ sưu tập Anki của bạn' : 'Dữ liệu minh họa · Mở Anki để dùng bộ sưu tập thật';
     } else if (event === 'settings') {
       state.settings = payload;
-      if (!settingsDirty) settingsDraft = $('settings-dialog').open ? {...payload} : null;
-      else if (settingsDraft) settingsDraft.images = payload.images;
+      if (settingsEditor) settingsDraft = {...payload, ...pendingSettings};
     }
     if (!state.snapshot) return;
     applySettings();
@@ -1290,6 +1301,13 @@
       else saveUI({text_color: 'custom', custom_text_color: val});
       return;
     }
+    const resetRole = event.target.closest('[data-reset-role]');
+    if (resetRole && settingsDraft) {
+      const overrides = {...settingsDraft.theme_overrides};
+      delete overrides[resetRole.dataset.resetRole];
+      saveUI({theme_overrides: overrides});
+      return;
+    }
     const ratingModeBtn = event.target.closest('[data-set-rating-colors]');
     if (ratingModeBtn) { saveUI({rating_colors: ratingModeBtn.dataset.setRatingColors === 'custom' ? 'custom' : 'auto'}); return; }
     if (event.target.closest('#btn-reset-rating-colors')) {
@@ -1310,7 +1328,7 @@
       }
       return;
     }
-    if (event.target.closest('#btn-apply-settings')) { applySettingsDraft(); return; }
+    if (event.target.closest('.settings-footer button')) { applySettingsDraft(); return; }
     if (event.target.closest('#btn-export-settings')) { exportSettings(); return; }
     if (event.target.closest('#btn-import-settings')) { importSettings(); return; }
     if (event.target.closest('#btn-reset-settings')) { resetSettings(); return; }
@@ -1318,7 +1336,8 @@
     const button = event.target.closest('button[data-action]');
     if (!button || button.disabled) return;
     const {action, value, id} = button.dataset;
-    if (action === 'preferences') return $('settings-dialog').open ? closeSettings() : openSettings();
+    if (action === 'appearance') return openSettings($('appearance-dialog'), button);
+    if (action === 'preferences') return openSettings($('settings-dialog'), button);
     if (action === 'about') return $('about-dialog')?.open ? closeAbout() : openAbout();
     if (action === 'close_about') return closeAbout();
     if (action === 'guide') return openGuide(button.dataset.guideTab || 'start');
@@ -1330,7 +1349,7 @@
       return window.NOSLayout?.choose(button.dataset.layoutId, saveLayout);
     }
     if (action === 'close_settings') return closeSettings();
-    if (action === 'toggle_settings_dock') return setSettingsDocked(!$('settings-dialog')?.classList.contains('is-docked'));
+    if (action === 'toggle_settings_dock') return setSettingsDocked(!settingsEditor?.classList.contains('is-docked'));
     if (action === 'open_anki_prefs') { closeSettings(); return command('preferences'); }
     if (action === 'profile') return togglePopup('profile-panel','profile-toggle');
     if (action === 'launcher') return togglePopup('launcher','launcher-toggle');
@@ -1397,7 +1416,7 @@
       if (native) return command('copy_diagnostics', {client});
       const s = state.settings;
       const report = [
-        'AnkiNOS: v1.0.0 Beta (1.0.0-beta · preview)',
+        `AnkiNOS: ${$('about-dialog').querySelector('.version-pill').textContent} (preview)`,
         `Display: ${client.width}x${client.height} @${client.dpr}x · scale=${s.ui_scale || 100}%`,
         `UI: layout=${s.layout || defaultLayout} · theme=${s.theme || 'dusk'}/${s.color_theme || 'nos'} · font=${s.font_family || 'system'} · lang=${s.language || 'vi'}`,
       ].join('\n');
@@ -1458,13 +1477,18 @@
       }
     }
     if (event.key === 'Escape') {
+      if ($('studio-dialog').open) {
+        event.preventDefault();
+        window.NOSStudio.close();
+        return;
+      }
       const nestedMenu=!$('add-menu').hidden;
       closePopups(true);$('heat-tooltip').hidden=$('chart-tooltip').hidden=true;
       if($('welcome-overlay') && !$('welcome-overlay').hidden){event.preventDefault();saveUI({welcome_dismissed:true});}
       if($('image-lightbox-dialog')?.open){event.preventDefault();closeLightbox();}
       if($('about-dialog')?.open){event.preventDefault();closeAbout();}
       if($('guide-dialog')?.open){event.preventDefault();closeGuide();}
-      if($('settings-dialog')&&$('settings-dialog').open){event.preventDefault();closeSettings();}
+      if(settingsEditor){event.preventDefault();closeSettings();}
       if($('library-dialog').open){event.preventDefault();if(!nestedMenu)closeLibrary();}
     }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -1473,7 +1497,8 @@
     }
     if ((event.ctrlKey || event.metaKey) && event.key === ',') {
       event.preventDefault();
-      $('settings-dialog')?.open ? closeSettings() : openSettings();
+      if (settingsEditor === $('settings-dialog')) closeSettings();
+      else if (!settingsEditor) openSettings();
     }
   });
   $('library-search').addEventListener('input', throttleRAF('search', event => { state.query = event.target.value; state.collapsed.clear(); renderLibrary(); }));
@@ -1492,23 +1517,23 @@
       }
     }
   });
-  if ($('settings-dialog')) {
-    $('settings-dialog').addEventListener('cancel', event => { event.preventDefault(); closeSettings(); });
-    $('settings-dialog').addEventListener('click', event => {
+  for (const dialog of [$('settings-dialog'), $('appearance-dialog')]) {
+    dialog.addEventListener('cancel', event => { event.preventDefault(); closeSettings(); });
+    dialog.addEventListener('click', event => {
       if (event.target === event.currentTarget) closeSettings();
     });
-    const dragHead = $('settings-drag-handle');
-    const panel = $('settings-panel');
+    const dragHead = dialog.querySelector('.settings-heading');
+    const panel = dialog.querySelector('.settings-panel');
     if (dragHead && panel) {
       let dragging = false, startX = 0, startY = 0, baseX = 0, baseY = 0, maxDx = 240, maxDy = 180;
       dragHead.addEventListener('dblclick', event => {
         if (event.target.closest('button')) return;
-        if ($('settings-dialog').classList.contains('is-docked')) setSettingsDocked(false);
+        if (dialog.classList.contains('is-docked')) setSettingsDocked(false);
         else resetSettingsPosition();
       });
       dragHead.addEventListener('pointerdown', event => {
         if (event.button !== 0 || event.target.closest('button')) return;
-        if ($('settings-dialog').classList.contains('is-docked') || innerWidth <= 640) return;
+        if (dialog.classList.contains('is-docked') || innerWidth <= 640) return;
         dragging = true;
         startX = event.clientX;
         startY = event.clientY;
@@ -1528,7 +1553,7 @@
         settingsDragY = Math.max(-maxDy, Math.min(maxDy, baseY + (event.clientY - startY) / zoom));
         panel.style.setProperty('--drag-x', `${settingsDragX.toFixed(1)}px`);
         panel.style.setProperty('--drag-y', `${settingsDragY.toFixed(1)}px`);
-        $('settings-dialog').classList.add('is-dragged');
+        dialog.classList.add('is-dragged');
       });
       const endDrag = () => {
         if (!dragging) return;
@@ -1577,6 +1602,10 @@
   $('set-heatmap-day')?.addEventListener('change', e => saveUI({heatmap_day: e.target.value}));
   $('set-custom-accent')?.addEventListener('input',e=>saveUI({accent:'custom',custom_accent:e.target.value}));
   $('set-custom-text')?.addEventListener('input',e=>saveUI({text_color:'custom',custom_text_color:e.target.value}));
+  $('stab-colors').addEventListener('input', event => {
+    const role = event.target.dataset.themeRole;
+    if (role && settingsDraft) saveUI({theme_overrides: {...settingsDraft.theme_overrides, [role]: event.target.value}});
+  });
   $('set-reviewer-card-opacity')?.addEventListener('input',e=>{
     const val = Number(e.target.value);
     if ($('reviewer-card-opacity-val')) $('reviewer-card-opacity-val').textContent = `${val}%`;
@@ -1656,7 +1685,7 @@
       trends:{retention:trend(92.5,Math.min(89.9, yRet),'hôm qua'),pace:trend(tPace,Math.max(tPace + 0.8, yPace),'cùng giờ hôm qua'),milliseconds:trend(2232000,yesterday.milliseconds,'cùng giờ hôm qua'),reviews:trend(186,yesterday.reviews,'cùng giờ hôm qua')},
       stats:{retention:92.5,true_retention:92.4,correct:172,tested:170,pace:tPace,milliseconds:2232000,reviews:186,streak:27},
       decks:[deck('101','Tiếng Anh — Từ vựng',4872,'blue',[deck('111','Từ vựng theo chủ đề',1520,'blue'),deck('112','Collocations & Phrasal Verbs',2180,'purple'),deck('113','Idioms',1172,'purple')]),deck('102','Tiếng Nhật — N5',1986,'pink'),deck('103','Y học cơ sở',1204,'green'),deck('104','Lịch sử Việt Nam',642,'amber')],
-      settings:{goal:200,layout:state.settings.layout || defaultLayout,theme:'dusk',language:new URLSearchParams(location.search).get('lang')||'vi',language_pref:new URLSearchParams(location.search).get('lang')||'vi',welcome_dismissed:true,view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
+      settings:{goal:200,theme_overrides:{},layout:state.settings.layout || defaultLayout,theme:'dusk',language:new URLSearchParams(location.search).get('lang')||'vi',language_pref:new URLSearchParams(location.search).get('lang')||'vi',welcome_dismissed:true,view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
   }
   // Paint immediately from inline bootstrap when hosted in Anki so startup
   // feels instantaneous, then pull the prefetched full revlog snapshot if partial.
@@ -1683,7 +1712,7 @@
     };
     pollTimer = setTimeout(pollSnapshot, 30000);
     const maybeSyncOnFocus = () => {
-      const anyDialogOpen = ['settings-dialog','studio-dialog','about-dialog','guide-dialog','image-lightbox-dialog']
+      const anyDialogOpen = ['appearance-dialog','settings-dialog','studio-dialog','about-dialog','guide-dialog','image-lightbox-dialog']
         .some(id => $(id)?.open);
       if (!anyDialogOpen && !document.hidden && performance.now() - lastSnapshotAt > 4000)
         command('snapshot');

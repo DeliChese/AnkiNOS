@@ -1,5 +1,7 @@
 # AnkiNOS UI, Themes, Layouts & Card Isolation
 
+The sidebar’s **Appearance** hub owns the theme, layout and effects, component colors, and reviewer controls. Changes preview in the dialog and save to the profile on Apply. Media Studio opens from the hub and saves image assignments immediately.
+
 Reference for modifying HTML, CSS, dashboard layouts, color palettes, glassmorphism, animations, and reviewer styling without regressions.
 
 ---
@@ -18,7 +20,7 @@ Controlled by `#nos-app[data-layout="<id>"]` and `#nos-app[data-sidebar-side="le
 | `edges` | 4 Cạnh (Ảnh nền) / 4 Edges (Wallpaper) | 4 hidden macOS-style edge docks (`#nos-edge-top`, `.rail` as bottom, `#nos-edge-left`, `#nos-edge-right`) with wallpaper peek mode (`data-edges-peek`). | No |
 
 ### Critical `edges` Layout DOM Invariant
-On desktop (`min-width: 721px`), `layouts.js:syncEdgeDocks()` **physically reparents** real buttons (`#fullscreen-toggle`, `#study-notebook`, `#launcher-toggle`, `#profile-toggle`, `#layout-toggle`, `[data-action="preferences"]`) into `#nos-edge-*` docks and restores them back to `.rail` / `.topbar-actions` when switching away or shrinking below `721px`.
+On desktop (`min-width: 721px`), `layouts.js:syncEdgeDocks()` **physically reparents** real buttons (`#fullscreen-toggle`, `#study-notebook`, `#launcher-toggle`, `#profile-toggle`, `#layout-toggle`, `#appearance-toggle`, `[data-action="preferences"]`) into `#nos-edge-*` docks and restores them back to `.rail` / `.topbar-actions` when switching away or shrinking below `721px`.
 - **Rule**: Never assume those buttons have a fixed parent selector (e.g., use ID selectors or `[data-action="..."]` instead of `.topbar-actions > #profile-toggle`).
 - **Rule**: Keep each edge dock `<= 4` items and ensure `positionLibrary()` / `positionMenu()` handle `edges` geometry.
 
@@ -32,15 +34,17 @@ On desktop (`min-width: 721px`), `layouts.js:syncEdgeDocks()` **physically repar
 ## 2. Theme Engine & WCAG Contrast Contract (`assets/theme.js` + `assets/theme.css`)
 
 ### Independent Axes
-1. **Color Palette (`color_theme`)**: `nos`, `tokyo`, `mononoke`, `catppuccin`, `rosepine`, `nord`, `solarized`, `dracula` (8 palettes, inspired by Onigiri's semantic model — independent implementation, see `THEME-NOTES.md`).
+1. **Color Palette (`color_theme`)**: `nos`, `tokyo`, `mononoke`, `catppuccin`, `rosepine`, `nord`, `solarized`, `dracula` (plus 8 more in `theme_settings.COLOR_THEMES`, inspired by Onigiri's semantic model — independent implementation, see `THEME-NOTES.md`).
 2. **Mode (`theme`)**: `dusk` (default soft dark), `night` (deep dark), `oled` (pure `#000000` canvas), `light`, `system` (live `prefers-color-scheme` listener).
 3. **Accent (`accent` + `custom_accent`)**: `auto` (palette's suggested accent), 6 named swatches (`blue`, `cyan`, `mint`, `purple`, `amber`, `pink`), or `custom` (`#rrggbb`).
 4. **Glassmorphism (`blur`, `glass_blur`, `glass_opacity`, `lite_mode`)**:
    - When `blur === false` or `lite_mode === true`: `--glass-blur: 0px`, `--glass-alpha: 100%`, `--glass-card-alpha: 100%`.
    - Otherwise: `--glass-blur: <0..32>px`, `--glass-alpha: <30..100>%`, `--glass-card-alpha: min(100, alpha + 8)%`.
 
+5. **Component colors (`theme_overrides`)** accept individual `#rrggbb` values for `surface`, `primary`, `success`, `warning`, and `danger`. Omitted roles follow the palette.
+
 ### Automated Contrast Enforcement (`tests/theme-check.mjs`)
-`theme.js:visible(color, bg, min)` iteratively blends colors toward readable white/black until WCAG relative-luminance contrast passes across **all 440 combinations**:
+`theme.js:visible(color, bg, min)` iteratively blends colors toward readable white/black until WCAG relative-luminance contrast passes across **all 880 combinations**:
 - `--text`, `--muted`, `--blue`, `--success`, `--warning`, `--danger` against `--surface`: **`>= 4.5:1`**
 - `--blue` against `--accent-soft`: **`>= 4.5:1`**
 - `--primary` against `--on-primary`: **`>= 3.0:1`** (checked by `readable()` + `visible(..., 3)`)

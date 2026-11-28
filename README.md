@@ -1,11 +1,11 @@
-# AnkiNOS (`v1.0.0 Beta`)
+# AnkiNOS (`v1.0.0 Beta 2`)
 
 **An offline, zero-dependency frosted-glass workspace for desktop Anki (`>= 25.02`).**  
 *Không gian học tập kính mờ ngoại tuyến, không phụ thuộc thư viện ngoài dành cho Anki máy tính (`>= 25.02`).*
 
 AnkiNOS redesigns Anki's desktop dashboard, deck overview, statistics, and study chrome for visual calm and daily focus — while preserving 100% of Anki's native FSRS scheduling, flashcard templates (`#qa`), and offline privacy.
 
-> **Status:** Public Beta (`v1.0.0 Beta`) · Built and maintained as an independent solo project · Tested primarily on Windows (Anki 25.02–26.05) with cross-platform safeguards for macOS and Linux.
+> **Status:** Public Beta (`v1.0.0 Beta 2`) · Built and maintained as an independent solo project · Tested primarily on Windows (Anki 25.02–26.05) with cross-platform safeguards for macOS and Linux.
 
 ---
 
@@ -39,6 +39,7 @@ AnkiNOS is designed around strict safety guarantees:
 - **Requirements:** Desktop Anki `>= 25.02` (Qt6 / Python 3.12+).
 - **Manual / Beta install:** Place the add-on folder inside your Anki `addons21/` directory (e.g. `Anki2/addons21/NOS`) and restart Anki.
 - **First launch:** AnkiNOS greets you with a quick welcome screen and an offline **User Guide** (click the `i` icon in the top bar anytime, or click the **AnkiNOS logo** for **About**).
+- **Appearance / Giao diện** in the sidebar opens themes, layout and effects, component colors, and reviewer controls. Select **Apply / Áp dụng** to save to the active profile.
 - **Useful shortcuts:**
   - `Ctrl+K` (`Cmd+K`): Quick Commands
   - `Ctrl+Shift+K`: Search Deck Library popup

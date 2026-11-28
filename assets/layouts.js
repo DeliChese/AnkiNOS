@@ -50,6 +50,7 @@
   };
   const notebookBtn = $('study-notebook');
   const launcherBtn = $('launcher-toggle');
+  const appearanceBtn = $('appearance-toggle');
   const prefsBtn = railBottom?.querySelector('[data-action="preferences"]') || null;
   const layoutBtn = $('layout-toggle');
   const fullscreenBtn = $('fullscreen-toggle');
@@ -123,6 +124,7 @@
       if (launcherBtn && edgeDocks.left) edgeDocks.left.append(launcherBtn);
       if (profileBtn && edgeDocks.right) edgeDocks.right.prepend(profileBtn);
       if (layoutBtn && edgeDocks.right) edgeDocks.right.insertBefore(layoutBtn, profileBtn?.nextSibling || null);
+      edgeDocks.right.append(appearanceBtn);
       if (prefsBtn && edgeDocks.right) edgeDocks.right.append(prefsBtn);
       edgesMounted = true;
       closeEdgeDock(true);
@@ -130,6 +132,7 @@
       closeEdgeDock(true);
       if (notebookBtn && railMain) railMain.append(notebookBtn);
       if (prefsBtn && railBottom) railBottom.prepend(prefsBtn);
+      railMain.append(appearanceBtn);
       if (launcherBtn && railBottom) railBottom.append(launcherBtn);
       if (topbarActions) {
         const guideBtn = $('guide-toggle');

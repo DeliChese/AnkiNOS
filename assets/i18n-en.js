@@ -6,6 +6,24 @@
   if (!window.NOSI18n) return;
 
   const dict = {
+    "Tùy chỉnh giao diện": "Customize appearance",
+    "Chủ đề": "Themes",
+    "Bố cục & hiệu ứng": "Layout & effects",
+    "Màu nâng cao": "Advanced colors",
+    "Màu theo thành phần": "Component colors",
+    "Màu tùy chỉnh dùng chung cho các bảng màu. AnkiNOS điều chỉnh độ tương phản để chữ và nút dễ đọc.": "Custom colors carry across palettes. AnkiNOS adjusts contrast to keep text and buttons readable.",
+    "Mở Giao diện trên thanh điều hướng. Chọn chủ đề, chỉnh bố cục hoặc màu từng thành phần. Trong Phiên ôn tập, bạn có thể chỉnh nền khung thẻ và bốn nút trả lời. Nhấn Áp dụng để lưu theo hồ sơ. Ảnh nền riêng cho từng màn hình nằm trong Thư viện ảnh.": "Open Appearance from the navigation bar. Choose a theme, adjust the layout, or edit individual colors. Under Review session, adjust the card frame and the four answer buttons. Select Apply to save to this profile. Set a wallpaper for each screen in the Image Library.",
+    "Từ mục Giao diện, chọn giữa 6 bố cục, 16 bảng màu và 8 kiểu chữ. Bạn có thể phối màu riêng cho các bảng, trạng thái và nút trả lời.": "Open Appearance to choose from 6 layouts, 16 palettes and 8 fonts. Set individual colors for panels, status indicators and answer buttons.",
+    "Nền bảng": "Panel background",
+    "Dùng màu chủ đề cho nền bảng": "Use theme color for panel background",
+    "Nút chính": "Primary button",
+    "Dùng màu chủ đề cho nút chính": "Use theme color for primary button",
+    "Hoàn thành": "Success",
+    "Dùng màu chủ đề cho hoàn thành": "Use theme color for success",
+    "Cảnh báo": "Warning",
+    "Dùng màu chủ đề cho cảnh báo": "Use theme color for warning",
+    "Lỗi": "Error",
+    "Dùng màu chủ đề cho lỗi": "Use theme color for error",
     // ── Page titles ───────────────────────────────────────────────────────
     "AnkiNOS — Không gian ghi nhớ": "AnkiNOS — A space for memory",
     "AnkiNOS — Chuẩn bị học": "AnkiNOS — Prepare to study",
@@ -1061,10 +1079,10 @@
     "Mở rộng bước tiếp theo": "Expand your next step",
     "bước tiếp theo": "your next step",
 
-    // ── About dialog (v1.0.0 Beta) & User Guide ───────────────────────────
+    // ── About dialog (v1.0.0 Beta 2) & User Guide ───────────────────────────
     "Giới thiệu": "About",
     "Giới thiệu AnkiNOS": "About AnkiNOS",
-    "Giới thiệu AnkiNOS (v1.0.0 Beta)": "About AnkiNOS (v1.0.0 Beta)",
+    "Giới thiệu AnkiNOS (v1.0.0 Beta 2)": "About AnkiNOS (v1.0.0 Beta 2)",
     "Đóng giới thiệu": "Close about dialog",
     "Không gian học tập kính mờ ngoại tuyến cho trí nhớ dài hạn": "Offline glassmorphism study space for long-term memory",
     "AnkiNOS tái thiết kế trải nghiệm Anki trên máy tính theo hướng dịu mắt, gọn gàng và tập trung — giữ nguyên 100% lõi lặp lại ngắt quãng FSRS, mẫu thẻ gốc và quyền riêng tư ngoại tuyến của bạn.": "AnkiNOS redesigns desktop Anki to feel calm, tidy, and focused — while preserving 100% of Anki's native FSRS scheduler, card templates, and offline privacy.",
@@ -1095,7 +1113,6 @@
     "1. Điều hướng & Bố cục": "1. Navigation & Layouts",
     "Thanh điều hướng giúp chuyển nhanh giữa Tổng quan, Lịch ôn, Thống kê, Thư viện bộ thẻ và Sổ tay. Nhấn logo NOS để mở Giới thiệu; nhấn nút Bố cục (hoặc Alt+Shift+L) để đổi giữa 6 phong cách: Cực quang, Bento, Dock nổi, Sidebar, Zen và 4 Cạnh.": "Use the rail to switch between Overview, Schedule, Statistics, Deck Library, and Notebook. Click the NOS logo to open About; click Layout (or press Alt+Shift+L) to switch between 6 layouts: Aurora, Bento, Floating Dock, Workspace, Zen, and 4 Edges.",
     "2. Màu sắc, Kiểu chữ & Ảnh nền": "2. Color Themes, Fonts & Wallpapers",
-    "Vào Cài đặt → Giao diện để chọn 16 bảng màu chuẩn tương phản, 8 kiểu chữ ngoại tuyến và độ mờ kính. Mở Thư viện ảnh để gán ảnh nền riêng cho Trang chủ, Chuẩn bị học, Lúc ôn tập và Avatar — ảnh lưu hoàn toàn trên máy.": "Open Settings → Appearance to choose from 16 WCAG-checked palettes, 8 offline font presets, and glass blur/opacity. Open Media Studio to assign local wallpapers for Dashboard, Overview, Review, and Avatar.",
     "3. Bắt đầu phiên học gọn nhẹ": "3. Start Studying Effortlessly",
     "Khối “Bước tiếp theo của bạn” trên Trang chủ gợi ý bộ thẻ ưu tiên và ước lượng thời gian dựa trên tốc độ thực tế 30 ngày của bạn. Bạn có thể thu gọn khối này hoặc Heatmap bất cứ lúc nào để ngắm ảnh nền.": "The “Your next step” card on Home suggests your priority deck and estimates session time from your real 30-day pace. You can collapse it or the Heatmap anytime to enjoy your wallpaper.",
     "ANOS Scheduler là gì?": "What is ANOS Scheduler?",
@@ -1132,7 +1149,7 @@
     "Tự động phát hiện bộ thẻ có tỷ lệ nhớ giảm mạnh so với 30 ngày trước hoặc các thẻ bị bấm Quên lặp lại nhiều lần, giúp bạn mở thẳng sang Duyệt thẻ để chỉnh lại nội dung thẻ khó.": "Automatically highlights decks whose retention dropped sharply vs. 30 days ago or cards lapsed repeatedly, letting you open them straight in Browser to refine tough cards.",
     "Gói sao lưu .nosbackup": ".nosbackup Archive",
     "Vào Cài đặt → Dữ liệu (hoặc hộp thoại Giới thiệu) để xuất tệp .nosbackup chứa toàn bộ cài đặt giao diện, ảnh nền, Sổ tay, lịch sử Focus và Nhật ký lịch ôn. Khi khôi phục, AnkiNOS luôn tự tạo bản dự phòng an toàn trước.": "Go to Settings → Data (or About) to export a .nosbackup archive with all UI settings, wallpapers, Notebook, Focus history, and Schedule ledger. Restoring always saves a safety backup first.",
-    "Về AnkiNOS (v1.0.0 Beta)": "About AnkiNOS (v1.0.0 Beta)",
+    "Về AnkiNOS (v1.0.0 Beta 2)": "About AnkiNOS (v1.0.0 Beta 2)",
     "Đã hiểu": "Got it",
     "Hiểu nhanh ANOS Scheduler — R, Gom thông minh & Dời lịch thật": "Quick guide to ANOS Scheduler — R, Smart Catch-up & Real Reschedule",
     "Chỉ số R (Xác suất nhớ)": "R Index (Recall Probability)",
@@ -1226,7 +1243,6 @@
     "Giữ nguyên thẻ học & An toàn trên máy": "Your Cards Stay Untouched & Private",
     "Không sửa nội dung thẻ hay cách Anki tính ngày ôn. Mọi cài đặt và ảnh nền chỉ lưu trên máy bạn, và bạn luôn có thể quay về Anki gốc chỉ với 1 lần bấm.": "Never alters your flashcards or how Anki schedules reviews. Settings and wallpapers stay on your computer, and you can switch back to native Anki in one click.",
     "Tùy chỉnh không gian học theo ý thích": "Make Your Study Space Yours",
-    "Chọn giữa 6 kiểu bố cục, 16 bộ màu dịu mắt, 8 kiểu chữ rõ nét và tự chọn ảnh nền, ảnh bìa yêu thích.": "Pick from 6 layouts, 16 easy-on-the-eyes color themes, 8 clear fonts, and your own wallpapers and profile cover.",
     "Xử lý thẻ quá hạn nhẹ nhàng & Thống kê rõ ràng": "Gentle Overdue Catch-Up & Clear Stats",
     "Chia nhỏ thẻ quá hạn theo sức học mỗi ngày (luôn hoàn tác được nếu muốn) và xem biểu đồ học tập ngay trong một nơi.": "Split overdue cards into manageable daily limits (always undoable) and view all your study charts in one place.",
     "Sổ tay học tập & Sao lưu dễ dàng": "Study Notebook & Easy Backup",

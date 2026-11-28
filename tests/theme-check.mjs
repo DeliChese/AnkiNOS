@@ -64,7 +64,7 @@ try {
   })()`);
   assert.equal(matrix,880);
   const original=await evaluate(`window.AnkiNOS.getSettings()`);
-  await click('.rail-bottom [data-action="preferences"]');
+  await click('#appearance-toggle');
   assert.equal(await evaluate(`document.querySelectorAll('[data-set-palette]').length`),16);
   assert.equal(await evaluate(`document.querySelectorAll('[data-set-font]').length`),8);
   await click('[data-set-font="serif"]');
@@ -78,17 +78,44 @@ try {
   assert.equal(await evaluate(`document.getElementById('theme-preview').dataset.colorTheme`),'mononoke');
   assert.equal(await evaluate(`document.getElementById('theme-preview').dataset.theme`),'light');
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().color_theme`),original.color_theme);
+  await click('[data-settings-tab="colors"]');
+  const pickColor = async (role, color) => {
+    await evaluate(`(()=>{const input=document.getElementById('role-'+${JSON.stringify(role)});input.value=${JSON.stringify(color)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await evaluate('new Promise(requestAnimationFrame)');
+  };
+  await pickColor('surface', '#7a7a7a');
+  assert.equal(await evaluate("document.getElementById('theme-preview').style.getPropertyValue('--surface')"), '#7a7a7a');
+  assert.equal(await evaluate("window.AnkiNOS.getSettings().theme_overrides.surface"), undefined);
+  assert(await evaluate(`(()=>{const {resolve,contrast}=window.NOSTheme;
+    for (const surface of ['#000000','#777777','#ffffff','#aaccee','#aa2200']) {
+      const t=resolve({theme_overrides:{surface,primary:surface,warning:surface},text_color:'custom',custom_text_color:surface}).tokens;
+      for(const role of ['--text','--muted','--blue','--success','--warning','--danger']) if(contrast(t[role],surface)<4.5)return false;
+      if(contrast(t['--blue'],t['--accent-soft'])<4.5 || contrast(t['--primary'],surface)<3)return false;
+    }return true;})()`));
+  await click('#appearance-media');
+  assert.equal(await evaluate("document.getElementById('studio-dialog').open"),true);
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',windowsVirtualKeyCode:27});
+  await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',windowsVirtualKeyCode:27});
+  assert(await evaluate("document.getElementById('appearance-dialog').open && !document.getElementById('studio-dialog').open && document.activeElement.id === 'appearance-media'"));
+  await click('[data-reset-role="surface"]');
+  await evaluate('new Promise(requestAnimationFrame)');
+  assert.notEqual(await evaluate("document.getElementById('theme-preview').style.getPropertyValue('--surface')"), '#7a7a7a');
+  await click('[data-settings-tab="appearance"]');
+  await evaluate(`Promise.all(document.getElementById('appearance-dialog').getAnimations({subtree:true}).map(a=>a.finished))`);
   await shot('themes-settings.png');
-  await click('#settings-close');
-  await click('.rail-bottom [data-action="preferences"]');
+  await click('#appearance-close');
+  await click('#appearance-toggle');
   assert.equal(await evaluate(`document.querySelector('[data-set-palette="nos"]').getAttribute('aria-pressed')`),'true');
   await click('[data-set-palette="rosepine"]');
   await click('[data-set-theme="light"]');
   await evaluate(`(()=>{const input=document.getElementById('set-custom-accent');input.value='#000000';input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  await click('#btn-apply-settings');
+  await click('[data-settings-tab="colors"]');
+  await pickColor('primary', '#141489');
+  await click('#btn-apply-appearance');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().theme_overrides.primary`), '#141489');
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().custom_accent`),'#000000');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.colorTheme`),'rosepine');
-  await click('#settings-close');
+  await click('#appearance-close');
   for(const color_theme of ['nos','tokyo','mononoke','catppuccin','rosepine','nord','solarized','dracula','gruvbox','everforest','kanagawa','sakura'])for(const theme of ['light','night','oled']) {
     await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),color_theme:${JSON.stringify(color_theme)},theme:${JSON.stringify(theme)},accent:'auto'}})`);
     assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),true);
@@ -125,12 +152,21 @@ try {
   await evaluate(`window.NOSStudio.close()`);
   for(const width of [320,390,768]) {
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:false});
-    await click('.rail-bottom [data-action="preferences"]');
-    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth && document.getElementById('settings-content').scrollWidth<=document.getElementById('settings-content').clientWidth`),'Theme picker fits '+width+'px');
-    if(width===390)await shot('themes-settings-mobile.png');
-    await click('#settings-close');
+    await click('#appearance-toggle');
+    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth && document.getElementById('appearance-content').scrollWidth<=document.getElementById('appearance-content').clientWidth`),'Theme picker fits '+width+'px');
+    if(width===390) {
+      await evaluate(`Promise.all(document.getElementById('appearance-dialog').getAnimations({subtree:true}).map(a=>a.finished))`);
+      await shot('themes-settings-mobile.png');
+    }
+    await click('#appearance-close');
   }
   await cdp('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+  await navigate('ankios-ui.html?lang=en', "document.documentElement.lang === 'en' && !!window.AnkiNOS");
+  await click('#appearance-toggle');
+  assert.equal(await evaluate("document.getElementById('appearance-dialog-title').textContent"), 'Appearance');
+  await click('[data-settings-tab="colors"]');
+  assert.equal(await evaluate("document.querySelector('label[for=role-primary]').textContent"), 'Primary button');
+  await click('#appearance-close');
   await navigate('ankios-overview.html',`!!window.AnkiNOS && !!document.getElementById('overview-name')?.textContent`);
   await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{theme:'light',color_theme:'rosepine',accent:'auto'}})`);
   await shot('theme-overview-light.png');
@@ -139,13 +175,13 @@ try {
   await evaluate(`window.NOSTheme.apply(document.getElementById('nos-review-shell'),{theme:'light',color_theme:'rosepine',accent:'auto'},true)`);
   const cardAfter=await evaluate(`({fg:getComputedStyle(document.getElementById('qa')).color,bg:getComputedStyle(document.getElementById('nos-review-card')).backgroundColor})`);
   assert.deepEqual(cardAfter,cardBefore,'Card styles survive the theme change');
-  await evaluate(`window.NOSTheme.apply(document.getElementById('nos-review-shell'),{theme:'night',color_theme:'matcha',accent:'auto',text_color:'custom',custom_text_color:'#ff2288'},true)`);
+  await evaluate(`window.NOSTheme.apply(document.getElementById('nos-review-shell'),{theme:'night',color_theme:'matcha',accent:'auto',text_color:'custom',custom_text_color:'#ff88bb'},true)`);
   const customTextCheck=await evaluate(`({
     headerFg: getComputedStyle(document.getElementById('nos-review-header')).color,
     qaFg: getComputedStyle(document.getElementById('qa')).color,
     qaTextVar: getComputedStyle(document.getElementById('qa')).getPropertyValue('--text').trim(),
   })`);
-  assert.equal(customTextCheck.headerFg, 'rgb(255, 34, 136)', 'Custom UI text color applies to Reviewer header');
+  assert.equal(customTextCheck.headerFg, 'rgb(255, 136, 187)', 'Custom UI text color applies to Reviewer header');
   assert.equal(customTextCheck.qaFg, cardBefore.fg, 'Custom UI text color must NEVER alter #qa flashcard text color');
   assert.equal(customTextCheck.qaTextVar, '', 'AnkiNOS --text variable must not leak into #qa');
   await evaluate(`window.NOSTheme.apply(document.getElementById('nos-review-shell'),{theme:'light',color_theme:'rosepine',accent:'auto'},true)`);
@@ -203,7 +239,7 @@ try {
   await evaluate(`window.NOSTheme.apply(document.getElementById('nos-tool'),{theme:'light',color_theme:'rosepine',accent:'auto'},true)`);
   await shot('theme-notebook-light.png');
   assert.deepEqual(errors,[],'No JavaScript errors');
-  console.log('PASS: '+matrix+' contrast combinations, draft/apply/cancel, eight palettes, system changes, mobile picker, overview, reviewer card isolation, native ratings and notebook');
+  console.log('PASS: '+matrix+' contrast combinations, draft/apply/cancel, 16 palettes, system changes, mobile picker, overview, reviewer card isolation, native ratings and notebook');
 } finally {
   if(socket){try{socket.send(JSON.stringify({id:99999,method:'Browser.close'}));}catch{}socket.close();}
   child.kill();

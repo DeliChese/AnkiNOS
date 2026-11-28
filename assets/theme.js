@@ -73,7 +73,7 @@
     good: '#6ea8fe',
     easy: '#4fd19b',
   };
-  const validHex = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(value || '') ? value.toLowerCase() : fallback);
+  const validHex = (value, fallback) => (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback);
   const system = window.matchMedia('(prefers-color-scheme: dark)');
   const watchers = new Map();
   const rgb = hex => [1,3,5].map(i => parseInt(hex.slice(i,i+2),16));
@@ -107,15 +107,24 @@
     const customText = settings.text_color === 'custom' && /^#[0-9a-f]{6}$/i.test(settings.custom_text_color || '')
       ? settings.custom_text_color.toLowerCase()
       : null;
-    if (customText) {
-      fg = customText;
+    const overrides = settings.theme_overrides || {};
+    const panel = validHex(overrides.surface, null);
+    if (panel) {
+      surface = panel;
+      bg = mix(panel, readable(panel) === '#ffffff' ? '#000000' : '#ffffff', .18);
     }
-    const edge=mix(surface,fg,light?.24:.25), soft=mix(surface,accent,light?.12:.16);
-    const link=visible(visible(accent,surface),soft), primary=visible(accent,surface,3);
-    const success=visible(light?'#25754c':'#a2dfb0',surface);
-    const warning=visible(light?'#895c13':'#f1cc87',surface);
-    const danger=visible(light?'#b63e55':'#f2a2b0',surface);
-    const mutedFg = customText ? mix(customText, surface, light ? .28 : .26) : visible(muted, surface);
+    fg = visible(customText || fg, surface);
+    const edge=mix(surface,fg,light?.24:.25);
+    let soft=mix(surface,accent,light?.12:.16);
+    const link=visible(visible(accent,surface),soft);
+    // A midtone panel and its hover tint can require opposite text colors.
+    const linkOnPanel = visible(link, surface);
+    if (contrast(linkOnPanel, soft) < 4.5) soft = surface;
+    const primary=visible(validHex(overrides.primary, accent),surface,3);
+    const success=visible(validHex(overrides.success, light?'#25754c':'#a2dfb0'),surface);
+    const warning=visible(validHex(overrides.warning, light?'#895c13':'#f1cc87'),surface);
+    const danger=visible(validHex(overrides.danger, light?'#b63e55':'#f2a2b0'),surface);
+    const mutedFg = visible(customText ? mix(fg, surface, light ? .28 : .26) : muted, surface);
     const clampInt=(v,lo,hi,d)=>Number.isInteger(v)?Math.min(hi,Math.max(lo,v)):d;
     const blurOn=settings.blur!==false&&!settings.lite_mode;
     const glassBlur=blurOn?clampInt(settings.glass_blur,0,32,16):0;
@@ -125,7 +134,7 @@
     const customRatings = settings.rating_colors === 'custom';
     const r1 = customRatings ? validHex(settings.rating_color_again, defaultRatings.again) : danger;
     const r2 = customRatings ? validHex(settings.rating_color_hard, defaultRatings.hard) : warning;
-    const r3 = customRatings ? validHex(settings.rating_color_good, defaultRatings.good) : link;
+    const r3 = customRatings ? validHex(settings.rating_color_good, defaultRatings.good) : linkOnPanel;
     const r4 = customRatings ? validHex(settings.rating_color_easy, defaultRatings.easy) : success;
     const fontId=Object.hasOwn(fonts,settings.font_family)?settings.font_family:'system';
     const tokens={
@@ -135,10 +144,10 @@
       '--faint':mutedFg,'--edge':edge,'--inner':mix(surface,fg,.055),'--hover':soft,
       '--glass':surface+(light?'f2':'e8'),'--glass-blur':glassBlur+'px','--glass-alpha':glassAlpha+'%','--glass-card-alpha':glassCardAlpha+'%',
       '--nos-card-alpha':cardAlpha+'%',
-      '--blue':link,'--accent':accent,'--accent-soft':soft,
+      '--blue':linkOnPanel,'--accent':accent,'--accent-soft':soft,
       '--primary':primary,'--on-primary':readable(primary),'--mint':success,'--success':success,
-      '--warning':warning,'--danger':danger,'--focus':link,
-      '--on-danger':readable(danger),'--on-warning':readable(warning),'--on-blue':readable(link),'--on-success':readable(success),
+      '--warning':warning,'--danger':danger,'--focus':linkOnPanel,
+      '--on-danger':readable(danger),'--on-warning':readable(warning),'--on-blue':readable(linkOnPanel),'--on-success':readable(success),
       '--rating-1':r1,'--on-rating-1':readable(r1),
       '--rating-2':r2,'--on-rating-2':readable(r2),
       '--rating-3':r3,'--on-rating-3':readable(r3),
@@ -241,6 +250,12 @@
     if(textInput)textInput.value=textVal;
     const textHex=document.getElementById('custom-text-value');
     if(textHex)textHex.textContent=textMode==='auto'?'auto':textVal;
+    for (const input of document.querySelectorAll('[data-theme-role]')) {
+      const role = input.dataset.themeRole;
+      const custom = validHex(settings.theme_overrides?.[role], null);
+      input.value = custom || selected.tokens['--' + role];
+      input.parentElement.querySelector('[data-reset-role]').disabled = !custom;
+    }
     const ratingMode = settings.rating_colors === 'custom' ? 'custom' : 'auto';
     document.querySelectorAll('[data-set-rating-colors]').forEach(button=>{
       const active = button.dataset.setRatingColors === ratingMode;

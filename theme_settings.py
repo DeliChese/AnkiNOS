@@ -9,6 +9,7 @@ COLOR_THEMES = {
 }
 ACCENTS = {"auto", "blue", "cyan", "mint", "purple", "amber", "pink", "custom"}
 TEXT_COLOR_MODES = {"auto", "custom"}
+THEME_COLOR_ROLES = ("surface", "primary", "success", "warning", "danger")
 DEFAULT_TEXT_COLOR = "#f3f6ff"
 RATING_COLOR_MODES = {"auto", "custom"}
 DEFAULT_RATING_COLORS = {
@@ -119,6 +120,12 @@ def clean_theme_settings(raw: object) -> dict:
         color = raw.get(hex_key)
         if isinstance(color, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", color):
             result[hex_key] = color.lower()
+    overrides = raw.get("theme_overrides")
+    if isinstance(overrides, dict):
+        result["theme_overrides"] = {
+            role: color.lower() for role in THEME_COLOR_ROLES
+            if isinstance(color := overrides.get(role), str) and re.fullmatch(r"#[0-9a-fA-F]{6}", color)
+        }
     glass_blur = raw.get("glass_blur")
     if type(glass_blur) is int and 0 <= glass_blur <= 32:
         result["glass_blur"] = glass_blur

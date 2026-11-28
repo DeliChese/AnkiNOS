@@ -25,6 +25,13 @@ class ThemeTests(unittest.TestCase):
         for color in ("red", "#abc", "#11223344", "#123456; color:red", "#gg1122"):
             self.assertEqual(theme.clean_theme_settings({"custom_accent": color}), {})
 
+    def test_component_colors_are_normalized_and_resettable(self):
+        clean = theme.clean_theme_settings
+        self.assertEqual(clean({"theme_overrides": {"surface": "#ABCDEF", "danger": "invalid", "unknown": "#123456"}}),
+                         {"theme_overrides": {"surface": "#abcdef"}})
+        self.assertEqual(clean({"theme_overrides": {}}), {"theme_overrides": {}})
+        self.assertEqual(clean({"theme_overrides": []}), {})
+
     def test_layouts_are_validated_independently_of_the_palette(self):
         for layout in ("aurora", "bento", "dock", "sidebar", "zen", "edges"):
             settings = {"layout": layout, "color_theme": "mononoke"}
