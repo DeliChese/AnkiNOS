@@ -697,6 +697,7 @@
                   </label>
                 </div>
                 <div class="nos-motion-controls" id="motion-controls">
+                  <p class="nos-motion-scope">Áp dụng khi chuyển giữa các trang chính (<strong>Tổng quan ↔ Lịch ôn ↔ Thống kê</strong>). Không ảnh hưởng đến tốc độ lật thẻ học.</p>
                   <label class="settings-field nos-appearance-field">
                     <span>Thư viện chuyển động</span>
                     <select class="nos-select" id="set-motion-preset">
@@ -709,11 +710,17 @@
                     </select>
                   </label>
                   <label class="settings-field nos-appearance-field">
-                    <span>Thời lượng <output id="motion-duration-val" for="set-motion-duration">220 ms</output></span>
-                    <input type="range" class="nos-range" id="set-motion-duration" min="120" max="480" step="10" value="220">
+                    <span>Tốc độ / Thời lượng <output id="motion-duration-val" for="set-motion-duration" data-i18n-skip>220 ms</output></span>
+                    <input type="range" class="nos-range" id="set-motion-duration" min="120" max="480" step="10" value="220" aria-label="Thời lượng hiệu ứng chuyển trang">
+                    <div class="range-markers"><span>120 ms (Nhanh)</span><span>220 ms</span><span>480 ms (Chậm)</span></div>
                   </label>
                   <div class="nos-motion-demo">
-                    <span id="motion-sample">Chuyển cảnh giữa các tab</span>
+                    <div class="nos-motion-stage">
+                      <div id="motion-sample" class="nos-motion-card">
+                        <span class="nos-motion-card-badge">Tổng quan → Thống kê</span>
+                        <div class="nos-motion-card-bars" aria-hidden="true"><i></i><i></i></div>
+                      </div>
+                    </div>
                     <button type="button" class="subtle-button" id="motion-preview">Phát thử</button>
                   </div>
                 </div>

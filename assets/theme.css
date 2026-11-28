@@ -363,13 +363,27 @@ html[data-nos-ratings="true"] #time { color:var(--muted); }
 #nos-app .nos-appearance-field > span { display:flex; align-items:center; gap:8px; font-weight:600; }
 #nos-app .nos-appearance-field output { margin-inline-start:auto; color:var(--muted); }
 #nos-app .nos-motion-controls {
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr)); gap:8px 18px;
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:10px 18px;
+}
+#nos-app .nos-motion-scope {
+  grid-column:1 / -1; margin:0; font-size:11.5px; line-height:1.45; color:var(--muted);
 }
 #nos-app .nos-motion-demo {
-  grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px;
-  padding:8px; background:var(--inner); border:1px solid var(--edge); border-radius:12px; overflow:hidden;
+  grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;
+  padding:10px 12px; background:var(--inner); border:1px solid var(--edge); border-radius:14px; overflow:hidden;
 }
-#nos-app #motion-sample { display:block; padding:6px; color:var(--text); }
+#nos-app .nos-motion-stage { flex:1; min-width:170px; overflow:hidden; }
+#nos-app #motion-sample.nos-motion-card {
+  display:flex; flex-direction:column; gap:7px; padding:10px 12px; border-radius:11px;
+  background:color-mix(in srgb, var(--surface) 84%, transparent); border:1px solid var(--edge); color:var(--text);
+}
+#nos-app .nos-motion-card-badge { font-size:11.5px; font-weight:620; color:var(--text); }
+#nos-app .nos-motion-card-bars { display:flex; gap:6px; }
+#nos-app .nos-motion-card-bars i {
+  display:block; height:6px; border-radius:999px; background:color-mix(in srgb, var(--accent) 45%, var(--edge));
+}
+#nos-app .nos-motion-card-bars i:first-child { width:62%; }
+#nos-app .nos-motion-card-bars i:last-child { width:28%; opacity:.65; }
 #nos-app .nos-material-sample {
   display:grid; place-items:center; padding:10px; margin-block:3px 10px; border-radius:14px;
   background:linear-gradient(135deg, var(--theme-bg) 20%, var(--accent) 65%, var(--surface));

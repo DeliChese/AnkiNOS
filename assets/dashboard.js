@@ -442,9 +442,10 @@
     $('set-motion-preset').value = Object.hasOwn(pageMotions, s.motion_preset) ? s.motion_preset : s.motion_preset === 'none' ? 'none' : 'fade';
     $('set-motion-duration').value = String(motionDuration(s));
     $('motion-duration-val').textContent = `${motionDuration(s)} ms`;
-    $('set-motion-preset').disabled = s.animations === false || !!s.lite_mode;
+    const motionDisabled = s.animations === false || !!s.lite_mode;
+    $('set-motion-preset').disabled = motionDisabled;
     $('motion-preview').disabled = $('set-motion-duration').disabled =
-      $('set-motion-preset').disabled || s.motion_preset === 'none' || reducedPageMotion.matches;
+      motionDisabled || s.motion_preset === 'none';
     window.NOSLayout?.sync(s);
     app.querySelectorAll('.theme-pill-btn').forEach(btn => {
       btn.classList.toggle('active', (btn.dataset.setTheme || 'dusk') === (s.theme || 'dusk'));
@@ -1214,7 +1215,8 @@
     ? s.motion_duration : 220;
   let pageAnimation, previewAnimation;
   function animatePageEnter(node, s = state.settings) {
-    if (s.animations === false || s.lite_mode || reducedPageMotion.matches || s.motion_preset === 'none') return;
+    if (s.animations === false || s.lite_mode || s.motion_preset === 'none') return;
+    if (s.animations == null && reducedPageMotion.matches) return;
     const frames = Object.hasOwn(pageMotions, s.motion_preset) ? pageMotions[s.motion_preset] : pageMotions.fade;
     return node?.animate(frames, {duration: motionDuration(s), easing: 'cubic-bezier(.22,1,.36,1)'});
   }
@@ -1754,7 +1756,15 @@
     previewAnimation?.cancel();
     previewAnimation = animatePageEnter($('motion-sample'), settingsDraft || state.settings);
   });
-  $('set-motion-duration').addEventListener('input', e => saveUI({motion_duration: Number(e.target.value)}));
+  $('set-motion-duration').addEventListener('input', e => {
+    const val = Number(e.target.value);
+    if ($('motion-duration-val')) $('motion-duration-val').textContent = `${val} ms`;
+    saveUI({motion_duration: val});
+  });
+  $('set-motion-duration').addEventListener('change', () => {
+    previewAnimation?.cancel();
+    previewAnimation = animatePageEnter($('motion-sample'), settingsDraft || state.settings);
+  });
   $('motion-preview').addEventListener('click', () => {
     previewAnimation?.cancel();
     previewAnimation = animatePageEnter($('motion-sample'), settingsDraft || state.settings);
