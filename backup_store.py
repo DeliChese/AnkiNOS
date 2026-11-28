@@ -65,7 +65,7 @@ def clean_settings(raw: object) -> dict:
         raise ValueError("Cấu hình trong gói sao lưu không hợp lệ.")
     result = clean_theme_settings(raw)
     for key in ("activity_collapsed", "launchpad_collapsed", "library_collapsed", "sidebar_collapsed",
-                "welcome_dismissed", "blur", "animations", "lite_mode",
+                "welcome_dismissed", "update_notice_muted", "blur", "animations", "lite_mode",
                 "stat_retention", "stat_pace", "stat_time", "stat_studied"):
         if type(raw.get(key)) is bool:
             result[key] = raw[key]
@@ -78,6 +78,10 @@ def clean_settings(raw: object) -> dict:
             result[key] = raw[key]
     if type(raw.get("goal")) is int and 1 <= raw["goal"] <= 100000:
         result["goal"] = raw["goal"]
+    if isinstance(raw.get("custom_greeting"), str):
+        result["custom_greeting"] = re.sub(r"[\x00-\x1f\x7f]+", " ", raw["custom_greeting"]).strip()[:120]
+    if isinstance(raw.get("whats_new_seen_version"), str) and re.fullmatch(r"[A-Za-z0-9._-]{1,32}", raw["whats_new_seen_version"]):
+        result["whats_new_seen_version"] = raw["whats_new_seen_version"]
     for key, limit in (("wallpaper_dim", WALLPAPER_DIM_MAX), ("wallpaper_blur", WALLPAPER_BLUR_MAX)):
         if type(raw.get(key)) is int and 0 <= raw[key] <= limit:
             result[key] = raw[key]

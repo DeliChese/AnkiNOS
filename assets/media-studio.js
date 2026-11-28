@@ -1,4 +1,4 @@
-/* AnkiNOS Media Studio: one native library, automatic no-crop wallpaper, no Apply. */
+/* AnkiNOS Media Studio: local photo library and non-destructive framing. */
 (function initMediaStudio() {
   'use strict';
   if (document.readyState === 'loading') {
@@ -10,9 +10,12 @@
   if (!root || !dialog || window.NOSStudio) return;
   const $ = id => document.getElementById(id);
   const tr = s => window.NOSI18n ? window.NOSI18n.t(s) : s;
+  const previewBox = $('studio-preview');
+  const previewImage = $('studio-preview-image');
   const native = root.dataset.native === 'true';
   const ORIGINAL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}\.(?:png|jpg|webp)$/;
   const PREVIEW = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}-thumb\.png$/;
+  const WALL = /^\/_addons\/[A-Za-z0-9_-]+\/user_files\/[0-9a-f]{20}\/[0-9a-f]{32}-wall\.jpg$/;
   const UUID = /^[0-9a-f]{32}$/;
   const TARGETS = {
     image_dashboard: 'Dashboard',
@@ -24,6 +27,7 @@
   const FRAME_SLOTS = ['dashboard', 'overview', 'review', 'cover', 'avatar'];
   let selected = null, album = 'all', editing = null, pendingAlbumName = '';
   let activeFrame = 'dashboard', showGrid = true;
+  let frameDraft = null, framePaint = 0, frameCommitTimer = 0, dragState = null;
   let searchText = '';
   let gallerySignature = '';
   let albumsSignature = '';
@@ -42,6 +46,7 @@
     if(source!==albumSource){albumSource=source;albumCache=(source||[]).filter(a=>a&&UUID.test(a.id)&&typeof a.name==='string');}
     return albumCache;
   };
+  const selectedPhoto = () => photos().find(image => image.id === selected);
   const create = (tag, cls, text) => {
     const node = document.createElement(tag);
     if (cls) node.className = cls;
@@ -50,7 +55,7 @@
   };
   function status(message, error = false) {
     $('studio-status').textContent = message;
-    $('studio-status').style.color = error ? '#ffb3c1' : '#a6e5c7';
+    $('studio-status').classList.toggle('is-error', error);
   }
   function command(action, payload = {}, previewUpdate = null) {
     if (native) {
@@ -95,7 +100,9 @@
       (album === 'all' || (album === 'unfiled' ? !image.album_id : image.album_id === album)) &&
       image.name.toLocaleLowerCase().includes(searchText)
     );
-    $('studio-gallery-title').textContent = albumLabel();
+    const title = $('studio-gallery-title');
+    title.toggleAttribute('data-i18n-skip', UUID.test(album));
+    title.textContent = albumLabel();
     $('studio-count').textContent = matches.length + ' ảnh · tổng ' + photos().length + ' / 100';
     gallery.replaceChildren();
     if (!matches.length) {
@@ -129,11 +136,16 @@
     }
     gallery.append(fragment);
   }
-  const wallFit = () => getData().image_fit_dashboard === 'contain' ? 'contain' : 'cover';
+  const isProfileFrame = () => activeFrame === 'avatar' || activeFrame === 'cover';
+  const wallFit = () => getData()['image_fit_' + activeFrame] === 'contain' ? 'contain' : 'cover';
+  const imageFit = () => isProfileFrame() ? 'cover' : wallFit();
   const wallDim = () => Number.isInteger(getData().wallpaper_dim) ? getData().wallpaper_dim : 28;
   const wallBlur = () => Number.isInteger(getData().wallpaper_blur) ? getData().wallpaper_blur : 0;
-  const clampInt = (v, lo, hi, d) => Number.isInteger(v) ? Math.min(hi, Math.max(lo, v)) : d;
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const clampInt = (v, lo, hi, d) => Number.isInteger(v) ? clamp(v, lo, hi) : d;
+  const displayScale = zoom => zoom / 100 * (!isProfileFrame() && wallBlur() ? 1.06 : 1);
   function getFrame(surface = activeFrame) {
+    if (frameDraft?.surface === surface) return frameDraft.frame;
     const raw = getData().image_frames?.[surface] || {};
     return {
       x: clampInt(raw.x, 0, 100, 50),
@@ -141,51 +153,51 @@
       zoom: clampInt(raw.zoom, 100, 250, 100),
     };
   }
-  function updateFrameLive(surface, nextFrame, persist = false) {
-    const clean = {
-      x: Math.round(Math.min(100, Math.max(0, nextFrame.x))),
-      y: Math.round(Math.min(100, Math.max(0, nextFrame.y))),
-      zoom: Math.round(Math.min(250, Math.max(100, nextFrame.zoom))),
-    };
-    const merged = {...(getData().image_frames || {}), [surface]: clean};
-    getData().image_frames = merged;
-    showDisplayOptions();
-    if (persist) {
-      saveDisplay({image_frames: {[surface]: clean}});
-    } else {
-      window.AnkiNOS?.studioUpdate?.({image_frames: merged});
-    }
+  function updateFrame(frame) {
+    frameDraft = {surface: activeFrame, frame};
+    if (!framePaint) framePaint = requestAnimationFrame(() => {
+      framePaint = 0;
+      paintFrame();
+    });
+  }
+  function commitFrame() {
+    clearTimeout(frameCommitTimer);
+    if (!frameDraft) return;
+    const {surface, frame} = frameDraft;
+    frameDraft = null;
+    const clean = {x: Math.round(frame.x), y: Math.round(frame.y), zoom: Math.round(frame.zoom)};
+    const patch = {image_frames: {[surface]: clean}};
+    saveDisplay(patch, {image_frames: {...getData().image_frames, ...patch.image_frames}});
+  }
+  function paintFrame() {
+    const frame = getFrame();
+    previewBox.style.setProperty('--wall-pos-x', frame.x + '%');
+    previewBox.style.setProperty('--wall-pos-y', frame.y + '%');
+    previewBox.style.setProperty('--wall-scale', displayScale(frame.zoom).toFixed(3));
+    $('studio-zoom').value = String(frame.zoom);
+    $('studio-zoom-out').textContent = frame.zoom + '%';
+    $('studio-zoom-less').disabled = frame.zoom <= 100;
+    $('studio-zoom-more').disabled = frame.zoom >= 250;
   }
   function showDisplayOptions() {
-    const isProfileMedia = activeFrame === 'avatar' || activeFrame === 'cover';
-    const fit = isProfileMedia ? 'cover' : wallFit();
-    const dim = isProfileMedia ? 0 : wallDim();
-    const blur = isProfileMedia ? 0 : wallBlur();
-    const frame = getFrame(activeFrame);
-    const scale = (frame.zoom / 100) * (blur ? 1.06 : 1);
-    const preview = $('studio-preview');
-    preview.dataset.frameSlot = activeFrame;
-    preview.dataset.grid = showGrid ? 'on' : 'off';
-    preview.dataset.draggable = selected ? 'true' : 'false';
-    preview.style.setProperty('--wall-fit', fit);
-    preview.style.setProperty('--wall-dim', String(dim / 100));
-    preview.style.setProperty('--wall-blur', blur + 'px');
-    preview.style.setProperty('--wall-pos-x', frame.x + '%');
-    preview.style.setProperty('--wall-pos-y', frame.y + '%');
-    preview.style.setProperty('--wall-scale', scale.toFixed(3));
-    for (const tab of $('studio-frame-tabs')?.querySelectorAll('[data-studio-frame]') || []) {
+    const canEdit = Boolean(selected && !previewImage.hidden);
+    previewBox.dataset.frameSlot = activeFrame;
+    previewBox.dataset.grid = showGrid ? 'on' : 'off';
+    previewBox.dataset.draggable = String(canEdit);
+    previewBox.tabIndex = canEdit ? 0 : -1;
+    previewBox.style.setProperty('--wall-fit', imageFit());
+    previewBox.style.setProperty('--wall-dim', String(isProfileFrame() ? 0 : wallDim() / 100));
+    previewBox.style.setProperty('--wall-blur', (isProfileFrame() ? 0 : wallBlur()) + 'px');
+    $('studio-wallpaper-fields').hidden = isProfileFrame();
+    paintFrame();
+    for (const tab of $('studio-frame-tabs').querySelectorAll('[data-studio-frame]')) {
       const on = tab.dataset.studioFrame === activeFrame;
       tab.classList.toggle('active', on);
       tab.setAttribute('aria-selected', String(on));
+      tab.tabIndex = on ? 0 : -1;
     }
-    if ($('studio-grid-toggle')) {
-      $('studio-grid-toggle').setAttribute('aria-pressed', String(showGrid));
-      $('studio-grid-toggle').classList.toggle('active', showGrid);
-    }
-    if ($('studio-frame-coords')) $('studio-frame-coords').textContent = `${frame.x}% · ${frame.y}%`;
-    if ($('studio-zoom') && document.activeElement !== $('studio-zoom')) $('studio-zoom').value = String(frame.zoom);
-    if ($('studio-zoom-out')) $('studio-zoom-out').textContent = frame.zoom + '%';
-    if ($('studio-drag-hint')) $('studio-drag-hint').hidden = !selected;
+    $('studio-grid-toggle').setAttribute('aria-pressed', String(showGrid));
+    $('studio-grid-toggle').classList.toggle('active', showGrid);
     for (const button of $('studio-fit').querySelectorAll('[data-studio-fit]'))
       button.setAttribute('aria-pressed', String(button.dataset.studioFit === wallFit()));
     if (document.activeElement !== $('studio-dim')) $('studio-dim').value = String(wallDim());
@@ -194,34 +206,39 @@
     $('studio-blur-out').textContent = wallBlur() + ' px';
   }
   function showInspector() {
-    const image = photos().find(p => p.id === selected);
+    const image = selectedPhoto();
     $('studio-inspector-fields').hidden = !image;
-    const preview = $('studio-preview-image');
+    $('studio-frame-controls').hidden = !image;
     const placeholder = $('studio-preview-empty');
     if (!image) {
-      preview.hidden = true;
-      preview.removeAttribute('src');
+      delete dialog.dataset.framing;
+      previewImage.hidden = true;
+      previewImage.removeAttribute('src');
       placeholder.hidden = false;
       placeholder.textContent = 'Chọn một ảnh trong thư viện để xem trước.';
-      $('studio-image-meta').textContent = 'Ảnh nguyên gốc luôn vừa khung, không bị cắt hoặc kéo giãn.';
+      $('studio-image-meta').textContent = 'Ảnh nguyên gốc được giữ nguyên vẹn, căn khung không làm mất chất lượng.';
+      showDisplayOptions();
       return;
     }
-    // Reassigning src on every settings event decodes the full image again.
-    // The Studio inspector is intentionally small: decode the 480px thumbnail,
-    // never a 24MP wallpaper on each click. Originals remain used by pages.
-    const previewUrl = PREVIEW.test(image.thumb_url || '') ? image.thumb_url : '';
+    // Use the small derivative in the gallery and reserve the larger one for framing.
+    const previewUrl = dialog.dataset.framing && WALL.test(image.wall_url || '') ? image.wall_url :
+      PREVIEW.test(image.thumb_url || '') ? image.thumb_url : '';
     if (!previewUrl) {
-      preview.removeAttribute('src');
+      previewImage.removeAttribute('src');
       placeholder.textContent='Đang tải ảnh xem trước…';
     }
-    if (previewUrl && preview.getAttribute('src') !== previewUrl) preview.src = previewUrl;
-    preview.hidden = !previewUrl;
+    if (previewUrl && previewImage.getAttribute('src') !== previewUrl) previewImage.src = previewUrl;
+    previewImage.hidden = !previewUrl;
+    $('studio-frame-controls').hidden = !previewUrl;
+    const expanded = Boolean(dialog.dataset.framing);
+    const expandButton = $('studio-expand-frame');
+    expandButton.textContent = expanded ? 'Về thư viện ảnh' : 'Căn ảnh rộng';
+    expandButton.setAttribute('aria-pressed', String(expanded));
     placeholder.hidden = !!previewUrl;
     const meta = [];
     if (image.width && image.height) meta.push(image.width + ' × ' + image.height + ' px');
     if (image.size) meta.push((image.size / 1024 / 1024).toFixed(2) + ' MB');
     meta.push(image.ext.toUpperCase().replace('.',''));
-    meta.push(wallFit() === 'cover' ? 'Lấp đầy khung' : 'Vừa khung, không cắt');
     $('studio-image-meta').textContent = meta.join(' · ');
     showDisplayOptions();
     if (document.activeElement !== $('studio-image-name'))
@@ -241,7 +258,7 @@
       button.querySelector('span').textContent = active ? 'Đang dùng · bỏ gán' : 'Dùng ảnh này';
     }
   }
-  function render() {
+  function renderGallery() {
     if (pendingAlbumName) {
       const found = albums().find(a => a.name.toLocaleLowerCase() === pendingAlbumName.toLocaleLowerCase());
       if (found) {album = found.id;pendingAlbumName = '';}
@@ -259,12 +276,16 @@
       showGallery();
       gallerySignature = nextGallery;
     }
+  }
+  function render() {
+    renderGallery();
     showInspector();
   }
   function open(opts = {}) {
     if (opts && typeof opts === 'object') {
       if (opts.slot && FRAME_SLOTS.includes(opts.slot)) activeFrame = opts.slot;
-      if (opts.photoId && photos().some(p => p.id === opts.photoId)) selected = opts.photoId;
+      const candidate = opts.photoId || getData()['image_' + activeFrame];
+      if (photos().some(p => p.id === candidate)) selectImage(candidate);
     }
     if (dialog.open) { render(); return; }
     cancelPreparation();
@@ -277,8 +298,11 @@
   }
   function close() {
     if (!dialog.open) return;
+    cancelDrag();
+    commitFrame();
     if (searchFrame) { cancelAnimationFrame(searchFrame); searchFrame=0; }
     dialog.close();
+    delete dialog.dataset.framing;
     stopEditing();
     const trigger = $('appearance-dialog')?.open ? $('appearance-media') : $('studio-launcher');
     trigger?.focus({preventScroll:true});
@@ -289,7 +313,7 @@
     if (prepareTask) return;
     const prepare=()=>{
       prepareTask=0;
-      render();
+      renderGallery();
       // Only small previews for the first visible row are warmed in idle time.
       const urls=photos().slice(0,6).map(p=>p.thumb_url).filter(url=>PREVIEW.test(url||''));
       for(const url of warmImages.keys())if(!urls.includes(url))warmImages.delete(url);
@@ -329,6 +353,7 @@
   }
   function selectImage(identifier) {
     if (selected === identifier) return;
+    commitFrame();
     selected = identifier;
     // Only flip two selection classes; keep thumbnail nodes and decoded images.
     for (const tile of $('studio-gallery').querySelectorAll('.nos-studio-tile')) {
@@ -338,7 +363,28 @@
     }
     showInspector();
   }
-  dialog.addEventListener('cancel',event => {event.preventDefault();close();});
+  function toggleExpanded() {
+    commitFrame();
+    if (dialog.dataset.framing) delete dialog.dataset.framing;
+    else dialog.dataset.framing = 'true';
+    showInspector();
+    $('studio-expand-frame').focus({preventScroll: true});
+    $('studio-expand-frame').scrollIntoView({block: 'nearest'});
+  }
+  dialog.addEventListener('cancel', event => {event.preventDefault();close();});
+  $('studio-frame-tabs').addEventListener('keydown', event => {
+    const tab = event.target.closest('[data-studio-frame]');
+    if (!tab) return;
+    const keys = ['Home', 'End', 'ArrowLeft', 'ArrowRight'];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const tabs = Array.from($('studio-frame-tabs').querySelectorAll('[data-studio-frame]'));
+    const direction = event.key === 'ArrowLeft' ? -1 : 1;
+    const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs.at(-1) :
+      tabs[(tabs.indexOf(tab) + direction + tabs.length) % tabs.length];
+    next.click();
+    next.focus();
+  });
   dialog.addEventListener('click',event => {
     if (event.target === dialog) {close();return;}
     const button = event.target.closest('button');
@@ -356,7 +402,12 @@
       render();
       return;
     }
-    if (button.dataset.photoId) {selectImage(button.dataset.photoId);return;}
+    if (button.dataset.photoId) {
+      selectImage(button.dataset.photoId);
+      if (matchMedia('(max-width: 740px)').matches) $('studio-inspector').scrollIntoView({block: 'start'});
+      return;
+    }
+    if (button.id === 'studio-expand-frame') {toggleExpanded();return;}
     if (button.id === 'studio-album-new') {editAlbum();return;}
     if (button.id === 'studio-album-rename' && UUID.test(album)) {editAlbum(album);return;}
     if (button.id === 'studio-album-cancel') {stopEditing();return;}
@@ -375,8 +426,11 @@
       return;
     }
     if (button.dataset.studioFrame && FRAME_SLOTS.includes(button.dataset.studioFrame)) {
+      commitFrame();
       activeFrame = button.dataset.studioFrame;
-      showDisplayOptions();
+      const assigned = getData()['image_' + activeFrame];
+      if (assigned && assigned !== selected && photos().some(p => p.id === assigned)) selectImage(assigned);
+      else showDisplayOptions();
       return;
     }
     if (button.id === 'studio-grid-toggle') {
@@ -385,8 +439,15 @@
       return;
     }
     if (button.id === 'studio-frame-reset') {
-      updateFrameLive(activeFrame, {x: 50, y: 50, zoom: 100}, true);
+      updateFrame({x: 50, y: 50, zoom: 100});
+      commitFrame();
       status('Đã đặt lại khung ảnh về giữa (100%).');
+      return;
+    }
+    if (button.id === 'studio-zoom-less' || button.id === 'studio-zoom-more') {
+      const direction = button.id === 'studio-zoom-more' ? 1 : -1;
+      zoomTo(getFrame().zoom + direction * 10);
+      commitFrame();
       return;
     }
     if (button.dataset.studioFit) {
@@ -398,6 +459,7 @@
     if (button.id === 'studio-remove-image') {deletePhoto();return;}
     const slot=button.dataset.studioSlot;
     if (slot && Object.hasOwn(TARGETS,slot) && selected) {
+      commitFrame();
       const surface = slot.replace(/^image_/, '');
       if (FRAME_SLOTS.includes(surface)) activeFrame = surface;
       const value=getData()[slot] === selected ? null : selected;
@@ -408,80 +470,150 @@
       render();
     }
   });
-  function saveDisplay(patch) {
-    window.AnkiNOS?.studioUpdate?.(patch);
+  function saveDisplay(patch, localPatch = patch) {
+    window.AnkiNOS?.studioUpdate?.(localPatch);
     command('save_ui', {values: patch});
-    render();
   }
-  // Sliders update the live preview while dragging and persist once on release.
-  let sliderFrame = 0;
   for (const [id, key] of [['studio-dim', 'wallpaper_dim'], ['studio-blur', 'wallpaper_blur']]) {
     $(id).addEventListener('input', event => {
-      const value = Number(event.target.value);
-      if (!Number.isInteger(value)) return;
-      getData()[key] = value;
-      if (sliderFrame) return;
-      sliderFrame = requestAnimationFrame(() => {
-        sliderFrame = 0;
-        window.AnkiNOS?.studioUpdate?.({[key]: Number($(id).value)});
-      });
+      const value = event.target.value;
+      if (key === 'wallpaper_dim') {
+        previewBox.style.setProperty('--wall-dim', String(Number(value) / 100));
+        $('studio-dim-out').textContent = value + '%';
+      } else {
+        previewBox.style.setProperty('--wall-blur', value + 'px');
+        previewBox.style.setProperty('--wall-scale', (getFrame().zoom / 100 * (Number(value) ? 1.06 : 1)).toFixed(3));
+        $('studio-blur-out').textContent = value + ' px';
+      }
     });
     $(id).addEventListener('change', event => {
       const value = Number(event.target.value);
       if (Number.isInteger(value)) saveDisplay({[key]: value});
     });
   }
-  $('studio-zoom')?.addEventListener('input', event => {
-    const value = Number(event.target.value);
-    if (!Number.isInteger(value)) return;
-    const frame = getFrame(activeFrame);
-    updateFrameLive(activeFrame, {...frame, zoom: value}, false);
+  function frameGeometry() {
+    const photo = selectedPhoto();
+    if (!photo || previewImage.hidden) return null;
+    const rect = previewBox.getBoundingClientRect();
+    const width = previewBox.clientWidth;
+    const height = previewBox.clientHeight;
+    const imageWidth = photo.width || previewImage.naturalWidth;
+    const imageHeight = photo.height || previewImage.naturalHeight;
+    if (!width || !height || !imageWidth || !imageHeight) return null;
+    const fit = imageFit() === 'cover' ? Math.max : Math.min;
+    const fitScale = fit(width / imageWidth, height / imageHeight);
+    const renderedScale = rect.width / previewBox.offsetWidth;
+    return {
+      rect, width, height, fittedWidth: imageWidth * fitScale,
+      fittedHeight: imageHeight * fitScale, renderedScale,
+    };
+  }
+  // object-position and transform-origin share the same percentage. The
+  // displayed offset is therefore (frame size - scaled photo size) * position.
+  function axisTravel(size, fitted, zoom) {
+    return size - fitted * displayScale(zoom);
+  }
+  function zoomTo(value, pointer = null) {
+    const frame = getFrame();
+    const zoom = clamp(value, 100, 250);
+    if (zoom === frame.zoom) return;
+    const size = frameGeometry();
+    if (!size) {
+      updateFrame({...frame, zoom});
+      return;
+    }
+    const relativeScale = zoom / frame.zoom;
+    const anchorX = pointer ? (pointer.clientX - size.rect.left) / size.renderedScale - previewBox.clientLeft : size.width / 2;
+    const anchorY = pointer ? (pointer.clientY - size.rect.top) / size.renderedScale - previewBox.clientTop : size.height / 2;
+    const anchored = (position, length, fitted, anchor) => {
+      const nextTravel = axisTravel(length, fitted, zoom);
+      if (Math.abs(nextTravel) < 1) return position;
+      const initial = axisTravel(length, fitted, frame.zoom) * position / 100;
+      const offset = anchor + (initial - anchor) * relativeScale;
+      return clamp(offset / nextTravel * 100, 0, 100);
+    };
+    updateFrame({
+      x: anchored(frame.x, size.width, size.fittedWidth, anchorX),
+      y: anchored(frame.y, size.height, size.fittedHeight, anchorY),
+      zoom,
+    });
+  }
+  function panFrame(frame, size, dx, dy) {
+    const move = (position, distance, travel) =>
+      Math.abs(travel) < 1 ? position : clamp(position + distance / travel * 100, 0, 100);
+    return {
+      ...frame,
+      x: move(frame.x, dx, axisTravel(size.width, size.fittedWidth, frame.zoom)),
+      y: move(frame.y, dy, axisTravel(size.height, size.fittedHeight, frame.zoom)),
+    };
+  }
+  $('studio-zoom').addEventListener('input', event => zoomTo(Number(event.target.value)));
+  $('studio-zoom').addEventListener('change', event => {
+    zoomTo(Number(event.target.value));
+    commitFrame();
   });
-  $('studio-zoom')?.addEventListener('change', event => {
-    const value = Number(event.target.value);
-    if (!Number.isInteger(value)) return;
-    const frame = getFrame(activeFrame);
-    updateFrameLive(activeFrame, {...frame, zoom: value}, true);
+  previewBox.addEventListener('wheel', event => {
+    if (!(event.ctrlKey || event.metaKey) || previewImage.hidden || dragState || !event.deltaY) return;
+    event.preventDefault();
+    zoomTo(getFrame().zoom + Math.sign(-event.deltaY) * 5, event);
+    clearTimeout(frameCommitTimer);
+    frameCommitTimer = setTimeout(commitFrame, 180);
+  }, {passive: false});
+  const directions = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]};
+  previewBox.addEventListener('keydown', event => {
+    const direction = directions[event.key];
+    const size = direction && frameGeometry();
+    if (!size || dragState) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 16 : 4;
+    updateFrame(panFrame(getFrame(), size, direction[0] * step, direction[1] * step));
+    clearTimeout(frameCommitTimer);
+    frameCommitTimer = setTimeout(commitFrame, 180);
   });
-  // Interactive drag-to-pan framing directly inside #studio-preview (non-destructive).
-  let dragState = null;
-  $('studio-preview')?.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || !selected) return;
-    const preview = $('studio-preview');
-    const rect = preview.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const start = getFrame(activeFrame);
-    dragState = {pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, rect, frame: start, moved: false};
-    preview.classList.add('is-dragging');
-    preview.setPointerCapture?.(event.pointerId);
+  previewBox.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || dragState) return;
+    const size = frameGeometry();
+    if (!size) return;
+    commitFrame();
+    dragState = {pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, size, frame: getFrame()};
+    previewBox.classList.add('is-dragging');
+    previewBox.focus({preventScroll: true});
+    previewBox.setPointerCapture?.(event.pointerId);
     event.preventDefault();
   });
-  $('studio-preview')?.addEventListener('pointermove', event => {
+  previewBox.addEventListener('pointermove', event => {
     if (!dragState || event.pointerId !== dragState.pointerId) return;
-    const dx = ((event.clientX - dragState.startX) / dragState.rect.width) * 100;
-    const dy = ((event.clientY - dragState.startY) / dragState.rect.height) * 100;
-    dragState.moved = true;
-    const next = {
-      x: Math.round(Math.min(100, Math.max(0, dragState.frame.x - dx))),
-      y: Math.round(Math.min(100, Math.max(0, dragState.frame.y - dy))),
-      zoom: dragState.frame.zoom,
-    };
-    updateFrameLive(activeFrame, next, false);
+    const {size, startX, startY, frame} = dragState;
+    const dx = (event.clientX - startX) / size.renderedScale;
+    const dy = (event.clientY - startY) / size.renderedScale;
+    if (!frameDraft && Math.hypot(dx, dy) < 2) return;
+    updateFrame(panFrame(frame, size, dx, dy));
   });
-  const finishDrag = event => {
-    if (!dragState || event.pointerId !== dragState.pointerId) return;
-    const preview = $('studio-preview');
-    preview.classList.remove('is-dragging');
-    preview.releasePointerCapture?.(event.pointerId);
-    const shouldSave = dragState.moved;
+  function endDrag() {
+    const {pointerId} = dragState;
     dragState = null;
-    if (shouldSave) {
-      updateFrameLive(activeFrame, getFrame(activeFrame), true);
+    previewBox.classList.remove('is-dragging');
+    if (previewBox.hasPointerCapture?.(pointerId)) previewBox.releasePointerCapture(pointerId);
+  }
+  function cancelDrag() {
+    if (!dragState) return;
+    endDrag();
+    frameDraft = null;
+    paintFrame();
+  }
+  previewBox.addEventListener('pointerup', event => {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    endDrag();
+    if (frameDraft) {
+      commitFrame();
       status('Đã lưu góc căn khung ảnh.');
     }
-  };
-  $('studio-preview')?.addEventListener('pointerup', finishDrag);
-  $('studio-preview')?.addEventListener('pointercancel', finishDrag);
+  });
+  for (const eventName of ['pointercancel', 'lostpointercapture']) {
+    previewBox.addEventListener(eventName, event => {
+      if (event.pointerId === dragState?.pointerId) cancelDrag();
+    });
+  }
   function saveAlbum() {
     const name = $('studio-album-title').value.trim();
     if (!name || name.length > 80) {status('Tên album phải có từ 1 đến 80 ký tự.',true);return;}

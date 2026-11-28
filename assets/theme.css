@@ -1,7 +1,21 @@
 /* Semantic theme adapters, loaded after feature styles. Never select #qa. */
 html[data-nos-theme="true"]:not(.tool-frameless):not(.nos-review-page), html[data-nos-theme="true"]:not(.tool-frameless):not(.nos-review-page) body { background:var(--theme-bg) !important; }
-#nos-app[data-color-theme] { color:var(--text); background:var(--theme-bg); accent-color:var(--blue); font-family:var(--nos-font, 'Segoe UI', Inter, -apple-system, BlinkMacSystemFont, sans-serif); letter-spacing:var(--nos-font-tracking, 0px); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; scrollbar-color:color-mix(in srgb, var(--text) 24%, transparent) transparent; }
-#nos-app[data-color-theme] ::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--text) 24%, transparent); }
+#nos-app[data-color-theme] { color:var(--text); background:var(--theme-bg); accent-color:var(--blue); font-family:var(--nos-font, 'Segoe UI', Inter, -apple-system, BlinkMacSystemFont, sans-serif); letter-spacing:var(--nos-font-tracking, 0px); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+html[data-nos-theme="true"]:not(.nos-review-page),
+#nos-app[data-color-theme], #nos-tool[data-color-theme] {
+  --nos-scroll-thumb: color-mix(in srgb, var(--blue) 55%, var(--surface));
+  --nos-scroll-track: color-mix(in srgb, var(--inner) 45%, transparent);
+  scrollbar-color: var(--nos-scroll-thumb) var(--nos-scroll-track);
+  scrollbar-width: thin;
+}
+@supports not (scrollbar-color: auto) {
+  :is(html[data-nos-theme="true"]:not(.nos-review-page), #nos-app, #nos-tool)::-webkit-scrollbar,
+  :is(#nos-app, #nos-tool) ::-webkit-scrollbar { width: 8px; height: 8px; }
+  :is(html[data-nos-theme="true"]:not(.nos-review-page), #nos-app, #nos-tool)::-webkit-scrollbar-thumb,
+  :is(#nos-app, #nos-tool) ::-webkit-scrollbar-thumb { background: var(--nos-scroll-thumb); border-radius: 8px; }
+  :is(html[data-nos-theme="true"]:not(.nos-review-page), #nos-app, #nos-tool)::-webkit-scrollbar-track,
+  :is(#nos-app, #nos-tool) ::-webkit-scrollbar-track { background: var(--nos-scroll-track); }
+}
 #nos-app[data-color-theme] .wallpaper { background:var(--theme-bg) !important; }
 #nos-app[data-color-theme] .wallpaper::after { background:transparent; }
 #nos-app[data-color-theme][data-custom-background="true"] .wallpaper::after { background:rgba(0,0,0,var(--wall-dim,.28)); }
@@ -319,4 +333,48 @@ html[data-nos-ratings="true"] #time { color:var(--muted); }
     --success:#246a43 !important; --danger:#ad304b !important; --warning:#81550f !important;
     --panel-shadow:none !important;
   }
+}
+
+/* Liquid Glass is an independent material, so every palette keeps its semantic colors. */
+#nos-app[data-color-theme][data-surface-style="liquid"]:not(.lite-mode):not(.no-blur) :is(.rail.glass,.nos-edge-dock.glass,.launcher.glass,.profile-panel.glass,.popup-menu.glass,.nos-layout-menu.glass,.overview-hero.glass,.overview-today.glass,.overview-menu.glass),
+[data-surface-style="liquid"] > .liquid-surface {
+  background:
+    linear-gradient(153deg, color-mix(in srgb, var(--text) 11%, transparent), transparent 37%, transparent 66%, color-mix(in srgb, var(--accent) 9%, transparent)),
+    color-mix(in srgb, var(--surface) max(92%, var(--glass-alpha)), var(--theme-bg)) !important;
+  border-color: color-mix(in srgb, var(--text) 28%, var(--edge)) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--accent) 18%, transparent), var(--panel-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.55) !important;
+}
+#nos-app[data-surface-style="liquid"] :is(.activity-panel,.study-launchpad,.daily-goal,.stats-native-card) {
+  background: linear-gradient(150deg, var(--inner), var(--surface) 46%, var(--surface) 78%, var(--inner)) !important;
+  border-color: color-mix(in srgb, var(--text) 22%, var(--edge)) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 14%, transparent), var(--panel-shadow);
+}
+@supports (backdrop-filter: blur(1px)) {
+  #nos-app[data-color-theme][data-surface-style="liquid"]:not(.lite-mode):not(.no-blur) :is(.rail.glass,.nos-edge-dock.glass,.launcher.glass,.profile-panel.glass,.popup-menu.glass,.nos-layout-menu.glass,.overview-hero.glass,.overview-today.glass,.overview-menu.glass),
+  [data-surface-style="liquid"] > .liquid-surface {
+    background:
+      linear-gradient(153deg, color-mix(in srgb, var(--text) 11%, transparent), transparent 37%, transparent 66%, color-mix(in srgb, var(--accent) 9%, transparent)),
+      color-mix(in srgb, var(--surface) max(88%, var(--glass-alpha)), transparent) !important;
+  }
+}
+#nos-app .nos-appearance-field { display:grid; gap:8px; min-width:0; padding-block:6px; }
+#nos-app .nos-appearance-field > span { display:flex; align-items:center; gap:8px; font-weight:600; }
+#nos-app .nos-appearance-field output { margin-inline-start:auto; color:var(--muted); }
+#nos-app .nos-motion-controls {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr)); gap:8px 18px;
+}
+#nos-app .nos-motion-demo {
+  grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px; background:var(--inner); border:1px solid var(--edge); border-radius:12px; overflow:hidden;
+}
+#nos-app #motion-sample { display:block; padding:6px; color:var(--text); }
+#nos-app .nos-material-sample {
+  display:grid; place-items:center; padding:10px; margin-block:3px 10px; border-radius:14px;
+  background:linear-gradient(135deg, var(--theme-bg) 20%, var(--accent) 65%, var(--surface));
+}
+#nos-app .nos-material-sample span {
+  display:block; width:min(150px,75%); height:38px; border-radius:20px;
+  border:1px solid var(--edge); background:var(--glass); backdrop-filter:blur(var(--glass-blur));
 }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import html
 import re
 from typing import Any
@@ -15,61 +15,19 @@ def clear_snapshot_cache() -> None:
 
 
 def quick_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = None) -> dict[str, Any]:
-    """Build an immediate dashboard bootstrap payload without running revlog scans.
+    """Use live scheduler counts and already available aggregates on startup."""
+    return collect_snapshot(col, due_tree=due_tree, revision=revision, _bootstrap=True)
 
-    If the read-only aggregate cache is still warm for this collection and day,
-    return a complete snapshot instantly; otherwise return live deck counts so
-    the dashboard paints and accepts study clicks on the very first frame.
-    """
-    cutoff = int(col.sched.day_cutoff)
-    end = datetime.fromtimestamp(cutoff)
-    today = (end - timedelta(days=1)).date()
-    cached = _AGGREGATES if _AGGREGATES and _AGGREGATES['col'] is col else None
-    stamp = (revision, int(col.db.scalar('SELECT total_changes()')))
-    if cached and cached['stamp'] == stamp and cached['cutoff'] == cutoff:
-        result = collect_snapshot(col, due_tree=due_tree, revision=revision, review_only=True)
-        result["partial"] = False
-        return result
 
-    tree = due_tree if due_tree is not None else col.sched.deck_due_tree()
-    names = {int(entry.id): entry.name for entry in col.decks.all_names_and_ids()}
-    filtered_counts = dict(col.db.all("SELECT did, count(*) FROM cards WHERE odid != 0 GROUP BY 1"))
-    records: dict[int, dict[str, Any]] = {}
-
-    def gather(node: Any) -> None:
-        if node.deck_id:
-            full_name = names.get(int(node.deck_id), node.name)
-            is_filtered = bool(node.filtered)
-            records[int(node.deck_id)] = {
-                "id": str(node.deck_id), "name": full_name.split("::")[-1], "full_name": full_name,
-                "new": int(node.new_count), "learn": int(node.learn_count),
-                "review": int(node.review_count), "filtered": is_filtered, "children": [],
-                "depth": full_name.count("::"), "parent_id": None,
-                "total": 0, "gathered": int(filtered_counts.get(int(node.deck_id), 0)) if is_filtered else 0,
-                "tested": 0, "passed": 0, "retention": None,
-            }
-        for child in node.children:
-            gather(child)
-
-    gather(tree)
-    by_name = {record["full_name"]: record for record in records.values()}
-    decks = []
-    for record in records.values():
-        parent = by_name.get(record["full_name"].rpartition("::")[0])
-        if parent:
-            record["parent_id"] = parent["id"]
-            parent["children"].append(record)
-        else:
-            decks.append(record)
-
+def pending_snapshot(today: date | None = None, decks: list[dict] | None = None) -> dict[str, Any]:
     return {
-        "today": today.isoformat(),
+        "today": today.isoformat() if today else None,
         "days": {},
-        "decks": decks,
-        "history_start_year": today.year,
-        "history_loaded_years": [today.year],
-        "due": sum(d["new"] + d["learn"] + d["review"] for d in decks),
-        "total_cards": 0,
+        "decks": decks or [],
+        "history_start_year": today.year if today else None,
+        "history_loaded_years": [],
+        "due": None if decks is None else sum(d["new"] + d["learn"] + d["review"] for d in decks),
+        "total_cards": None,
         "trends": {},
         "stats": {
             "retention": None, "true_retention": None, "correct": 0, "tested": 0,
@@ -77,6 +35,34 @@ def quick_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = Non
         },
         "partial": True,
     }
+
+
+def _deck_records(tree: Any, counts: dict | None = None, filtered_counts: dict | None = None,
+                  retention: dict | None = None) -> list[dict]:
+    retention = retention or {}
+
+    def build(node: Any, depth: int, parent_id: str | None = None, parent_name: str = "") -> dict:
+        deck_id = int(node.deck_id)
+        full_name = f"{parent_name}::{node.name}" if parent_name else node.name
+        children = [build(child, depth + 1, str(deck_id), full_name) for child in node.children]
+        tested, passed = retention.get(deck_id, (0, 0))
+        tested += sum(child["tested"] for child in children)
+        passed += sum(child["passed"] for child in children)
+        gathered = 0
+        if node.filtered:
+            gathered = None if filtered_counts is None else filtered_counts.get(deck_id, 0)
+        return {
+            "id": str(deck_id), "name": node.name, "full_name": full_name,
+            "new": int(node.new_count), "learn": int(node.learn_count),
+            "review": int(node.review_count), "filtered": bool(node.filtered),
+            "children": children, "depth": depth, "parent_id": parent_id,
+            "total": None if counts is None else counts.get(deck_id, 0) + sum(child["total"] for child in children),
+            "gathered": gathered,
+            "tested": tested, "passed": passed,
+            "retention": round(passed * 100 / tested, 1) if tested else None,
+        }
+
+    return [build(node, 0) for node in tree.children]
 
 
 def _pace_per_min(reviews: int, milliseconds: int) -> float | None:
@@ -98,7 +84,7 @@ def metric_change(current: float | int | None, previous: float | int | None, com
 
 
 def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = None,
-                     review_only: bool = False) -> dict[str, Any]:
+                     review_only: bool = False, _bootstrap: bool = False) -> dict[str, Any]:
     global _AGGREGATES
     cutoff = int(col.sched.day_cutoff)
     # Anki days end at the configured rollover, rather than at midnight.
@@ -108,11 +94,17 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
     offset = f"-{rollover} hours"
     # Combine operation hooks with SQLite's write counter. This also catches
     # edits by plugins that write directly without a CollectionOp notification.
-    stamp = (revision, int(col.db.scalar('SELECT total_changes()')))
     cached = _AGGREGATES if _AGGREGATES and _AGGREGATES['col'] is col else None
-    unchanged = bool(cached and cached['stamp'] == stamp and cached['cutoff'] == cutoff)
-    incremental = bool(cached and review_only and cached['cutoff'] <= cutoff
-                       and (revision is None or revision != cached['revision']))
+    can_reuse = bool(cached and cached['cutoff'] == cutoff and cached['revision'] == revision)
+    stamp = (revision, int(col.db.scalar('SELECT total_changes()'))) if can_reuse or not _bootstrap else None
+    unchanged = bool(can_reuse and cached['stamp'] == stamp)
+    if _bootstrap and not unchanged:
+        tree = due_tree if due_tree is not None else col.sched.deck_due_tree()
+        return pending_snapshot(today, _deck_records(tree))
+    incremental = bool(cached and review_only and not unchanged
+                       and 0 <= cutoff - cached['cutoff'] <= 25 * 3600
+                       and rollover == cached['rollover']
+                       and revision is not None and revision != cached['revision'])
     # Load this year's heatmap plus the 60 days needed by the comparisons.
     # Older years remain available on demand instead of delaying first paint.
     history_start = min(today.replace(month=1, day=1), today-timedelta(days=59)).isoformat()
@@ -125,9 +117,9 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
                   sum(CASE WHEN ease > 1 THEN 1 ELSE 0 END),
                   sum(CASE WHEN type = 1 OR (type = 3 AND lastIvl > 0) THEN 1 ELSE 0 END),
                   sum(CASE WHEN (type = 1 OR (type = 3 AND lastIvl > 0)) AND ease > 1 THEN 1 ELSE 0 END)
-           FROM revlog WHERE ease > 0 AND type < 4 AND id >= ?
+           FROM revlog WHERE ease > 0 AND type < 4 AND id >= ? AND id < ?
            GROUP BY 1 ORDER BY 1""",
-        offset, start_ms,
+        offset, start_ms, cutoff * 1000,
     )
     days = dict(cached['days']) if unchanged else {
         **({key:value for key,value in cached['days'].items() if key < refresh_day} if incremental else {}),
@@ -168,12 +160,23 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
     loaded_years = set(cached['loaded_years']) if unchanged or incremental else set()
     loaded_years.add(today.year)
 
-    counts = cached['counts'] if unchanged or incremental else dict(col.db.all(
-        "SELECT CASE WHEN odid != 0 THEN odid ELSE did END, count(*) FROM cards GROUP BY 1"
-    ))
-    filtered_counts = cached['filtered_counts'] if unchanged else dict(col.db.all(
-        "SELECT did, count(*) FROM cards WHERE odid != 0 GROUP BY 1"
-    ))
+    if unchanged:
+        filtered_counts = cached['filtered_counts']
+        moved_counts = []
+    else:
+        moved_counts = col.db.all("SELECT did, odid, count(*) FROM cards WHERE odid != 0 GROUP BY 1, 2")
+        filtered_counts = {}
+        for active_id, _, count in moved_counts:
+            filtered_counts[active_id] = filtered_counts.get(active_id, 0) + count
+    if unchanged or incremental:
+        counts = cached['counts']
+    else:
+        # Physical deck totals use Anki's covering scheduler index. Only
+        # filtered cards need the original-deck adjustment.
+        counts = dict(col.db.all("SELECT did, count(*) FROM cards GROUP BY did"))
+        for active_id, original_id, count in moved_counts:
+            counts[active_id] -= count
+            counts[original_id] = counts.get(original_id, 0) + count
     today_start_ms = int((end - timedelta(days=1)).timestamp() * 1000)
     deck_retention = cached['retention'] if unchanged else {
         int(did): (int(total), int(passed_cnt))
@@ -186,48 +189,7 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
         )
     }
     tree = due_tree if due_tree is not None else col.sched.deck_due_tree()
-    names = cached['names'] if unchanged or incremental else {int(entry.id): entry.name for entry in col.decks.all_names_and_ids()}
-    records: dict[int, dict[str, Any]] = {}
-
-    def gather(node: Any) -> None:
-        if node.deck_id:
-            full_name = names.get(int(node.deck_id), node.name)
-            records[int(node.deck_id)] = {
-                "id": str(node.deck_id), "name": full_name.split("::")[-1], "full_name": full_name,
-                "new": int(node.new_count), "learn": int(node.learn_count),
-                "review": int(node.review_count), "filtered": bool(node.filtered), "children": [],
-                "depth": full_name.count("::"), "parent_id": None,
-            }
-        for child in node.children:
-            gather(child)
-
-    gather(tree)
-    by_name = {record["full_name"]: record for record in records.values()}
-    decks = []
-    for record in records.values():
-        parent = by_name.get(record["full_name"].rpartition("::")[0])
-        if parent:
-            record["parent_id"] = parent["id"]
-            parent["children"].append(record)
-        else:
-            decks.append(record)
-
-    def aggregate(record: dict[str, Any]) -> None:
-        for child in record["children"]:
-            aggregate(child)
-        children = record["children"]
-        own_tested, own_passed = deck_retention.get(int(record["id"]), (0, 0))
-        total_tested = own_tested + sum(c["tested"] for c in children)
-        total_passed = own_passed + sum(c["passed"] for c in children)
-        record.update({
-            "total": int(counts.get(int(record["id"]), 0)) + sum(c["total"] for c in children),
-            "gathered": int(filtered_counts.get(int(record["id"]), 0)) if record["filtered"] else 0,
-            "tested": total_tested, "passed": total_passed,
-            "retention": round(total_passed * 100 / total_tested, 1) if total_tested else None,
-        })
-
-    for record in decks:
-        aggregate(record)
+    decks = _deck_records(tree, counts, filtered_counts, deck_retention)
     total_ms = int(today_data["milliseconds"])
     reviews = int(today_data["reviews"])
     pace = _pace_per_min(reviews, total_ms)
@@ -264,11 +226,13 @@ def collect_snapshot(col: Any, *, due_tree: Any = None, revision: int | None = N
                   "pace": pace, "milliseconds": total_ms, "reviews": reviews,
                   "streak": streak},
     }
+    if _bootstrap:
+        result["partial"] = False
+        return result
     # Store only read-only aggregates, never the UI payload/settings. A new
     # payload and live scheduler counts are returned even on a cache hit.
-    stamp = (revision, int(col.db.scalar('SELECT total_changes()')))
-    _AGGREGATES = {'col':col, 'stamp':stamp, 'revision':revision, 'cutoff':cutoff, 'today':today.isoformat(),
-                   'days':days, 'counts':counts, 'filtered_counts':filtered_counts, 'retention':deck_retention, 'names':names,
+    _AGGREGATES = {'col':col, 'stamp':stamp, 'revision':revision, 'cutoff':cutoff, 'rollover':rollover, 'today':today.isoformat(),
+                   'days':days, 'counts':counts, 'filtered_counts':filtered_counts, 'retention':deck_retention,
                    'loaded_years':loaded_years, 'first_day':first_day, 'streak':streak}
     return result
 
@@ -321,19 +285,24 @@ def collect_overview_snapshot(col: Any) -> dict[str, Any]:
     deck = col.decks.current()
     did = int(deck["id"])
     ids = col.decks.deck_and_child_ids(did)
-    placeholders = ",".join("?" for _ in ids)
+    placeholders = ",".join(f"?{index}" for index in range(1, len(ids) + 1))
     # Count filtered cards under their original deck; also include a filtered
     # deck's currently gathered cards when the filtered deck itself is selected.
-    scope = f"(c.did IN ({placeholders}) OR c.odid IN ({placeholders}))"
-    args = [*ids, *ids]
+    scope = f"(c.did IN ({placeholders}) OR (c.odid != 0 AND c.odid IN ({placeholders})))"
     cutoff = datetime.fromtimestamp(col.sched.day_cutoff)
     start = int((cutoff - timedelta(days=1)).timestamp() * 1000)
-    total = int(col.db.scalar(f"SELECT count(*) FROM cards c WHERE {scope}", *args))
+    total = int(col.db.scalar(
+        f"""SELECT
+           (SELECT count(*) FROM cards WHERE did IN ({placeholders}))
+           + (SELECT count(*) FROM cards WHERE odid != 0
+              AND odid IN ({placeholders}) AND did NOT IN ({placeholders}))""",
+        *ids,
+    ))
     reviews, milliseconds, correct = col.db.first(
         f"SELECT count(*), coalesce(sum(r.time),0), coalesce(sum(CASE WHEN r.ease>1 THEN 1 ELSE 0 END),0) "
-        f"FROM revlog r JOIN cards c ON c.id=r.cid "
+        f"FROM revlog r CROSS JOIN cards c ON c.id=r.cid "
         f"WHERE {scope} AND r.id>=? AND r.id<? AND r.ease>0 AND r.type<4",
-        *args, start, int(cutoff.timestamp()*1000),
+        *ids, start, int(cutoff.timestamp()*1000),
     )
     reviews_int = int(reviews or 0)
     correct_int = int(correct or 0)

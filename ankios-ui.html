@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="assets/daily-schedule.css">
   <link rel="stylesheet" href="assets/theme.css">
   <link rel="stylesheet" href="assets/layouts.css">
+  <link rel="stylesheet" href="assets/custom-ui.css">
 </head>
 <body>
   <div id="nos-app" data-theme="dusk" data-page="home" data-layout="aurora" data-sidebar-side="left">
@@ -62,7 +63,7 @@
     <div class="nos-edge-handle" data-edge="right" aria-hidden="true" hidden><span></span></div>
 
     <aside class="nos-edge-dock glass" id="nos-edge-top" data-edge="top" aria-label="Tác vụ nhanh và nền" hidden>
-      <button type="button" class="rail-button edge-brand-btn" id="edge-brand-about" data-action="about" title="Giới thiệu AnkiNOS (v1.0.0 Beta 2)" aria-label="Giới thiệu AnkiNOS" aria-haspopup="dialog"><svg class="icon"><use href="#i-spark"/></svg><span data-i18n-skip>AnkiNOS</span></button>
+      <button type="button" class="rail-button edge-brand-btn" id="edge-brand-about" data-action="about" title="Giới thiệu AnkiNOS (v1.0.1 Beta 2)" aria-label="Giới thiệu AnkiNOS" aria-haspopup="dialog"><svg class="icon"><use href="#i-spark"/></svg><span data-i18n-skip>AnkiNOS</span></button>
       <button type="button" class="rail-button" data-action="sync" title="Đồng bộ Anki" aria-label="Đồng bộ Anki"><svg class="icon"><use href="#i-sync"/></svg><span>Đồng bộ</span></button>
       <button type="button" class="rail-button" id="edge-peek-toggle" data-action="edge_toggle_peek" title="Ngắm ảnh nền" aria-label="Ẩn hoặc hiện bảng để ngắm ảnh nền" aria-pressed="false"><svg class="icon"><use href="#i-eye"/></svg><span>Ngắm nền</span></button>
     </aside>
@@ -75,25 +76,38 @@
 
     <aside class="rail glass" aria-label="Điều hướng chính">
       <svg class="rail-elastic" viewBox="0 0 32 500" preserveAspectRatio="none" aria-hidden="true"><path class="rail-elastic-path" d="M0,0 L0,500 Q0,250 0,0 Z"/></svg>
-      <button class="brand" id="brand-about" data-action="about" title="Giới thiệu AnkiNOS (v1.0.0 Beta 2)" aria-label="Giới thiệu AnkiNOS" aria-haspopup="dialog"><svg class="icon"><use href="#i-spark"/></svg><span>NOS</span></button>
+      <button class="brand" id="brand-about" data-action="about" title="Giới thiệu AnkiNOS (v1.0.1 Beta 2)" aria-label="Giới thiệu AnkiNOS" aria-haspopup="dialog"><svg class="icon"><use href="#i-spark"/></svg><span>NOS</span></button>
       <div class="rail-main">
-        <button class="rail-button active" data-action="page" data-value="home" title="Tổng quan" aria-label="Tổng quan" aria-current="page"><svg class="icon"><use href="#i-home"/></svg><span>Tổng quan</span></button>
-        <button class="rail-button" id="daily-toggle" data-action="page" data-value="daily" title="Lịch ôn" aria-label="Lịch ôn" aria-controls="daily-page" aria-current="false"><svg class="icon"><use href="#i-calendar"/></svg><span>Lịch ôn</span></button>
-        <button class="rail-button" id="stats-toggle" data-action="page" data-value="stats" title="Thống kê" aria-label="Thống kê" aria-current="false"><svg class="icon"><use href="#i-chart"/></svg><span>Thống kê</span></button>
-        <button class="rail-button" id="library-toggle" data-action="library" aria-haspopup="dialog" aria-expanded="false" aria-controls="library-dialog" title="Bộ thẻ & tài nguyên" aria-label="Bộ thẻ và tài nguyên"><svg class="icon"><use href="#i-layers"/></svg><span>Bộ thẻ</span></button>
-        <button type="button" class="rail-button" id="study-notebook" title="Sổ tay" aria-label="Sổ tay"><svg class="icon"><use href="#i-file"/></svg><span>Sổ tay</span></button>
-        <button type="button" class="rail-button" id="appearance-toggle" data-action="appearance" title="Giao diện" aria-label="Giao diện" aria-controls="appearance-dialog" aria-haspopup="dialog"><svg class="icon"><use href="#i-moon"/></svg><span>Giao diện</span></button>
+        <button class="rail-button active" data-nav-key="home" data-action="page" data-value="home" title="Tổng quan" aria-label="Tổng quan" aria-current="page"><svg class="icon"><use href="#i-home"/></svg><span>Tổng quan</span></button>
+        <button class="rail-button" id="daily-toggle" data-nav-key="daily" data-action="page" data-value="daily" title="Lịch ôn" aria-label="Lịch ôn" aria-controls="daily-page" aria-current="false"><svg class="icon"><use href="#i-calendar"/></svg><span>Lịch ôn</span></button>
+        <button class="rail-button" id="stats-toggle" data-nav-key="stats" data-action="page" data-value="stats" title="Thống kê" aria-label="Thống kê" aria-current="false"><svg class="icon"><use href="#i-chart"/></svg><span>Thống kê</span></button>
+        <button class="rail-button" id="library-toggle" data-nav-key="library" data-action="library" aria-haspopup="dialog" aria-expanded="false" aria-controls="library-dialog" title="Bộ thẻ & tài nguyên" aria-label="Bộ thẻ và tài nguyên"><svg class="icon"><use href="#i-layers"/></svg><span>Bộ thẻ</span></button>
+        <button type="button" class="rail-button" id="study-notebook" data-nav-key="notebook" title="Sổ tay" aria-label="Sổ tay"><svg class="icon"><use href="#i-file"/></svg><span>Sổ tay</span></button>
+        <button type="button" class="rail-button" id="appearance-toggle" data-nav-key="appearance" data-action="appearance" title="Giao diện" aria-label="Giao diện" aria-controls="appearance-dialog" aria-haspopup="dialog"><svg class="icon"><use href="#i-moon"/></svg><span>Giao diện</span></button>
       </div>
       <div class="rail-bottom">
-        <button class="rail-button" data-action="preferences" title="Cài đặt AnkiNOS" aria-label="Cài đặt AnkiNOS"><svg class="icon"><use href="#i-settings"/></svg><span>Cài đặt</span></button>
-        <button class="launcher-button" id="launcher-toggle" data-action="launcher" aria-expanded="false" aria-controls="launcher" title="Tất cả chức năng" aria-label="Tất cả chức năng"><span class="nine-dots" aria-hidden="true">⠿</span><span class="launcher-label">Chức năng</span></button>
+        <button class="rail-button" data-nav-key="preferences" data-action="preferences" title="Cài đặt AnkiNOS" aria-label="Cài đặt AnkiNOS"><svg class="icon"><use href="#i-settings"/></svg><span>Cài đặt</span></button>
+        <button class="launcher-button" id="launcher-toggle" data-nav-key="launcher" data-action="launcher" aria-expanded="false" aria-controls="launcher" title="Tất cả chức năng" aria-label="Tất cả chức năng"><span class="nine-dots" aria-hidden="true">⠿</span><span class="launcher-label">Chức năng</span></button>
       </div>
     </aside>
+
+    <div class="cui-recovery glass" id="cui-recovery" hidden>
+      <button type="button" class="icon-button" data-action="page" data-value="home" aria-label="Tổng quan" title="Tổng quan"><svg class="icon"><use href="#i-home"/></svg></button>
+      <button type="button" class="icon-button" data-action="open_custom_ui" aria-label="Mở Custom UI Studio" title="Mở Custom UI Studio"><svg class="icon"><use href="#i-grid"/></svg></button>
+    </div>
 
     <main class="workspace">
       <header class="topbar">
         <div class="wordmark">Anki<span>NOS</span><span class="wordmark-divider"></span><span class="tagline">Không gian cho trí nhớ của bạn.</span></div>
         <div class="topbar-actions">
+          <div class="update-pill" id="update-pill" hidden>
+            <button type="button" class="update-pill-open" data-action="changelog" title="Xem điểm mới trong phiên bản này">
+              <span class="update-pill-dot" aria-hidden="true"></span>
+              <span>Mới</span>
+              <strong data-i18n-skip>v1.0.1 Beta 2</strong>
+            </button>
+            <button type="button" class="update-pill-dismiss" data-action="dismiss_update_pill" aria-label="Ẩn thông báo cập nhật" title="Ẩn thông báo">×</button>
+          </div>
           <span class="connection" id="connection"><span class="status-dot"></span>Đang kết nối…</span>
           <button type="button" class="icon-button" id="guide-toggle" data-action="guide" aria-haspopup="dialog" title="Hướng dẫn sử dụng" aria-label="Hướng dẫn sử dụng"><svg class="icon"><use href="#i-info"/></svg><span class="edge-tip">Hướng dẫn</span></button>
           <button type="button" class="icon-button nos-layout-toggle" id="layout-toggle" data-action="layout_menu" aria-haspopup="menu" aria-expanded="false" aria-controls="layout-menu" title="Đổi bố cục (Alt+Shift+L)" aria-label="Đổi bố cục giao diện"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span class="edge-tip">Bố cục</span></button>
@@ -103,7 +117,48 @@
         </div>
       </header>
 
-      <section class="greeting" aria-labelledby="greeting-title"><div><p class="eyebrow" id="today-label">KHÔNG GIAN HỌC TẬP CỦA BẠN</p><h1 id="greeting-title">Chào mừng trở lại <span class="greeting-spark">✦</span></h1><p class="greeting-caption" id="greeting-caption">Mỗi lần ôn tập, một chút tiến bộ.</p></div><button class="daily-goal glass" data-action="set_goal" title="Đổi mục tiêu học mỗi ngày"><span class="goal-ring" id="goal-ring"><span id="goal-percent">0%</span></span><span><span class="goal-label">Mục tiêu hôm nay</span><strong id="goal-copy">— / 200 lượt ôn</strong></span><svg class="icon small"><use href="#i-chevron"/></svg></button></section>
+      <div class="custom-ui-livebar glass" id="custom-ui-livebar" role="toolbar" aria-label="Thanh chỉnh sửa giao diện trực tiếp" hidden>
+        <div class="custom-ui-livebar-info">
+          <span class="custom-ui-live-dot" aria-hidden="true"></span>
+          <strong>Chỉnh trực tiếp</strong>
+          <span class="custom-ui-livebar-hint" id="cui-live-hint"></span>
+        </div>
+        <div class="custom-ui-livebar-actions">
+          <button type="button" class="subtle-button" id="cui-live-mode-btn">Chế độ: Tự do</button>
+          <button type="button" class="subtle-button" id="cui-live-snap-btn" aria-pressed="true">Hít lưới</button>
+          <button type="button" class="subtle-button" id="cui-live-add-toggle" aria-expanded="false" aria-controls="cui-add-popover">+ Thêm / Khôi phục</button>
+          <button type="button" class="subtle-button" id="cui-live-nav-btn">Sidebar &amp; Menu</button>
+          <button type="button" class="subtle-button" data-action="custom_ui_open_studio">Bảng chi tiết</button>
+          <button type="button" class="subtle-button" data-action="custom_ui_live_cancel">Hủy</button>
+          <button type="button" class="primary-button" data-action="custom_ui_live_save">Lưu bản giao diện</button>
+        </div>
+        <div class="cui-add-popover glass" id="cui-add-popover" hidden>
+          <div class="cui-add-group">
+            <span>Hộp chứa công cụ (Dock / Khay)</span>
+            <div class="cui-add-chips">
+              <button type="button" class="subtle-button" data-cui-live-add="toolbox:dock">+ Thanh công cụ ngang</button>
+              <button type="button" class="subtle-button" data-cui-live-add="toolbox:rail">+ Thanh công cụ dọc</button>
+              <button type="button" class="subtle-button" data-cui-live-add="toolbox:grid">+ Lưới ô công cụ</button>
+              <button type="button" class="subtle-button" data-cui-live-add="toolbox:pill">+ Viên thuốc gọn</button>
+            </div>
+          </div>
+          <div class="cui-add-group">
+            <span>Khối chức năng &amp; tiện ích</span>
+            <div class="cui-add-chips">
+              <button type="button" class="subtle-button" data-cui-live-add="quick_stats">+ Chỉ số hôm nay</button>
+              <button type="button" class="subtle-button" data-cui-live-add="clock">+ Đồng hồ</button>
+              <button type="button" class="subtle-button" data-cui-live-add="memo">+ Ghi chú nhanh</button>
+            </div>
+          </div>
+          <div class="cui-add-group" id="cui-restore-group">
+            <span>Khôi phục phần tử đã tắt</span>
+            <div class="cui-add-chips" id="cui-restore-chips"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cui-stage" id="cui-stage">
+      <section class="greeting" aria-labelledby="greeting-title"><div id="greeting-card"><p class="eyebrow" id="today-label">KHÔNG GIAN HỌC TẬP CỦA BẠN</p><h1 id="greeting-title">Chào mừng trở lại <span class="greeting-spark">✦</span></h1><p class="greeting-caption" id="greeting-caption">Mỗi lần ôn tập, một chút tiến bộ.</p></div><button id="goal-card" class="daily-goal glass" data-action="set_goal" title="Đổi mục tiêu học mỗi ngày"><span class="goal-ring" id="goal-ring"><span id="goal-percent">0%</span></span><span><span class="goal-label">Mục tiêu hôm nay</span><strong id="goal-copy">— / 200 lượt ôn</strong></span><svg class="icon small"><use href="#i-chevron"/></svg></button></section>
 
       <div class="home-grid">
       <section class="activity-panel glass panel" id="activity-panel" aria-labelledby="activity-title">
@@ -128,8 +183,8 @@
         </div>
       </section>
       </div>
+      </div>
 
-      
     </main>
 
     <section class="daily-page" id="daily-page" aria-labelledby="daily-title" hidden>
@@ -500,7 +555,7 @@
           <div class="settings-content" id="appearance-content">
               <section id="theme-preview" class="theme-preview" aria-label="Xem trước giao diện đang chọn">
                 <div class="theme-preview-head"><strong id="theme-preview-name">NOS Glass</strong><small id="theme-preview-meta">Xem trước · chưa lưu</small></div>
-                <div class="theme-preview-panel"><div><strong>Bước tiếp theo của bạn</strong><p>24 thẻ đang chờ · khoảng 8 phút · nhấn Áp dụng để lưu</p></div><span class="theme-preview-cta">Học ngay →</span></div>
+                <div class="theme-preview-panel liquid-surface"><div><strong>Bước tiếp theo của bạn</strong><p>24 thẻ đang chờ · khoảng 8 phút · nhấn Áp dụng để lưu</p></div><span class="theme-preview-cta">Học ngay →</span></div>
                 <div class="theme-preview-foot">
                   <div class="theme-preview-heat" aria-hidden="true"><i style="--cell:var(--heat-0)"></i><i style="--cell:var(--heat-1)"></i><i style="--cell:var(--heat-2)"></i><i style="--cell:var(--heat-3)"></i><i style="--cell:var(--heat-4)"></i></div>
                   <div class="theme-preview-status"><span>✓ Đã hoàn thành</span><span>◷ Đang học</span><span>◎ Cần chú ý</span></div>
@@ -586,7 +641,25 @@
               </div>
 
               <div class="settings-card">
-                <div class="settings-group-title">Kính mờ &amp; Hiệu ứng chuyển động</div>
+                <div class="settings-group-title">Bố cục tùy chỉnh của bạn (Custom UI)</div>
+                <p class="theme-help">Dựa trên 6 bố cục có sẵn, tự do kéo thả vị trí khối, thêm hoặc sửa widget rồi lưu thành bản giao diện riêng của bạn.</p>
+                <div class="cui-appearance-presets" id="cui-appearance-presets"></div>
+                <div class="cui-appearance-actions">
+                  <button type="button" class="primary-button" data-action="open_custom_ui"><svg class="icon small"><use href="#i-grid"/></svg>Mở Custom UI Studio</button>
+                  <button type="button" class="subtle-button" data-action="custom_ui_live_start">Kéo thả trực tiếp</button>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-group-title">Chất liệu &amp; chuyển động</div>
+                <label class="settings-field nos-appearance-field">
+                  <span>Chất liệu kính</span>
+                  <select class="nos-select" id="set-surface-style">
+                    <option value="frosted">Kính mờ</option>
+                    <option value="liquid">Liquid Glass</option>
+                  </select>
+                </label>
+                <div class="nos-material-sample" id="material-sample" aria-hidden="true"><span class="liquid-surface"></span></div>
                 <div class="settings-row" id="row-set-blur">
                   <div>
                     <strong>Hiệu ứng mờ kính (Blur)</strong>
@@ -622,6 +695,27 @@
                     <input type="checkbox" id="set-animations" checked>
                     <span class="nos-slider"></span>
                   </label>
+                </div>
+                <div class="nos-motion-controls" id="motion-controls">
+                  <label class="settings-field nos-appearance-field">
+                    <span>Thư viện chuyển động</span>
+                    <select class="nos-select" id="set-motion-preset">
+                      <option value="none">Không chuyển cảnh</option>
+                      <option value="fade">Tan dần</option>
+                      <option value="rise">Trượt lên</option>
+                      <option value="slide">Trượt ngang</option>
+                      <option value="zoom">Phóng nhẹ</option>
+                      <option value="spring">Nảy nhẹ</option>
+                    </select>
+                  </label>
+                  <label class="settings-field nos-appearance-field">
+                    <span>Thời lượng <output id="motion-duration-val" for="set-motion-duration">220 ms</output></span>
+                    <input type="range" class="nos-range" id="set-motion-duration" min="120" max="480" step="10" value="220">
+                  </label>
+                  <div class="nos-motion-demo">
+                    <span id="motion-sample">Chuyển cảnh giữa các tab</span>
+                    <button type="button" class="subtle-button" id="motion-preview">Phát thử</button>
+                  </div>
                 </div>
                 <p class="settings-lite-hint" id="settings-lite-hint" hidden>Chế độ máy nhẹ (Lite Mode) đang bật — tự động tạm tắt kính mờ và chuyển động. Tắt Lite Mode ở mục Hiệu năng để tùy chỉnh lại.</p>
               </div>
@@ -790,6 +884,15 @@
 
             <!-- TAB 2: Dashboard -->
             <div class="settings-tab-pane" id="stab-dashboard" hidden>
+              <div class="settings-group-title">Lời chào trang chủ</div>
+              <div class="settings-row settings-row-stack">
+                <div>
+                  <strong>Lời chào tùy chỉnh</strong>
+                  <p>Để trống để chào tự động theo buổi. Dùng {name} nếu muốn chèn tên hồ sơ.</p>
+                </div>
+                <input type="text" id="set-custom-greeting" class="nos-text-input" maxlength="120" placeholder="Ví dụ: Chào buổi sáng, {name} · hoặc lời nhắn riêng của bạn" aria-label="Lời chào tùy chỉnh">
+              </div>
+
               <div class="settings-group-title">Hiển thị thẻ chỉ số (Stat Cards)</div>
               <div class="settings-row">
                 <div><strong>Ghi nhớ (Retention)</strong><p>Tỷ lệ trả lời đúng trong các lượt ôn hôm nay</p></div>
@@ -937,31 +1040,39 @@
               <label class="nos-studio-search"><svg class="icon small"><use href="#i-search"/></svg><input type="search" id="studio-search" placeholder="Tìm ảnh..." autocomplete="off" aria-label="Tìm ảnh"></label></div>
             <div id="studio-gallery" class="nos-studio-gallery" aria-live="polite"></div>
           </section>
-          <aside class="nos-studio-inspector">
-            <div class="nos-studio-label">XEM TRƯỚC &amp; CĂN KHUNG</div>
-            <div class="nos-studio-frame-tabs" id="studio-frame-tabs" role="tablist" aria-label="Tỷ lệ khung xem trước">
-              <button type="button" data-studio-frame="dashboard" role="tab" aria-selected="true">Dashboard</button>
-              <button type="button" data-studio-frame="overview" role="tab" aria-selected="false">Chuẩn bị</button>
-              <button type="button" data-studio-frame="review" role="tab" aria-selected="false">Ôn tập</button>
-              <button type="button" data-studio-frame="cover" role="tab" aria-selected="false">Ảnh bìa</button>
-              <button type="button" data-studio-frame="avatar" role="tab" aria-selected="false">Avatar</button>
-            </div>
-            <div class="nos-studio-preview" id="studio-preview" data-frame-slot="dashboard" data-grid="on">
-              <img id="studio-preview-image" alt="Ảnh đang chọn" decoding="async" draggable="false" hidden>
-              <div class="nos-studio-grid" id="studio-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-              <div class="nos-studio-avatar-ring" aria-hidden="true"></div>
-              <span class="nos-studio-drag-hint" id="studio-drag-hint" hidden>Kéo ảnh để căn góc</span>
-              <p id="studio-preview-empty">Chọn một ảnh trong album để xem.</p>
-            </div>
-            <p id="studio-image-meta" class="nos-studio-meta">Ảnh nguyên gốc được giữ nguyên vẹn, căn khung không làm mất chất lượng.</p>
-            <div id="studio-inspector-fields" hidden>
-              <div class="nos-studio-frame-tools">
-                <button type="button" id="studio-grid-toggle" aria-pressed="true" title="Bật hoặc tắt lưới căn tỷ lệ 3×3">Lưới 3×3</button>
-                <span class="nos-studio-coords" id="studio-frame-coords" data-i18n-skip>50% · 50%</span>
-                <button type="button" id="studio-frame-reset" title="Đặt lại vị trí giữa và tỷ lệ 100%">Đặt lại khung</button>
+          <aside class="nos-studio-inspector" id="studio-inspector">
+            <div class="nos-studio-canvas">
+              <div class="nos-studio-label">XEM TRƯỚC &amp; CĂN KHUNG</div>
+              <div class="nos-studio-frame-tabs" id="studio-frame-tabs" role="tablist" aria-label="Tỷ lệ khung xem trước">
+                <button type="button" data-studio-frame="dashboard" role="tab" aria-selected="true">Dashboard</button>
+                <button type="button" data-studio-frame="overview" role="tab" aria-selected="false">Chuẩn bị</button>
+                <button type="button" data-studio-frame="review" role="tab" aria-selected="false">Ôn tập</button>
+                <button type="button" data-studio-frame="cover" role="tab" aria-selected="false">Ảnh bìa</button>
+                <button type="button" data-studio-frame="avatar" role="tab" aria-selected="false">Avatar</button>
               </div>
-              <label class="nos-studio-field-label nos-studio-range-label" for="studio-zoom">Thu phóng khung <output id="studio-zoom-out" for="studio-zoom">100%</output></label>
-              <input class="nos-studio-range" type="range" id="studio-zoom" min="100" max="250" step="5" value="100">
+              <div class="nos-studio-preview" id="studio-preview" data-frame-slot="dashboard" data-grid="on" role="group" aria-label="Khung ảnh" aria-describedby="studio-drag-hint" tabindex="-1">
+                <img id="studio-preview-image" alt="Ảnh đang chọn" decoding="async" draggable="false" hidden>
+                <div class="nos-studio-grid" id="studio-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                <div class="nos-studio-avatar-ring" aria-hidden="true"></div>
+                <p id="studio-preview-empty">Chọn một ảnh trong album để xem.</p>
+              </div>
+              <div id="studio-frame-controls" hidden>
+                <div class="nos-studio-frame-tools">
+                  <button type="button" id="studio-expand-frame" aria-pressed="false">Căn ảnh rộng</button>
+                  <button type="button" id="studio-grid-toggle" aria-pressed="true" title="Bật hoặc tắt lưới căn tỷ lệ 3×3">Lưới 3×3</button>
+                  <button type="button" id="studio-frame-reset" title="Đặt lại vị trí giữa và tỷ lệ 100%">Đặt lại khung</button>
+                </div>
+                <label class="nos-studio-field-label nos-studio-range-label" for="studio-zoom">Thu phóng khung <output id="studio-zoom-out" for="studio-zoom">100%</output></label>
+                <div class="nos-studio-frame-tools nos-studio-zoom-tools">
+                  <button type="button" id="studio-zoom-less" aria-label="Thu nhỏ" title="Thu nhỏ">−</button>
+                  <input class="nos-studio-range" type="range" id="studio-zoom" min="100" max="250" step="1" value="100">
+                  <button type="button" id="studio-zoom-more" aria-label="Phóng to" title="Phóng to">+</button>
+                </div>
+                <p class="nos-studio-hint" id="studio-drag-hint">Kéo hoặc dùng phím mũi tên để dịch ảnh. Giữ Ctrl khi cuộn để thu phóng.</p>
+              </div>
+              <p id="studio-image-meta" class="nos-studio-meta">Ảnh nguyên gốc được giữ nguyên vẹn, căn khung không làm mất chất lượng.</p>
+            </div>
+            <div id="studio-inspector-fields" hidden>
               <div class="nos-studio-divider"></div>
               <div class="nos-studio-label">DÙNG ẢNH NÀY CHO</div>
               <p class="nos-studio-hint">Nhấn chọn để lưu ngay. Nhấn lần nữa để bỏ ảnh về nền mặc định.</p>
@@ -972,17 +1083,19 @@
                 <button type="button" data-studio-slot="image_cover">Ảnh bìa hồ sơ <span>Chọn</span></button>
                 <button type="button" data-studio-slot="image_avatar">Avatar <span>Chọn</span></button>
               </div>
-              <div class="nos-studio-divider"></div>
-              <div class="nos-studio-label">HIỂN THỊ NỀN</div>
-              <p class="nos-studio-hint">Áp dụng cho nền Dashboard, Chuẩn bị học và Ôn tập. Xem trước ở khung phía trên.</p>
-              <div class="nos-studio-segment" id="studio-fit" role="group" aria-label="Chế độ hiển thị nền">
-                <button type="button" data-studio-fit="cover" aria-pressed="true">Lấp đầy</button>
-                <button type="button" data-studio-fit="contain" aria-pressed="false">Vừa khung</button>
+              <div id="studio-wallpaper-fields">
+                <div class="nos-studio-divider"></div>
+                <div class="nos-studio-label">HIỂN THỊ NỀN</div>
+                <p class="nos-studio-hint">Áp dụng cho nền Dashboard, Chuẩn bị học và Ôn tập. Xem trước ở khung phía trên.</p>
+                <div class="nos-studio-segment" id="studio-fit" role="group" aria-label="Chế độ hiển thị nền">
+                  <button type="button" data-studio-fit="cover" aria-pressed="true">Lấp đầy</button>
+                  <button type="button" data-studio-fit="contain" aria-pressed="false">Vừa khung</button>
+                </div>
+                <label class="nos-studio-field-label nos-studio-range-label" for="studio-dim">Độ tối <output id="studio-dim-out" for="studio-dim">28%</output></label>
+                <input class="nos-studio-range" type="range" id="studio-dim" min="0" max="80" step="2" value="28">
+                <label class="nos-studio-field-label nos-studio-range-label" for="studio-blur">Độ mờ <output id="studio-blur-out" for="studio-blur">0 px</output></label>
+                <input class="nos-studio-range" type="range" id="studio-blur" min="0" max="24" step="1" value="0">
               </div>
-              <label class="nos-studio-field-label nos-studio-range-label" for="studio-dim">Độ tối <output id="studio-dim-out" for="studio-dim">28%</output></label>
-              <input class="nos-studio-range" type="range" id="studio-dim" min="0" max="80" step="2" value="28">
-              <label class="nos-studio-field-label nos-studio-range-label" for="studio-blur">Độ mờ <output id="studio-blur-out" for="studio-blur">0 px</output></label>
-              <input class="nos-studio-range" type="range" id="studio-blur" min="0" max="24" step="1" value="0">
               <div class="nos-studio-divider"></div>
               <label class="nos-studio-field-label" for="studio-image-name">Tên ảnh</label>
               <div class="nos-studio-name-row"><input id="studio-image-name" maxlength="80" autocomplete="off"><button id="studio-rename" type="button">Lưu tên</button></div>
@@ -1015,7 +1128,7 @@
       </section>
     </dialog>
 
-    <section class="launcher glass" id="launcher" aria-label="Tất cả chức năng" hidden><div class="launcher-heading"><span>Không gian AnkiNOS</span><button class="icon-button small-button" data-action="launcher" aria-label="Đóng menu"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="launcher-grid"><button data-action="browse"><svg class="icon"><use href="#i-search"/></svg>Duyệt thẻ</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ</button><button data-action="import"><svg class="icon"><use href="#i-download"/></svg>Nhập thẻ</button><button data-action="export"><svg class="icon"><use href="#i-upload"/></svg>Xuất thẻ</button><button data-action="addons"><svg class="icon"><use href="#i-puzzle"/></svg>Tiện ích</button><button data-action="studio" id="studio-launcher"><svg class="icon"><use href="#i-folder"/></svg>Thư viện ảnh</button><button data-action="sync"><svg class="icon"><use href="#i-sync"/></svg>Đồng bộ</button><button data-action="shared"><svg class="icon"><use href="#i-external"/></svg>Bộ thẻ chia sẻ</button><button data-action="guide"><svg class="icon"><use href="#i-info"/></svg>Hướng dẫn</button><button data-action="about"><svg class="icon"><use href="#i-spark"/></svg>Giới thiệu</button></div></section>
+    <section class="launcher glass" id="launcher" aria-label="Tất cả chức năng" hidden><div class="launcher-heading"><span>Không gian AnkiNOS</span><button class="icon-button small-button" data-action="launcher" aria-label="Đóng menu"><svg class="icon small"><use href="#i-close"/></svg></button></div><div class="launcher-grid"><button data-action="browse"><svg class="icon"><use href="#i-search"/></svg>Duyệt thẻ</button><button data-action="add_cards"><svg class="icon"><use href="#i-plus"/></svg>Thêm thẻ</button><button data-action="import"><svg class="icon"><use href="#i-download"/></svg>Nhập thẻ</button><button data-action="export"><svg class="icon"><use href="#i-upload"/></svg>Xuất thẻ</button><button data-action="addons"><svg class="icon"><use href="#i-puzzle"/></svg>Tiện ích</button><button data-action="studio" id="studio-launcher"><svg class="icon"><use href="#i-folder"/></svg>Thư viện ảnh</button><button data-action="open_custom_ui"><svg class="icon"><use href="#i-grid"/></svg>Tùy biến giao diện</button><button data-action="sync"><svg class="icon"><use href="#i-sync"/></svg>Đồng bộ</button><button data-action="shared"><svg class="icon"><use href="#i-external"/></svg>Bộ thẻ chia sẻ</button><button data-action="guide"><svg class="icon"><use href="#i-info"/></svg>Hướng dẫn</button><button data-action="changelog"><svg class="icon"><use href="#i-spark"/></svg>Nhật ký cập nhật</button><button data-action="about"><svg class="icon"><use href="#i-spark"/></svg>Giới thiệu</button></div></section>
 
     <dialog id="about-dialog" class="info-modal-dialog" aria-labelledby="about-title" aria-modal="true">
       <section class="info-modal-panel glass panel">
@@ -1025,7 +1138,7 @@
             <div>
               <div class="about-title-row">
                 <h2 id="about-title">AnkiNOS</h2>
-                <span class="version-pill" data-i18n-skip>v1.0.0 Beta 2</span>
+                <span class="version-pill" data-i18n-skip>v1.0.1 Beta 2</span>
               </div>
               <p class="section-caption">Không gian học tập kính mờ ngoại tuyến cho trí nhớ dài hạn</p>
             </div>
@@ -1056,7 +1169,7 @@
             </article>
           </div>
           <div class="about-specs">
-            <div><span>Phiên bản</span><strong data-i18n-skip>v1.0.0 Beta 2</strong></div>
+            <div><span>Phiên bản</span><strong data-i18n-skip>v1.0.1 Beta 2</strong></div>
             <div><span>Yêu cầu Anki</span><strong data-i18n-skip>Anki ≥ 25.02</strong></div>
             <div><span>Hoạt động</span><strong>Hoàn toàn ngoại tuyến</strong></div>
             <div><span>Ngôn ngữ</span><strong>Tiếng Việt · English · 简体中文</strong></div>
@@ -1064,12 +1177,292 @@
         </div>
         <div class="info-modal-foot">
           <button type="button" class="primary-button" data-action="guide"><svg class="icon small"><use href="#i-info"/></svg>Hướng dẫn</button>
+          <button type="button" class="subtle-button" data-action="changelog">Nhật ký cập nhật</button>
           <button type="button" class="subtle-button" id="about-copy-diag" data-action="copy_diagnostics" title="Sao chép phiên bản Anki &amp; giao diện để gửi khi cần hỗ trợ — không gồm nội dung thẻ">Sao chép thông tin hỗ trợ</button>
           <button type="button" class="subtle-button" data-action="compatibility">Kiểm tra tương thích</button>
           <button type="button" class="subtle-button" data-action="backup_export">Sao lưu (.nosbackup)</button>
           <button type="button" class="subtle-button" data-action="native_mode">Dùng Anki gốc</button>
           <span class="toolbar-spacer"></span>
           <button type="button" class="subtle-button" data-action="close_about">Đóng</button>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog id="changelog-dialog" class="info-modal-dialog changelog-modal-dialog" aria-labelledby="changelog-title" aria-modal="true">
+      <section class="info-modal-panel glass panel">
+        <div class="info-modal-head">
+          <div class="about-hero-brand">
+            <span class="about-emblem" aria-hidden="true"><svg class="icon"><use href="#i-spark"/></svg></span>
+            <div>
+              <div class="about-title-row">
+                <h2 id="changelog-title">Cập nhật AnkiNOS</h2>
+                <span class="version-pill" data-i18n-skip>v1.0.1 Beta 2</span>
+              </div>
+              <p class="section-caption">Chọn mục có mũi tên để mở thẳng tính năng mới, hoặc xem lịch sử thay đổi theo phiên bản</p>
+            </div>
+          </div>
+          <button type="button" class="icon-button" id="changelog-close" data-action="close_changelog" aria-label="Đóng bảng cập nhật" title="Đóng (Esc)"><svg class="icon"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="guide-tabs" role="tablist" aria-label="Mục cập nhật">
+          <button type="button" class="guide-tab active" data-changelog-tab="highlights" role="tab" aria-selected="true">Tóm tắt bản mới</button>
+          <button type="button" class="guide-tab" data-changelog-tab="history" role="tab" aria-selected="false">Nhật ký cập nhật (Changelog)</button>
+        </div>
+        <div class="info-modal-body changelog-body">
+          <div class="changelog-pane" id="cpane-highlights">
+            <div class="changelog-highlights-grid">
+              <button type="button" class="changelog-card is-action" data-changelog-jump="custom_ui">
+                <strong>Custom UI Studio dễ chỉnh hơn</strong>
+                <p>Sắp xếp khối bằng kéo thả hoặc nhập thông số vị trí, kích thước và lớp hiển thị.</p>
+              </button>
+              <button type="button" class="changelog-card is-action" data-changelog-jump="motion">
+                <strong>Liquid Glass và thư viện chuyển động</strong>
+                <p>Phối chất liệu kính với bảng màu yêu thích, chọn kiểu chuyển cảnh và phát thử trước khi lưu.</p>
+              </button>
+              <button type="button" class="changelog-card is-action" data-changelog-jump="studio">
+                <strong>Căn khung ảnh dễ hơn</strong>
+                <p>Mở rộng vùng xem trước, thu phóng và kéo ảnh để lấy đúng bố cục.</p>
+              </button>
+            </div>
+          </div>
+
+          <div class="changelog-pane" id="cpane-history" hidden>
+            <div class="changelog-timeline">
+              <section class="changelog-release">
+                <div class="changelog-release-head">
+                  <strong data-i18n-skip>v1.0.1 Beta 2</strong>
+                  <span class="changelog-tag is-new">Bản hiện tại</span>
+                </div>
+                <ul>
+                  <li>Custom UI Studio dễ chỉnh hơn</li>
+                  <li>Liquid Glass và thư viện chuyển động</li>
+                  <li>Căn khung ảnh dễ hơn</li>
+                </ul>
+              </section>
+              <section class="changelog-release">
+                <div class="changelog-release-head">
+                  <strong data-i18n-skip>v1.0.1 Beta</strong>
+                </div>
+                <ul>
+                  <li>Thêm Custom UI Studio: tùy biến dựa trên 6 bố cục có sẵn, kéo thả sắp xếp trực tiếp hoặc trong bảng, thêm/sửa/xóa widget (Chỉ số hôm nay, Đồng hồ, Ghi chú dán nhanh, Lối tắt) và lưu nhiều bản giao diện riêng.</li>
+                  <li>Thêm cài đặt lời chào trang chủ tùy chỉnh (hỗ trợ biến {name} và bảo vệ nội dung không bị dịch đè).</li>
+                  <li>Tách riêng bảng Cập nhật &amp; Nhật ký thay đổi (Changelog), thay popup chắn màn hình bằng thẻ nhắc nhẹ có thể tắt.</li>
+                </ul>
+              </section>
+              <section class="changelog-release">
+                <div class="changelog-release-head">
+                  <strong data-i18n-skip>v1.0.0 Beta 2</strong>
+                  <span class="changelog-tag is-note">Trước đó</span>
+                </div>
+                <ul>
+                  <li>Mở rộng lên 16 bảng màu, 8 kiểu chữ ngoại tuyến, tùy chỉnh màu từng thành phần và nút trả lời trong phiên ôn.</li>
+                  <li>Thêm bố cục 4 Cạnh (ẩn 4 dock để ngắm trọn ảnh nền), chế độ ngắm ảnh nền thuần và hỗ trợ tiếng Trung giản thể.</li>
+                  <li>Bổ sung Hướng dẫn sử dụng ngoại tuyến và màn hình chào mừng cho người dùng mới.</li>
+                </ul>
+              </section>
+              <section class="changelog-release">
+                <div class="changelog-release-head">
+                  <strong data-i18n-skip>v1.0.0 Beta</strong>
+                  <span class="changelog-tag is-note">Ra mắt</span>
+                </div>
+                <ul>
+                  <li>Ra mắt giao diện kính mờ ngoại tuyến cho Anki với 6 bố cục, ANOS Daily Scheduler, Thống kê gốc, Media Studio, Focus Mode, Lệnh nhanh (Ctrl+K), Sổ tay và sao lưu .nosbackup.</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="info-modal-foot">
+          <label class="changelog-mute-toggle">
+            <input type="checkbox" id="set-update-notice-muted">
+            <span>Không hiện thẻ nhắc khi có bản mới</span>
+          </label>
+          <span class="toolbar-spacer"></span>
+          <button type="button" class="primary-button" data-action="close_changelog">Đóng</button>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog id="custom-ui-dialog" class="info-modal-dialog cui-modal-dialog" aria-labelledby="cui-title" aria-modal="true">
+      <section class="info-modal-panel glass panel cui-panel">
+        <div class="info-modal-head">
+          <div class="heading-title">
+            <span class="section-icon"><svg class="icon"><use href="#i-grid"/></svg></span>
+            <div>
+              <h2 id="cui-title">Custom UI Studio</h2>
+            </div>
+          </div>
+          <button type="button" class="icon-button" id="cui-close" data-action="close_custom_ui" aria-label="Đóng Custom UI Studio" title="Đóng (Esc)"><svg class="icon"><use href="#i-close"/></svg></button>
+        </div>
+
+        <div class="cui-body">
+          <aside class="cui-sidebar" aria-label="Bản giao diện đã lưu">
+            <div class="cui-sidebar-head">
+              <strong>Bản của bạn</strong>
+              <button type="button" class="subtle-button cui-new-btn" id="cui-new-preset">+ Tạo mới</button>
+            </div>
+            <div class="cui-preset-list" id="cui-preset-list"></div>
+            <button type="button" class="subtle-button cui-use-builtin-btn" id="cui-use-builtin">Dùng bố cục mặc định</button>
+          </aside>
+
+          <div class="cui-editor" id="cui-editor">
+            <div class="guide-tabs cui-tabs" role="tablist" aria-label="Mục tùy biến giao diện">
+              <button type="button" class="guide-tab active" id="cuitab-layout" data-cui-tab="layout" role="tab" aria-selected="true" aria-controls="cuipane-layout">Bố cục</button>
+              <button type="button" class="guide-tab" id="cuitab-blocks" data-cui-tab="blocks" role="tab" aria-selected="false" aria-controls="cuipane-blocks" tabindex="-1">Các khối</button>
+              <button type="button" class="guide-tab" id="cuitab-nav" data-cui-tab="nav" role="tab" aria-selected="false" aria-controls="cuipane-nav" tabindex="-1">Điều hướng</button>
+              <button type="button" class="guide-tab" id="cuitab-toolboxes" data-cui-tab="toolboxes" role="tab" aria-selected="false" aria-controls="cuipane-toolboxes" tabindex="-1">Hộp công cụ</button>
+            </div>
+
+            <div class="cui-tab-pane" id="cuipane-layout" role="tabpanel" aria-labelledby="cuitab-layout">
+              <div class="cui-section">
+                <div class="cui-row-grid">
+                  <label class="cui-field">
+                    <span>Tên bản giao diện</span>
+                    <input type="text" id="cui-name" class="nos-text-input" maxlength="48" placeholder="Ví dụ: Góc học tối giản của tôi">
+                  </label>
+                  <label class="cui-field">
+                    <span>Nền bố cục gốc (6 giao diện)</span>
+                    <select id="cui-base" class="nos-select">
+                      <option value="aurora">Cực quang (Aurora)</option>
+                      <option value="bento">Bento</option>
+                      <option value="dock">Dock nổi</option>
+                      <option value="sidebar">Không gian làm việc (Sidebar)</option>
+                      <option value="zen">Zen</option>
+                      <option value="edges">4 Cạnh (Ảnh nền)</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="cui-tab-pane" id="cuipane-blocks" role="tabpanel" aria-labelledby="cuitab-blocks" hidden>
+              <div class="cui-section">
+                <div class="cui-section-title">Cấu trúc &amp; tỷ lệ</div>
+                <div class="cui-controls-grid">
+                  <label class="cui-field">
+                    <span>Kiểu sắp xếp</span>
+                    <select id="cui-mode" class="nos-select">
+                      <option value="freeform">Lắp ghép tự do (Kéo thả &amp; Co giãn)</option>
+                      <option value="grid">Lưới tự động (Theo cột)</option>
+                    </select>
+                  </label>
+                  <label class="cui-field">
+                    <span>Số cột (chế độ lưới)</span>
+                    <select id="cui-columns" class="nos-select">
+                      <option value="auto">Theo bố cục gốc</option>
+                      <option value="1">1 cột tập trung</option>
+                      <option value="2">2 cột cân đối</option>
+                    </select>
+                  </label>
+                  <label class="cui-field">
+                    <span>Độ rộng nội dung</span>
+                    <select id="cui-width" class="nos-select">
+                      <option value="compact">Gọn (960px)</option>
+                      <option value="normal">Tiêu chuẩn</option>
+                      <option value="wide">Rộng tối đa</option>
+                    </select>
+                  </label>
+                  <label class="cui-field">
+                    <span>Căn lề lời chào</span>
+                    <select id="cui-greeting-align" class="nos-select">
+                      <option value="default">Theo bố cục gốc</option>
+                      <option value="center">Căn giữa</option>
+                    </select>
+                  </label>
+                  <label class="cui-field">
+                    <span class="cui-field-head"><span>Khoảng cách khối</span><output id="cui-gap-val" for="cui-gap" data-i18n-skip>18 px</output></span>
+                    <input type="range" id="cui-gap" class="nos-range" min="8" max="32" step="2" value="18">
+                  </label>
+                  <label class="cui-field">
+                    <span class="cui-field-head"><span>Bo góc thẻ</span><output id="cui-radius-val" for="cui-radius" data-i18n-skip>22 px</output></span>
+                    <input type="range" id="cui-radius" class="nos-range" min="10" max="30" step="2" value="22">
+                  </label>
+                </div>
+                <div class="cui-toggles-row">
+                  <label class="cui-check"><input type="checkbox" id="cui-snap" checked><span>Hít lưới 12px khi kéo</span></label>
+                  <label class="cui-check"><input type="checkbox" id="cui-show-topbar" checked><span>Hiện thanh trên cùng</span></label>
+                  <label class="cui-check"><input type="checkbox" id="cui-show-greeting" checked><span>Hiện lời chào</span></label>
+                  <label class="cui-check"><input type="checkbox" id="cui-show-goal" checked><span>Hiện mục tiêu ngày</span></label>
+                </div>
+              </div>
+
+              <div class="cui-section">
+                <div class="cui-section-head">
+                  <div>
+                    <div class="cui-section-title">Các khối trên trang chủ</div>
+                    <p class="theme-help" id="cui-geometry-help">Mở Sửa để nhập vị trí, kích thước và lớp hiển thị. Để trống chiều rộng hoặc chiều cao để tự căn.</p>
+                  </div>
+                  <button type="button" class="subtle-button" id="cui-reset-positions">Sắp gọn vị trí</button>
+                </div>
+                <div class="cui-add-bar" role="group" aria-label="Thêm khối widget mới">
+                  <button type="button" class="subtle-button" data-cui-add="toolbox">+ Hộp công cụ</button>
+                  <button type="button" class="subtle-button" data-cui-add="quick_stats">+ Chỉ số hôm nay</button>
+                  <button type="button" class="subtle-button" data-cui-add="clock">+ Đồng hồ</button>
+                  <button type="button" class="subtle-button" data-cui-add="memo">+ Ghi chú nhanh</button>
+                  <button type="button" class="subtle-button" data-cui-add="shortcuts">+ Lối tắt nhanh</button>
+                </div>
+                <div class="cui-blocks-list" id="cui-blocks-list"></div>
+              </div>
+            </div>
+
+            <div class="cui-tab-pane" id="cuipane-nav" role="tabpanel" aria-labelledby="cuitab-nav" hidden>
+              <div class="cui-section">
+                <div class="cui-section-title">Vị trí &amp; kiểu thanh điều hướng (Sidebar / Dock)</div>
+                <p class="theme-help">Đặt thanh điều hướng ở bất kỳ cạnh nào, thả nổi tự do để kéo đi khắp màn hình, hoặc ẩn đi nếu bạn dùng Hộp công cụ riêng.</p>
+                <div class="cui-row-grid">
+                  <label class="cui-field">
+                    <span>Vị trí thanh điều hướng</span>
+                    <select id="cui-nav-placement" class="nos-select">
+                      <option value="default">Theo bố cục gốc</option>
+                      <option value="left">Cạnh trái (Sidebar)</option>
+                      <option value="right">Cạnh phải (Sidebar)</option>
+                      <option value="top">Cạnh trên (Dock ngang)</option>
+                      <option value="bottom">Cạnh dưới (Dock ngang)</option>
+                      <option value="floating">Tự do (Kéo đi mọi nơi)</option>
+                      <option value="hidden">Ẩn thanh điều hướng</option>
+                    </select>
+                  </label>
+                  <label class="cui-field">
+                    <span>Hướng sắp xếp nút</span>
+                    <select id="cui-nav-orientation" class="nos-select">
+                      <option value="auto">Tự động theo vị trí</option>
+                      <option value="vertical">Thanh dọc</option>
+                      <option value="horizontal">Thanh ngang</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="cui-section">
+                <div class="cui-section-title">Thứ tự &amp; hiển thị chức năng trên Sidebar / Dock</div>
+                <p class="theme-help">Kéo thả hoặc dùng mũi tên để đổi vị trí từng chức năng, hoặc bấm nút để ẩn/hiện.</p>
+                <div class="cui-nav-list" id="cui-nav-list"></div>
+              </div>
+            </div>
+
+            <div class="cui-tab-pane" id="cuipane-toolboxes" role="tabpanel" aria-labelledby="cuitab-toolboxes" hidden>
+              <div class="cui-section">
+                <div class="cui-section-title">Tạo hộp chứa công cụ tùy chỉnh</div>
+                <p class="theme-help">Tạo nhiều khay chứa công cụ theo phong cách Dock ngang, Sidebar dọc, Lưới ô hoặc Viên thuốc gọn — tự chọn và sắp xếp nút công cụ bên trong, rồi kéo đặt ở bất cứ đâu trên màn hình.</p>
+                <div class="cui-add-bar" role="group" aria-label="Tạo hộp chứa công cụ">
+                  <button type="button" class="subtle-button" data-cui-add-toolbox="dock">+ Thanh ngang (Dock)</button>
+                  <button type="button" class="subtle-button" data-cui-add-toolbox="rail">+ Thanh dọc (Sidebar)</button>
+                  <button type="button" class="subtle-button" data-cui-add-toolbox="grid">+ Lưới ô (Grid)</button>
+                  <button type="button" class="subtle-button" data-cui-add-toolbox="pill">+ Viên thuốc gọn (Pill)</button>
+                </div>
+                <div class="cui-toolboxes-list" id="cui-toolboxes-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-modal-foot cui-foot">
+          <button type="button" class="subtle-button" id="cui-live-edit">Kéo thả trực tiếp</button>
+          <button type="button" class="subtle-button" id="cui-duplicate">Nhân bản</button>
+          <button type="button" class="subtle-button cui-danger-btn" id="cui-delete">Xóa bản này</button>
+          <span class="toolbar-spacer"></span>
+          <button type="button" class="subtle-button" data-action="close_custom_ui">Đóng</button>
+          <button type="button" class="primary-button" id="cui-save-apply">Lưu &amp; Áp dụng</button>
         </div>
       </section>
     </dialog>
@@ -1102,11 +1495,15 @@
               </article>
               <article class="guide-card">
                 <h3>2. Màu sắc, Kiểu chữ &amp; Ảnh nền</h3>
-                <p>Mở Giao diện trên thanh điều hướng. Chọn chủ đề, chỉnh bố cục hoặc màu từng thành phần. Trong Phiên ôn tập, bạn có thể chỉnh nền khung thẻ và bốn nút trả lời. Nhấn Áp dụng để lưu theo hồ sơ. Ảnh nền riêng cho từng màn hình nằm trong Thư viện ảnh.</p>
+                <p>Mở Giao diện trên thanh điều hướng. Chọn chủ đề, chỉnh bố cục hoặc màu từng thành phần. Trong Phiên ôn tập, bạn có thể chỉnh nền khung thẻ và bốn nút trả lời. Nhấn Áp dụng để lưu theo hồ sơ. Ảnh nền riêng cho từng màn hình nằm trong Thư viện ảnh. Trong Bố cục &amp; hiệu ứng, chọn Liquid Glass hoặc phát thử một chuyển cảnh. Trong Thư viện ảnh, chọn màn hình cần căn rồi mở chế độ căn ảnh rộng để kéo và thu phóng.</p>
               </article>
               <article class="guide-card">
                 <h3>3. Bắt đầu phiên học gọn nhẹ</h3>
                 <p>Khối “Bước tiếp theo của bạn” trên Trang chủ gợi ý bộ thẻ ưu tiên và ước lượng thời gian dựa trên tốc độ thực tế 30 ngày của bạn. Bạn có thể thu gọn khối này hoặc Heatmap bất cứ lúc nào để ngắm ảnh nền.</p>
+              </article>
+              <article class="guide-card">
+                <h3>Tùy biến trang chủ</h3>
+                <p>Trong Custom UI Studio, chọn bố cục rồi thêm các khối và công cụ bạn cần. Dùng Kéo thả trực tiếp để sắp xếp, hoặc mở Sửa trong Các khối để nhập kích thước và vị trí. Bảng chi tiết giữ các thay đổi đang làm. Khi hoàn tất, chọn Lưu &amp; Áp dụng.</p>
               </article>
             </div>
           </div>
@@ -1188,7 +1585,7 @@
           </div>
         </div>
         <div class="info-modal-foot">
-          <button type="button" class="subtle-button" data-action="about">Về AnkiNOS (v1.0.0 Beta 2)</button>
+          <button type="button" class="subtle-button" data-action="about">Về AnkiNOS (v1.0.1 Beta 2)</button>
           <span class="toolbar-spacer"></span>
           <button type="button" class="primary-button" data-action="close_guide">Đã hiểu</button>
         </div>
@@ -1200,7 +1597,7 @@
         <div class="welcome-brand-pill" data-i18n-skip>
           <span class="welcome-logo-mark" aria-hidden="true"><svg class="icon"><use href="#i-spark"/></svg></span>
           <span class="welcome-wordmark">Anki<strong>NOS</strong></span>
-          <span class="version-pill">v1.0.0 Beta 2</span>
+          <span class="version-pill">v1.0.1 Beta 2</span>
         </div>
         <h1 id="welcome-title">Cảm ơn bạn đã dùng thử AnkiNOS!</h1>
         <p class="welcome-copy">AnkiNOS làm mới không gian học cho gọn và dịu mắt hơn mà vẫn giữ nguyên toàn bộ thẻ học của bạn. Vì có vài nút và cách dùng mới, bạn có thể xem nhanh Hướng dẫn hoặc vào Cài đặt bất cứ lúc nào.</p>
@@ -1228,5 +1625,6 @@
   <script src="assets/focus-dashboard.js"></script>
   <script src="assets/study-dashboard.js"></script>
   <script src="assets/daily-schedule.js"></script>
+  <script src="assets/custom-ui.js"></script>
 </body>
 </html>

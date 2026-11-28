@@ -20,7 +20,7 @@ from aqt.operations.deck import add_deck, remove_decks
 from aqt.qt import QAction, QApplication, QComboBox, QDesktopServices, QDialog, QDialogButtonBox, QEvent, QFileDialog, QFormLayout, QColor, QImage, QImageReader, QLocale, QPainter, QSize, QInputDialog, QLabel, QLineEdit, QMenu, QObject, QTimer, QUrl, QCursor, Qt, qconnect
 from aqt.utils import askUser, getOnlyText, showWarning
 
-from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, quick_snapshot, clear_snapshot_cache
+from .data import collect_snapshot, collect_overview_snapshot, collect_history_year, overview_base, quick_snapshot, pending_snapshot, clear_snapshot_cache
 from .i18n import format_restore_preview, translate as _translate_text
 from .theme_settings import (DEFAULT_FONT, DEFAULT_GLASS_BLUR, DEFAULT_GLASS_OPACITY, DEFAULT_LANGUAGE, DEFAULT_LAYOUT,
                              DEFAULT_REVIEWER_CARD_OPACITY, DEFAULT_SIDEBAR_SIDE, LANGUAGE_AUTO, THEME_DEFAULTS,
@@ -47,7 +47,7 @@ _navigating = False
 _library_focus: str | None = None
 _dashboard_tree: Any = None
 _dashboard_tree_rev = -1
-_refresh_queued = False
+_snapshot_requested = False
 _data_revision = 0
 _review_changes_only = True
 _history_queries: set[tuple[int, str, int]] = set()
@@ -275,12 +275,11 @@ def _maybe_cleanup_daily_filtered_deck() -> None:
 
 def _state_changing(new: str, _old: str) -> None:
     global _overview_rendered, _overview_pending, _navigating, _live_context, _quick_plan
-    global _dashboard_tree, _dashboard_tree_rev, _prefetched_snapshot, _data_revision, _refresh_queued
+    global _dashboard_tree, _dashboard_tree_rev, _prefetched_snapshot, _data_revision
     _live_context = None
     _navigating = False
     _overview_rendered = False
     _overview_pending = False
-    _refresh_queued = False
     if new not in {"overview", "review"}:
         _quick_plan = None
     if _old == "review" and new in {"deckBrowser", "overview"}:
@@ -463,13 +462,25 @@ def _begin_navigation() -> None:
         _refresh_timer.stop()
 
 
+def _addon_version() -> str:
+    try:
+        data = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
+        ver = data.get("version")
+        if isinstance(ver, str) and ver.strip():
+            return ver.strip()[:32]
+    except Exception:
+        pass
+    return "1.0.1-beta.2"
+
+
 def settings() -> dict[str, Any]:
     profile = config().get("profiles", {}).get(mw.pm.name, {})
     cleaned = clean_theme_settings(profile)
     anki_locale = _anki_locale()
     lang_pref = cleaned.get("language", LANGUAGE_AUTO)
     effective_lang = resolve_system_language(anki_locale) if lang_pref == LANGUAGE_AUTO else lang_pref
-    return {"goal": 200, **THEME_DEFAULTS,
+    return {"goal": 200, "custom_greeting": "", "update_notice_muted": False,
+            "custom_ui_presets": [], "custom_ui_active": "", **THEME_DEFAULTS,
             "activity_collapsed": False, "launchpad_collapsed": False, "library_collapsed": False, "sidebar_collapsed": False,
             "welcome_dismissed": False,
             "favorites": [], "colors": {}, "resources": [], "view": "list",
@@ -486,6 +497,8 @@ def settings() -> dict[str, Any]:
             **profile,
             "image_frames": valid_image_frames(profile.get("image_frames")),
             "theme_overrides": cleaned.get("theme_overrides", {}),
+            **{key: cleaned.get(key, THEME_DEFAULTS[key])
+               for key in ("surface_style", "motion_preset", "motion_duration")},
             "text_color": cleaned.get("text_color", "auto"),
             "custom_text_color": cleaned.get("custom_text_color", THEME_DEFAULTS["custom_text_color"]),
             "rating_colors": cleaned.get("rating_colors", "auto"),
@@ -501,7 +514,16 @@ def settings() -> dict[str, Any]:
             "glass_opacity": cleaned.get("glass_opacity", DEFAULT_GLASS_OPACITY),
             "language_pref": lang_pref,
             "anki_locale": anki_locale,
-            "language": effective_lang}
+            "language": effective_lang,
+            "addon_version": _addon_version(),
+            "update_notice_muted": bool(profile.get("update_notice_muted", False)),
+            "custom_ui_presets": cleaned.get("custom_ui_presets", []),
+            "custom_ui_active": cleaned.get("custom_ui_active", "")
+            if cleaned.get("custom_ui_active", "") in {p["id"] for p in cleaned.get("custom_ui_presets", [])} else "",
+            "whats_new_seen_version": profile.get("whats_new_seen_version", "")
+            if isinstance(profile.get("whats_new_seen_version"), str) else "",
+            "custom_greeting": re.sub(r"[\x00-\x1f\x7f]+", " ", profile.get("custom_greeting", "")).strip()[:120]
+            if isinstance(profile.get("custom_greeting"), str) else ""}
 
 
 def public_settings() -> dict[str, Any]:
@@ -791,7 +813,7 @@ def _deliver_snapshot(snapshot: dict[str, Any], profile_name: str, overview: boo
 
 
 def refresh(*, prefetch: bool = False) -> None:
-    global _active_query, _dashboard_tree, _dashboard_tree_rev, _prefetched_snapshot, _refresh_queued
+    global _active_query, _dashboard_tree, _dashboard_tree_rev, _prefetched_snapshot
     if _navigating or not mw.col or mw.state not in {"deckBrowser", "overview"} or not enabled():
         return
     overview = mw.state == "overview"
@@ -805,10 +827,8 @@ def refresh(*, prefetch: bool = False) -> None:
         return
     token = (_generation, mw.pm.name)
     if _active_query == token:
-        _refresh_queued = True
         return
     _active_query = token
-    _refresh_queued = False
     profile_name = mw.pm.name
     revision, review_only = _data_revision, _review_changes_only
     tree = _dashboard_tree if (not overview and _dashboard_tree is not None and _dashboard_tree_rev == revision) else None
@@ -817,38 +837,41 @@ def refresh(*, prefetch: bool = False) -> None:
         _dashboard_tree_rev = -1
 
     def success(snapshot: dict[str, Any] | None) -> None:
-        global _active_query, _review_changes_only, _prefetched_snapshot, _refresh_queued
+        global _active_query, _review_changes_only, _prefetched_snapshot
         if _active_query == token:
             _active_query = None
-        if token != (_generation, mw.pm.name) or not mw.col:
+        if token != (_generation, mw.pm.name) or not mw.col or _navigating:
             return
-        if _refresh_queued or revision != _data_revision:
-            _refresh_queued = False
-            QTimer.singleShot(0, refresh)
+        if revision != _data_revision:
+            refresh(prefetch=prefetch)
             return
         if snapshot is None:
             return
         if not overview:
             _review_changes_only = True
-        if prefetch and not overview:
-            # Keep the prefetched payload ready if JS hasn't finished booting yet,
-            # and also push immediately if window.AnkiNOS is already mounted.
-            _prefetched_snapshot = ((token[0], profile_name, revision), snapshot)
-        else:
-            _prefetched_snapshot = None
+        if not overview and not _snapshot_requested:
+            # JS explicitly takes the prefetch after mounting, so one result
+            # serves both the early collection job and the WebView request.
+            _prefetched_snapshot = (cache_key, snapshot)
+            return
+        _prefetched_snapshot = None
         _deliver_snapshot(snapshot, profile_name, overview)
 
     def failure(error: Exception) -> None:
         global _active_query
         if _active_query == token:
             _active_query = None
-        if token == (_generation, mw.pm.name) and not prefetch:
+        if token != (_generation, mw.pm.name) or not mw.col or _navigating:
+            return
+        if revision != _data_revision:
+            refresh(prefetch=prefetch)
+        elif overview or _snapshot_requested:
             send("error", "Không thể đọc dữ liệu Anki: " + str(error))
 
     def read(col: Any) -> dict[str, Any] | None:
         # Anki serializes collection jobs. Don't let an abandoned dashboard job
         # queue expensive scans in front of selecting/answering a card.
-        if token != (_generation, mw.pm.name) or _navigating:
+        if token != (_generation, mw.pm.name) or _navigating or revision != _data_revision:
             return None
         return collect_overview_snapshot(col) if overview else collect_snapshot(
             col, due_tree=tree, revision=revision, review_only=review_only)
@@ -1175,7 +1198,7 @@ def _stats_graphs(
         if revision != _data_revision:
             _stats_graphs(scope, days, search=clean_search, deck_id=clean_deck_id)
             return
-        send("graphs", payload)
+        send("graphs", {**payload, "revision": revision})
 
     def failure(error: Exception) -> None:
         if token == (_generation, mw.pm.name, _stats_request_serial):
@@ -1244,11 +1267,12 @@ def _history_year(year: int) -> None:
 
 
 def _replace_content(content: Any, context: Any) -> None:
-    global _generation, _overview_rendered, _overview_pending, _dashboard_tree, _dashboard_tree_rev, _live_context, _prefetched_snapshot, _landing_page
+    global _generation, _overview_rendered, _overview_pending, _dashboard_tree, _dashboard_tree_rev, _live_context, _prefetched_snapshot, _landing_page, _snapshot_requested
     if not isinstance(context, (DeckBrowser, Overview)) or not enabled():
         return
     _live_context = context
     _prefetched_snapshot = None
+    _snapshot_requested = False
     overview = isinstance(context, Overview)
     if overview:
         _overview_rendered = _overview_pending = True
@@ -1287,7 +1311,7 @@ def _replace_content(content: Any, context: Any) -> None:
         try:
             initial = quick_snapshot(mw.col, due_tree=_dashboard_tree, revision=_data_revision)
         except Exception:
-            initial = {"partial": True}
+            initial = pending_snapshot()
         initial.update(
             profile=mw.pm.name,
             settings=current_settings,
@@ -1300,10 +1324,18 @@ def _replace_content(content: Any, context: Any) -> None:
         if _landing_page:
             initial["open_page"], _landing_page = _landing_page, None
         content.body += '<textarea id="nos-dashboard-bootstrap" hidden>' + html.escape(json.dumps(initial, ensure_ascii=True)) + '</textarea>'
-        if initial.get("partial"):
+        _snapshot_requested = not initial.get("partial")
+        if not _snapshot_requested:
             # Start computing the full revlog snapshot immediately in parallel
             # with HTML/CSS/JS parsing so first load finishes without waiting.
-            QTimer.singleShot(0, lambda: refresh(prefetch=True))
+            generation = _generation
+            QTimer.singleShot(0, lambda: refresh(prefetch=True)
+                              if generation == _generation and not _snapshot_requested else None)
+        else:
+            # A later refresh can see a different learning queue at the same
+            # revision. Reuse Anki's render tree only on the initial load.
+            _dashboard_tree = None
+            _dashboard_tree_rev = -1
     package = mw.addonManager.addonFromModule(MODULE)
     base = f"/_addons/{package}/assets"
     content.css = [p for p in content.css if p != "css/deckbrowser.css"]
@@ -1335,6 +1367,8 @@ def _replace_content(content: Any, context: Any) -> None:
     content.css.append(f"{base}/theme.css")
     if not overview:
         content.css.append(f"{base}/layouts.css")
+        content.css.append(f"{base}/custom-ui.css")
+        content.js.append(f"{base}/custom-ui.js")
 
 
 
@@ -1567,7 +1601,7 @@ def _save_ui(values: Any) -> None:
     patch: dict[str, Any] = clean_theme_settings(values)
     for key in (
         "activity_collapsed", "launchpad_collapsed", "library_collapsed", "sidebar_collapsed",
-        "welcome_dismissed", "blur", "animations", "lite_mode",
+        "welcome_dismissed", "update_notice_muted", "blur", "animations", "lite_mode",
         "stat_retention", "stat_pace", "stat_time", "stat_studied",
     ):
         if type(values.get(key)) is bool:
@@ -1581,6 +1615,10 @@ def _save_ui(values: Any) -> None:
             patch[key] = values[key]
     if type(values.get("goal")) is int and 1 <= values["goal"] <= 100_000:
         patch["goal"] = values["goal"]
+    if isinstance(values.get("custom_greeting"), str):
+        patch["custom_greeting"] = re.sub(r"[\x00-\x1f\x7f]+", " ", values["custom_greeting"]).strip()[:120]
+    if isinstance(values.get("whats_new_seen_version"), str) and re.fullmatch(r"[A-Za-z0-9._-]{1,32}", values["whats_new_seen_version"]):
+        patch["whats_new_seen_version"] = values["whats_new_seen_version"]
     if type(values.get("ui_scale")) is int and values["ui_scale"] in {85, 90, 100, 110, 120}:
         patch["ui_scale"] = values["ui_scale"]
     if type(values.get("study_budget")) is int and values["study_budget"] in {15, 30, 60}:
@@ -1626,12 +1664,15 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
     if (isinstance(context, Overview) and mw.state != "overview") or (isinstance(context, DeckBrowser) and mw.state != "deckBrowser"):
         return (True, None)
     try:
-        if len(message) > 32_000:
+        if len(message) > 256_000:
             return (True, None)
         command = json.loads(message[4:])
         if not isinstance(command, dict):
             return (True, None)
         action = command.get("action")
+        # A full Custom UI preset library can exceed the limit for ordinary commands.
+        if len(message) > 32_000 and action not in ("save_ui", "apply_settings"):
+            return (True, None)
         if action == "daily":
             if context is _live_context and isinstance(context, DeckBrowser):
                 if _navigating:
@@ -1694,6 +1735,8 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
         elif action == "back":
             mw.moveToState("deckBrowser")
         elif action == "snapshot":
+            global _snapshot_requested
+            _snapshot_requested = True
             if command.get('force') is True:
                 global _prefetched_snapshot
                 _prefetched_snapshot = None
@@ -1811,6 +1854,8 @@ def bridge(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool,
             menu.exec(QCursor.pos())
         elif action == "save_ui":
             _save_ui(command.get("values"))
+            # A snapshot sent while the save was in flight may still have older settings.
+            send("settings", public_settings())
         elif action == "apply_settings":
             _save_ui(command.get("values"))
             current_public = public_settings()
@@ -1856,7 +1901,7 @@ def _operation_finished(changes: Any, initiator: Any) -> None:
 
 
 def _profile_closing() -> None:
-    global _generation, _active_query, _library_focus, _dashboard_tree, _dashboard_tree_rev, _refresh_queued, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page, _prefetched_snapshot
+    global _generation, _active_query, _library_focus, _dashboard_tree, _dashboard_tree_rev, _data_revision, _review_changes_only, _stats_request_serial, _live_context, _landing_page, _prefetched_snapshot
     _live_context = None
     _generation += 1
     _stats_request_serial += 1
@@ -1865,7 +1910,6 @@ def _profile_closing() -> None:
     _landing_page = None
     _dashboard_tree = None
     _dashboard_tree_rev = -1
-    _refresh_queued = False
     _prefetched_snapshot = None
     _data_revision += 1
     _review_changes_only = False

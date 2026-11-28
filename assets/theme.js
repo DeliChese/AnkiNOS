@@ -169,6 +169,8 @@
     node.dataset.theme=result.mode==='system'?(result.light?'light':'night'):result.mode;
     node.dataset.colorTheme=result.id;
     node.dataset.colorMode=scheme;
+    node.dataset.surfaceStyle=settings.surface_style==='liquid'&&settings.blur!==false&&!settings.lite_mode
+      ? 'liquid' : 'frosted';
     if(node.id==='nos-review-shell') {
       // Strictly isolate flashcard content (#qa) from UI text color, --text, and
       // color-scheme overrides: apply full theme tokens only to sibling chrome.

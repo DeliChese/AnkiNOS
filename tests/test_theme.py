@@ -13,6 +13,12 @@ class ThemeTests(unittest.TestCase):
         for mode in ("dusk", "night", "oled", "light"):
             self.assertEqual(theme.clean_theme_settings({"theme": mode, "accent": "blue"}), {"theme": mode, "accent": "blue"})
 
+    def test_material_and_motion_values_are_validated(self):
+        valid = {"surface_style": "liquid", "motion_preset": "spring", "motion_duration": 320}
+        self.assertEqual(theme.clean_theme_settings(valid), valid)
+        invalid = {"surface_style": [], "motion_preset": "invalid", "motion_duration": True}
+        self.assertEqual(theme.clean_theme_settings(invalid), {})
+
     def test_custom_and_automatic_colors_survive_validation(self):
         self.assertEqual(theme.clean_theme_settings({"theme": "system", "color_theme": "rosepine", "accent": "custom", "custom_accent": "#Ab12CD"}),
                          {"theme": "system", "color_theme": "rosepine", "accent": "custom", "custom_accent": "#ab12cd"})
@@ -120,6 +126,71 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(theme.clean_theme_settings({"custom_text_color": bad_hex, "rating_color_again": bad_hex}), {})
         for bad_mode in ("manual", "", None, 1, True):
             self.assertEqual(theme.clean_theme_settings({"text_color": bad_mode, "rating_colors": bad_mode}), {})
+
+    def test_custom_ui_presets_are_validated_and_sanitized(self):
+        cleaned = theme.clean_theme_settings({
+            "custom_ui_active": "preset_1",
+            "custom_ui_presets": [
+                {
+                    "id": "preset_1",
+                    "name": "  Góc học\nriêng  ",
+                    "base": "bento",
+                    "mode": "freeform",
+                    "snap": False,
+                    "show_topbar": False,
+                    "columns": "2",
+                    "gap": 99,
+                    "radius": 4,
+                    "width": "compact",
+                    "show_greeting": False,
+                    "show_goal": True,
+                    "greeting_align": "center",
+                    "nav": {
+                        "placement": "floating",
+                        "orientation": "horizontal",
+                        "x": 120,
+                        "y": -50,
+                        "order": ["stats", "home", "invalid_nav"],
+                        "hidden": ["notebook", "bad_key"],
+                    },
+                    "blocks": [
+                        {"id": "w_memo", "type": "memo", "title": "  Nhắc\tnhở ", "body": "Dòng 1\nDòng 2\x00", "span": "full", "hidden": False, "x": 48, "y": 96, "w": 5000, "h": 20, "z": 99},
+                        {"id": "w_tb", "type": "toolbox", "title": "Thanh nhanh", "style": "pill", "tools": ["sync", "add_cards", "evil_tool"], "x": 12, "y": 12, "w": 300, "h": 72},
+                        {"id": "launchpad", "type": "launchpad", "span": "half", "hidden": False},
+                        {"id": "../bad", "type": "clock", "span": "half"},
+                        {"id": "w_unknown", "type": "evil_script"},
+                    ],
+                },
+                {"id": "../invalid", "name": "Bad"},
+            ],
+        })
+        self.assertEqual(cleaned["custom_ui_active"], "preset_1")
+        self.assertEqual(len(cleaned["custom_ui_presets"]), 1)
+        preset = cleaned["custom_ui_presets"][0]
+        self.assertEqual(preset["name"], "Góc học riêng")
+        self.assertEqual(preset["base"], "bento")
+        self.assertEqual(preset["mode"], "freeform")
+        self.assertFalse(preset["snap"])
+        self.assertFalse(preset["show_topbar"])
+        self.assertEqual(preset["gap"], 32)
+        self.assertEqual(preset["radius"], 10)
+        self.assertFalse(preset["show_greeting"])
+        self.assertEqual(preset["nav"]["placement"], "floating")
+        self.assertEqual(preset["nav"]["orientation"], "horizontal")
+        self.assertEqual(preset["nav"]["x"], 120)
+        self.assertEqual(preset["nav"]["y"], 0)
+        self.assertEqual(preset["nav"]["order"][:2], ["stats", "home"])
+        self.assertEqual(preset["nav"]["hidden"], ["notebook"])
+        # Core block `activity` is auto-restored if omitted; malformed widgets are dropped.
+        self.assertEqual([b["id"] for b in preset["blocks"]], ["w_memo", "w_tb", "launchpad", "activity"])
+        self.assertEqual(preset["blocks"][0]["title"], "Nhắc nhở")
+        self.assertEqual(preset["blocks"][0]["body"], "Dòng 1\nDòng 2")
+        self.assertEqual(preset["blocks"][0]["w"], 1600)
+        self.assertEqual(preset["blocks"][0]["h"], 56)
+        self.assertEqual(preset["blocks"][0]["z"], 50)
+        self.assertEqual(preset["blocks"][1]["style"], "pill")
+        self.assertEqual(preset["blocks"][1]["tools"], ["sync", "add_cards"])
+        self.assertEqual(theme.clean_theme_settings({"custom_ui_active": "../bad"}), {})
 
 
 if __name__ == "__main__":

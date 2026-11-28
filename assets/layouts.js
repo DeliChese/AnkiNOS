@@ -107,7 +107,7 @@
   }
 
   function syncEdgeDocks() {
-    const shouldMount = current() === 'edges' && desktop.matches;
+    const shouldMount = current() === 'edges' && desktop.matches && !app.dataset.cuiNavPlacement;
     for (const edge of ['top', 'left', 'right']) {
       if (edgeDocks[edge]) edgeDocks[edge].hidden = !shouldMount;
     }

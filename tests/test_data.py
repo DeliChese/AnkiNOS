@@ -114,6 +114,10 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(original["gathered"], 0)
         self.assertEqual(temporary["total"], 0)
         self.assertEqual(temporary["gathered"], 1)
+        self.col.decks.set_current(original_id)
+        self.assertEqual(data.collect_overview_snapshot(self.col)["total"], 1)
+        self.col.decks.set_current(filtered_id)
+        self.assertEqual(data.collect_overview_snapshot(self.col)["total"], 1)
 
     def test_yesterday_streak_before_first_review_today(self):
         cid, _ = self.card("Daily")
@@ -244,6 +248,23 @@ class SnapshotTests(unittest.TestCase):
             self.assertEqual(data.collect_snapshot(self.col,due_tree=tree)['total_cards'],1)
         finally:
             self.col.sched.deck_due_tree=original
+
+    def test_cold_bootstrap_has_live_decks_without_scanning_tables(self):
+        from types import SimpleNamespace
+
+        _, did = self.card('Course::Active')
+        tree = self.col.sched.deck_due_tree()
+        # A native render tree already has names, hierarchy, and due counts.
+        # This fake provides no database handle, so any cold query will fail.
+        fake = SimpleNamespace(sched=SimpleNamespace(day_cutoff=self.col.sched.day_cutoff))
+        boot = data.quick_snapshot(fake, due_tree=tree, revision=1)
+        self.assertTrue(boot["partial"])
+        self.assertIsNone(boot["total_cards"])
+        parent = next(deck for deck in boot["decks"] if deck["name"] == 'Course')
+        child, = parent["children"]
+        self.assertEqual(child["id"], str(did))
+        self.assertEqual(child["full_name"], 'Course::Active')
+        self.assertEqual(child["new"], 1)
 
 
 if __name__ == "__main__":

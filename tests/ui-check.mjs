@@ -475,10 +475,25 @@ try {
   assert.equal(await evaluate(`document.getElementById('studio-preview').dataset.grid`),'off');
   await click('#studio-grid-toggle');
   assert.equal(await evaluate(`document.getElementById('studio-preview').dataset.grid`),'on');
-  await evaluate(`(()=>{const z=document.getElementById('studio-zoom');z.value='140';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await updateLayoutSettings({image_frames: {dashboard: {x: 20, y: 80, zoom: 120}}});
+  const previewWidth = await evaluate(`document.getElementById('studio-preview').clientWidth`);
+  await click('#studio-expand-frame');
+  assert(await evaluate(`document.getElementById('studio-preview').clientWidth`) > previewWidth);
+  assert.equal(await evaluate(`document.getElementById('studio-preview-image').getAttribute('src').endsWith('-wall.jpg')`),true);
+  await evaluate(`(()=>{const z=document.getElementById('studio-zoom');z.value='140';z.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_frames.avatar`),undefined,
+    'Dragging the zoom slider paints only the Studio preview before commit');
+  await evaluate(`document.getElementById('studio-zoom').dispatchEvent(new Event('change',{bubbles:true}))`);
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_frames.avatar.zoom`),140);
+  await evaluate(`document.getElementById('studio-preview').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',shiftKey:true,bubbles:true}))`);
+  await new Promise(resolve => setTimeout(resolve,220));
+  assert((await evaluate(`window.AnkiNOS.getSettings().image_frames.avatar.x`)) < 50,
+    'Panning right moves a zoomed image toward the right edge');
+  assert.deepEqual(await evaluate(`window.AnkiNOS.getSettings().image_frames.dashboard`),{x:20,y:80,zoom:120},
+    'Saving a frame leaves frame settings for the other targets intact');
   await click('#studio-frame-reset');
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().image_frames.avatar.zoom`),100);
+  await click('#studio-expand-frame');
   await click('[data-studio-frame="cover"]');
   assert.equal(await evaluate(`document.getElementById('studio-preview').dataset.frameSlot`),'cover');
   await shot('media-studio-framing.png');
@@ -514,12 +529,61 @@ try {
   await click('[data-action="collapse_launchpad"]');
   assert.equal(await evaluate(`getComputedStyle(document.getElementById('study-launchpad-body')).display!=='none'`),true);
   await click('#brand-about');
-  assert.equal(await evaluate(`document.getElementById('about-dialog').open && document.getElementById('about-dialog').textContent.includes('v1.0.0 Beta')`),true,'Logo NOS must open About v1.0.0 Beta');
+  assert.equal(await evaluate(`document.getElementById('about-dialog').open && document.getElementById('about-dialog').textContent.includes('v1.0.1 Beta')`),true,'Logo NOS must open About v1.0.1 Beta');
   await click('#about-copy-diag');
   assert.equal(await evaluate(`!document.getElementById('toast').hidden && document.getElementById('toast').textContent.includes('hỗ trợ')`),true,'Copy support info must confirm via toast');
   await shot('about-dialog.png');
   await click('#about-close');
   assert.equal(await evaluate(`document.getElementById('about-dialog').open`),false);
+  // Test non-intrusive update pill, dedicated Changelog dialog (with quick-jump panel), and Custom UI Studio.
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),welcome_dismissed:true,whats_new_seen_version:'1.0.0-beta.2',update_notice_muted:false}})`);
+  assert.equal(await evaluate(`!document.getElementById('update-pill').hidden`),true,'Update pill must appear quietly for unseen version');
+  await click('#update-pill .update-pill-open');
+  assert.equal(await evaluate(`document.getElementById('changelog-dialog').open && document.getElementById('update-pill').hidden`),true,'Clicking update pill must open Changelog and clear pill');
+  await click('[data-changelog-tab="history"]');
+  assert.equal(await evaluate(`!document.getElementById('cpane-history').hidden`),true,'Changelog tab must show version history');
+  await click('[data-changelog-tab="highlights"]');
+  await click('[data-changelog-jump="custom_ui"]');
+  assert.equal(await evaluate(`!document.getElementById('changelog-dialog').open && document.getElementById('custom-ui-dialog').open`),true,'Clicking Custom UI highlight card must jump straight to Custom UI Studio');
+  await click('[data-cui-tab="blocks"]');
+  await click('[data-cui-add="memo"]');
+  await evaluate(`{
+    const field = document.querySelector('[data-cui-geometry="x"]');
+    field.value = '132';
+    field.dispatchEvent(new Event('change', {bubbles:true}));
+  }`);
+  await click('[data-cui-tab="toolboxes"]');
+  await click('[data-cui-add-toolbox="dock"]');
+  await click('[data-cui-tab="nav"]');
+  await evaluate(`document.getElementById('cui-nav-placement').value='floating'; document.getElementById('cui-nav-placement').dispatchEvent(new Event('change',{bubbles:true}))`);
+  await click('#cui-live-edit');
+  assert.equal(await evaluate(`document.getElementById('nos-app').classList.contains('nos-ui-editing') && document.getElementById('nos-app').dataset.cuiMode === 'freeform' && !!document.querySelector('.nos-cui-toolbox[data-toolbox-style="dock"]') && !!document.querySelector('.cui-resize-se') && !!document.querySelector('.cui-close-x')`),true,'Live freeform edit must render resizable blocks, × close buttons, and custom toolbox container');
+  await click('#goal-card .cui-close-x');
+  assert.equal(await evaluate(`document.getElementById('goal-card').dataset.cuiHidden === 'true'`),true,'Clicking × close button on a block must hide it immediately');
+  await click('[data-action="custom_ui_open_studio"]');
+  assert.equal(await evaluate(`document.getElementById('custom-ui-dialog').open &&
+    !!document.querySelector('[data-cui-row="goal"].is-hidden-block') &&
+    document.querySelectorAll('#cui-blocks-list [data-cui-row]').length === 6`),true,
+  'Moving from the canvas to the editor must preserve hidden blocks and new widgets');
+  await click('#cui-live-edit');
+  await click('[data-action="custom_ui_live_save"]');
+  assert.equal(await evaluate(`!document.getElementById('nos-app').classList.contains('nos-ui-editing') && document.getElementById('nos-app').dataset.customUi === 'true' && document.getElementById('nos-app').dataset.cuiNavPlacement === 'floating' && !!document.querySelector('.nos-cui-toolbox .nos-cui-tool-btn')`),true,'Saving freeform layout must persist floating nav, toolbox, and custom geometry');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().custom_ui_presets[0].blocks.find(block => block.type === 'memo').x`),132,
+    'Precise placement must survive a round trip through live editing');
+  for (const width of [800, 320]) {
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:700,deviceScaleFactor:1,mobile:false});
+    await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+    assert.equal(await evaluate(`(() => {
+      const app = document.getElementById('nos-app');
+      return app.dataset.cuiCanvas === 'compact' &&
+        getComputedStyle(document.getElementById('activity-panel')).position !== 'absolute' &&
+        document.documentElement.scrollWidth <= innerWidth &&
+        app.scrollWidth <= innerWidth;
+    })()`),true,`Freeform blocks must remain accessible on a ${width}px window`);
+  }
+  await cdp('Emulation.setDeviceMetricsOverride',{width:1600,height:1080,deviceScaleFactor:1,mobile:false});
+  await evaluate(`window.NOSCustomUI.deactivate()`);
+  assert.equal(await evaluate(`!document.getElementById('nos-app').dataset.customUi && !document.getElementById('nos-app').dataset.cuiNavPlacement && !document.querySelector('.nos-cui-widget, .nos-cui-toolbox')`),true,'Deactivating Custom UI must cleanly restore built-in layout');
   // Test first-run fullscreen frosted-glass Welcome Overlay show, screenshot & dismiss, plus short laptop viewports.
   await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),welcome_dismissed:false}})`);
   assert.equal(await evaluate(`!document.getElementById('welcome-overlay').hidden && getComputedStyle(document.getElementById('welcome-overlay')).position === 'fixed'`),true,'Welcome overlay must cover the viewport when not dismissed');

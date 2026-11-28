@@ -30,6 +30,7 @@
   const native = app.dataset.native === 'true';
   const cache = new Map();
   let loading = false;
+  let collectionRevision, collectionDay;
   let metricData = null;
   let activePayload = null;
   let reportedKey = '';
@@ -1513,6 +1514,11 @@
       return;
     }
     if (event !== 'graphs' || !payload || !payload.data) return;
+    if (native && staleGraphs(payload)) {
+      loading = false;
+      if (!$('stats-page').hidden) request(true);
+      return;
+    }
     if (Array.isArray(payload.decks) && payload.decks.length) {
       availableDecks = payload.decks;
     }
@@ -1523,7 +1529,7 @@
     if (payload.scope !== scope() || Number(payload.days) !== days()) return;
     if (payload.search !== undefined && payload.search !== effectiveSearch()) return;
     loading = false;
-    render(payload);
+    if (!$('stats-page').hidden) render(payload);
   }
 
   // === Deck Chooser Dialog (Chọn Bộ thẻ) ===
@@ -1782,6 +1788,28 @@
   function open() {
     if (!$('stats-page').hidden) request(false);
   }
+  function staleGraphs(payload) {
+    return payload.revision < collectionRevision ||
+      (payload.metrics?.today && payload.metrics.today < collectionDay);
+  }
+  function syncRevision(revision, today) {
+    if (!native || !Number.isInteger(revision) || (collectionRevision === revision && collectionDay === today)) return;
+    collectionRevision = revision;
+    collectionDay = today;
+    let invalidated = false;
+    for (const [key, payload] of cache) {
+      if (!staleGraphs(payload)) continue;
+      cache.delete(key);
+      if (key === cacheKey()) invalidated = true;
+    }
+    if (!invalidated) return;
+    ++renderEpoch;
+    renderedKey = '';
+    paintingKey = '';
+    activePayload = null;
+    metricData = null;
+    if (!loading && !$('stats-page').hidden) request(true);
+  }
   function reload() {
     cache.delete(cacheKey());
     request(true);
@@ -1811,5 +1839,5 @@
     if (activePayload) render(activePayload);
   });
 
-  window.NOSStats = { open, reload, receive, refreshMetrics };
+  window.NOSStats = { open, reload, receive, refreshMetrics, syncRevision };
 })();

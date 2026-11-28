@@ -775,7 +775,7 @@
 
 #nos-app:not([data-color-theme]) .brand .icon,
 #nos-app:not([data-color-theme]) :is(.greeting,.greeting > div)::before,
-#nos-app:is(.lite-mode,.reduce-motion) :is(.nos-layout-menu,.nos-layout-card,.rail,.nos-edge-dock,.nos-edge-handle,.rail-button,.brand,.launcher-button,.rail-button .icon,.brand .icon,.brand span,.rail-button span,.launcher-button .launcher-label,.study-launchpad,.activity-panel,.daily-goal,.heat-cell,.study-actions .primary-button,.nos-page-enter,.settings-tab-pane),
+#nos-app:is(.lite-mode,.reduce-motion) :is(.nos-layout-menu,.nos-layout-card,.rail,.nos-edge-dock,.nos-edge-handle,.rail-button,.brand,.launcher-button,.rail-button .icon,.brand .icon,.brand span,.rail-button span,.launcher-button .launcher-label,.study-launchpad,.activity-panel,.daily-goal,.heat-cell,.study-actions .primary-button,.settings-tab-pane),
 #nos-app:is(.lite-mode,.reduce-motion) :is(.greeting,.greeting > div)::before {
   animation: none !important;
   transition: none !important;

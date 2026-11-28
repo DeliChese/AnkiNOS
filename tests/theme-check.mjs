@@ -115,7 +115,25 @@ try {
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().theme_overrides.primary`), '#141489');
   assert.equal(await evaluate(`window.AnkiNOS.getSettings().custom_accent`),'#000000');
   assert.equal(await evaluate(`document.getElementById('nos-app').dataset.colorTheme`),'rosepine');
+  await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
+  await click('[data-settings-tab="layout"]');
+  assert.equal(await evaluate(`(() => {
+    for (const [id,value] of [['set-surface-style','liquid'],['set-motion-preset','spring']]) {
+      const input=document.getElementById(id);
+      input.value=value;
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    return document.getElementById('motion-sample').getAnimations()[0]?.effect.getKeyframes().length;
+  })()`),3);
+  await click('#btn-apply-appearance');
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.surfaceStyle`),'liquid');
+  assert.equal(await evaluate(`window.AnkiNOS.getSettings().motion_preset`),'spring');
+  assert(await evaluate(`getComputedStyle(document.querySelector('.rail')).backgroundImage.includes('gradient')`));
+  assert(await evaluate(`getComputedStyle(document.querySelector('.settings-content')).scrollbarColor !== 'auto'`));
   await click('#appearance-close');
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),lite_mode:true}})`);
+  assert.equal(await evaluate(`document.getElementById('nos-app').dataset.surfaceStyle`),'frosted');
+  await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),surface_style:'frosted',motion_preset:'fade',lite_mode:false}})`);
   for(const color_theme of ['nos','tokyo','mononoke','catppuccin','rosepine','nord','solarized','dracula','gruvbox','everforest','kanagawa','sakura'])for(const theme of ['light','night','oled']) {
     await evaluate(`window.AnkiNOS.receive({event:'settings',payload:{...window.AnkiNOS.getSettings(),color_theme:${JSON.stringify(color_theme)},theme:${JSON.stringify(theme)},accent:'auto'}})`);
     assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),true);

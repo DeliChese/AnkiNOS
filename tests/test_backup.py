@@ -148,6 +148,7 @@ class BackupTests(unittest.TestCase):
     def test_appearance_round_trip(self):
         appearance = {"theme": "system", "color_theme": "mononoke", "accent": "custom", "custom_accent": "#8abc32", "layout": "zen",
                       "theme_overrides": {"surface": "#224488", "danger": "#ed5268"}}
+        appearance.update(surface_style="liquid", motion_preset="spring", motion_duration=360)
         archive = backup.export_archive(self.root, "Alice", {**self.settings, **appearance}, self.root / "theme.nosbackup")
         preview = backup.inspect_archive(self.root, archive)
         saved = []
@@ -239,6 +240,42 @@ class BackupTests(unittest.TestCase):
         self.assertTrue(recovery.is_file())
         self.assertEqual(len(applied), 1)
         self.assertEqual((live / (self.photo + ".png")).read_bytes(), b"original image bytes")
+
+    def test_custom_greeting_is_sanitized_and_round_trips(self):
+        clean = backup.clean_settings({"custom_greeting": "  Cố lên,\n{name}!\t ", "whats_new_seen_version": "1.0.0-beta.3"})
+        self.assertEqual(clean["custom_greeting"], "Cố lên, {name}!")
+        self.assertEqual(clean["whats_new_seen_version"], "1.0.0-beta.3")
+        long_clean = backup.clean_settings({"custom_greeting": "A" * 200, "whats_new_seen_version": "../bad/ver"})
+        self.assertEqual(len(long_clean["custom_greeting"]), 120)
+        self.assertNotIn("whats_new_seen_version", long_clean)
+        bad_clean = backup.clean_settings({"custom_greeting": ["not", "a", "string"]})
+        self.assertNotIn("custom_greeting", bad_clean)
+        archive = backup.export_archive(
+            self.root, "Alice", {
+                **self.settings,
+                "custom_greeting": "Chào chiến thần Anki",
+                "update_notice_muted": True,
+                "custom_ui_active": "cui_1",
+                "custom_ui_presets": [{
+                    "id": "cui_1", "name": "Tối giản", "base": "zen", "columns": "1",
+                    "gap": 16, "radius": 20, "width": "compact",
+                    "show_greeting": True, "show_goal": False, "greeting_align": "center",
+                    "blocks": [
+                        {"id": "launchpad", "type": "launchpad", "span": "full", "hidden": False},
+                        {"id": "w_note", "type": "memo", "title": "Mục tiêu", "body": "200 thẻ/ngày", "span": "full", "hidden": False},
+                    ],
+                }],
+            },
+            self.root / "greeting.nosbackup",
+        )
+        preview = backup.inspect_archive(self.root, archive)
+        applied = []
+        backup.restore_archive(self.root, "Bob", archive, preview["archive_sha256"], {}, applied.append)
+        self.assertEqual(applied[0]["custom_greeting"], "Chào chiến thần Anki")
+        self.assertTrue(applied[0]["update_notice_muted"])
+        self.assertEqual(applied[0]["custom_ui_active"], "cui_1")
+        self.assertEqual(len(applied[0]["custom_ui_presets"]), 1)
+        self.assertEqual(applied[0]["custom_ui_presets"][0]["name"], "Tối giản")
 
     def test_size_limits_and_decoder_failure_reject_before_restore(self):
         with patch.object(backup, "MAX_IMAGE_BYTES", 2):

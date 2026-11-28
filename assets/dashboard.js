@@ -120,7 +120,7 @@
     state.settings = {...previous, ...patch};
     applySettings();
     if (state.snapshot) {
-      if (previous.goal !== state.settings.goal) renderStats();
+      if (previous.goal !== state.settings.goal || previous.custom_greeting !== state.settings.custom_greeting) renderStats();
       if (previous.view !== state.settings.view) {
         libraryRenderKey = '';
         if ($('library-dialog').open) renderLibrary();
@@ -128,11 +128,11 @@
       if (previous.heatmap_day !== state.settings.heatmap_day) renderHeatmap();
     }
     // Never send the image gallery (or large resource lists) back over pycmd.
-    const keys = ['goal','layout','sidebar_side','theme','color_theme','accent','custom_accent',
+    const keys = ['goal','custom_greeting','layout','sidebar_side','theme','color_theme','accent','custom_accent',
       'text_color','custom_text_color','theme_overrides','rating_colors','rating_color_again','rating_color_hard','rating_color_good','rating_color_easy','reviewer_card_opacity',
-      'font_family','blur','glass_blur','glass_opacity','animations','lite_mode','ui_scale','language',
+      'font_family','blur','glass_blur','glass_opacity','surface_style','motion_preset','motion_duration','animations','lite_mode','ui_scale','language',
       'stat_retention','stat_pace','stat_time','stat_studied','heatmap_day','heatmap_palette',
-      'activity_collapsed','launchpad_collapsed','library_collapsed','sidebar_collapsed','welcome_dismissed','view',
+      'activity_collapsed','launchpad_collapsed','library_collapsed','sidebar_collapsed','welcome_dismissed','whats_new_seen_version','update_notice_muted','custom_ui_presets','custom_ui_active','view',
       // Image assignments belong exclusively to Studio and save immediately.
     ];
     const values = Object.fromEntries(keys.filter(key => Object.hasOwn(patch,key))
@@ -169,7 +169,7 @@
   }
 
   function saveLayout(layout) {
-    saveUI({layout: layout.id});
+    saveUI({layout: layout.id, custom_ui_active: ''});
     toast(`Bố cục: ${layout.name}`);
   }
 
@@ -218,6 +218,7 @@
   }
 
   function openLibrary({focusDeck=null,search=false}={}) {
+    if (window.NOSCustomUI?.isLiveEditing()) return;
     closePopups();
     if(focusDeck&&state.snapshot) {
       const target=deckIndex.get(focusDeck);
@@ -255,6 +256,7 @@
     closePopups();
     closeLibrary(false);
     closeGuide(false);
+    closeChangelog(false);
     const dialog = $('about-dialog');
     if (!dialog || dialog.open) return;
     infoReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : $('brand-about');
@@ -266,6 +268,42 @@
     if (!dialog?.open) return;
     dialog.close();
     if (restoreFocus) (infoReturnFocus || $('brand-about'))?.focus({preventScroll: true});
+  }
+  function switchChangelogTab(tabName = 'highlights') {
+    const valid = ['highlights', 'history'].includes(tabName) ? tabName : 'highlights';
+    app.querySelectorAll('[data-changelog-tab]').forEach(btn => {
+      const active = btn.dataset.changelogTab === valid;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', String(active));
+    });
+    app.querySelectorAll('.changelog-pane').forEach(pane => {
+      pane.hidden = pane.id !== `cpane-${valid}`;
+    });
+  }
+  function openChangelog(initialTab = 'highlights') {
+    closePopups();
+    closeLibrary(false);
+    closeAbout(false);
+    closeGuide(false);
+    const dialog = $('changelog-dialog');
+    if (!dialog) return;
+    switchChangelogTab(initialTab);
+    const ver = state.settings.addon_version || '';
+    if (ver && state.settings.whats_new_seen_version !== ver) {
+      saveUI({whats_new_seen_version: ver});
+    }
+    if (dialog.open) return;
+    infoReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : $('brand-about');
+    dialog.showModal();
+    $('changelog-close')?.focus({preventScroll: true});
+  }
+  function closeChangelog(restoreFocus = true) {
+    const dialog = $('changelog-dialog');
+    if (!dialog?.open) return;
+    dialog.close();
+    if (restoreFocus && infoReturnFocus?.isConnected) {
+      infoReturnFocus.focus({preventScroll: true});
+    }
   }
   function switchGuideTab(tabName = 'start') {
     const valid = ['start','scheduler','focus','notebook','stats'].includes(tabName) ? tabName : 'start';
@@ -282,6 +320,7 @@
     closePopups();
     closeLibrary(false);
     closeAbout(false);
+    closeChangelog(false);
     const dialog = $('guide-dialog');
     if (!dialog) return;
     switchGuideTab(initialTab);
@@ -398,6 +437,14 @@
 
   function syncSettingsForm(s = settingsDraft || state.settings) {
     window.NOSTheme.sync(s);
+    $('set-surface-style').value = s.surface_style === 'liquid' ? 'liquid' : 'frosted';
+    window.NOSTheme.apply($('material-sample'), s);
+    $('set-motion-preset').value = Object.hasOwn(pageMotions, s.motion_preset) ? s.motion_preset : s.motion_preset === 'none' ? 'none' : 'fade';
+    $('set-motion-duration').value = String(motionDuration(s));
+    $('motion-duration-val').textContent = `${motionDuration(s)} ms`;
+    $('set-motion-preset').disabled = s.animations === false || !!s.lite_mode;
+    $('motion-preview').disabled = $('set-motion-duration').disabled =
+      $('set-motion-preset').disabled || s.motion_preset === 'none' || reducedPageMotion.matches;
     window.NOSLayout?.sync(s);
     app.querySelectorAll('.theme-pill-btn').forEach(btn => {
       btn.classList.toggle('active', (btn.dataset.setTheme || 'dusk') === (s.theme || 'dusk'));
@@ -424,6 +471,8 @@
     const draftLayout = window.NOSLayout?.normalize(s.layout) || defaultLayout;
     if ($('sidebar-side-row')) $('sidebar-side-row').classList.toggle('is-overridden', draftLayout !== 'aurora' && draftLayout !== 'sidebar');
     if ($('set-stat-retention')) $('set-stat-retention').checked = s.stat_retention !== false;
+    const greetingInput = $('set-custom-greeting');
+    if (greetingInput && document.activeElement !== greetingInput) greetingInput.value = s.custom_greeting || '';
     if ($('set-stat-pace')) $('set-stat-pace').checked = s.stat_pace !== false;
     if ($('set-stat-time')) $('set-stat-time').checked = s.stat_time !== false;
     if ($('set-stat-studied')) $('set-stat-studied').checked = s.stat_studied !== false;
@@ -512,6 +561,7 @@
     heatmapKey = '';
     renderHeatmap();
     libraryRenderKey = '';
+    syncLibraryFooter();
     if ($('library-dialog')?.open) renderLibrary();
     if (settingsEditor) window.NOSTheme.sync(settingsDraft || state.settings);
   });
@@ -554,12 +604,13 @@
   function resetSettings() {
     if (confirm(window.NOSI18n.t('Khôi phục toàn bộ cài đặt AnkiNOS về mặc định ban đầu?'))) {
       const defaults = {
-        goal: 200, layout: defaultLayout, sidebar_side: 'left', theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
+        goal: 200, custom_greeting: '', update_notice_muted: false, custom_ui_active: '', layout: defaultLayout, sidebar_side: 'left', theme: 'dusk', color_theme: 'nos', accent: 'blue', custom_accent:'#83b8ff',
         text_color: 'auto', custom_text_color: '#f3f6ff',
         rating_colors: 'auto', rating_color_again: '#f26d85', rating_color_hard: '#f0b85b', rating_color_good: '#6ea8fe', rating_color_easy: '#4fd19b',
         reviewer_card_opacity: 100, theme_overrides: {},
         font_family: 'system',
         blur: true, glass_blur: 16, glass_opacity: 74, animations: true, ui_scale: 100,
+        surface_style: 'frosted', motion_preset: 'fade', motion_duration: 220,
         stat_retention: true, stat_pace: true, stat_time: true, stat_studied: true,
         heatmap_day: 'monday', heatmap_palette: 'default', lite_mode: false
       };
@@ -610,14 +661,15 @@
     const signature = JSON.stringify([
       layout,sidebarSide,s.theme,s.color_theme,s.accent,s.custom_accent,
       s.text_color,s.custom_text_color,s.theme_overrides,s.rating_colors,s.rating_color_again,s.rating_color_hard,s.rating_color_good,s.rating_color_easy,s.reviewer_card_opacity,
-      s.font_family,s.blur,s.glass_blur,s.glass_opacity,s.animations,s.lite_mode,s.ui_scale,s.language,s.language_pref,
-      s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,
-      s.heatmap_palette,s.activity_collapsed,s.launchpad_collapsed,s.sidebar_collapsed,s.welcome_dismissed,s.view,
+      s.font_family,s.blur,s.glass_blur,s.glass_opacity,s.surface_style,s.motion_preset,s.motion_duration,s.animations,s.lite_mode,s.ui_scale,s.language,s.language_pref,
+      s.stat_retention,s.stat_pace,s.stat_time,s.stat_studied,s.custom_greeting,
+      s.heatmap_palette,s.activity_collapsed,s.launchpad_collapsed,s.sidebar_collapsed,s.welcome_dismissed,s.whats_new_seen_version,s.update_notice_muted,s.addon_version,s.custom_ui_active,s.custom_ui_presets,s.view,
       s.image_dashboard,s.image_avatar,s.image_cover,s.image_frames,
       s.image_fit_dashboard,s.wallpaper_dim,s.wallpaper_blur,
       mediaUrl('image_dashboard', s), mediaUrl('image_avatar', s, 'thumb'), mediaUrl('image_cover', s, 'wall')
     ]);
     if (signature === lastAppliedSettings) return;
+    if (s.animations === false || s.lite_mode || s.motion_preset === 'none') pageAnimation?.cancel();
     lastAppliedSettings = signature;
     if (app.dataset.layout !== layout) app.dataset.layout = layout;
     if (app.dataset.sidebarSide !== sidebarSide) app.dataset.sidebarSide = sidebarSide;
@@ -680,6 +732,11 @@
     window.NOSLayout?.changed();
 
     if ($('welcome-overlay')) $('welcome-overlay').hidden = s.welcome_dismissed !== false;
+    const ver = s.addon_version || '';
+    const showUpdatePill = s.welcome_dismissed === true && !!ver && s.whats_new_seen_version !== ver && !s.update_notice_muted;
+    if ($('update-pill')) $('update-pill').hidden = !showUpdatePill;
+    if ($('set-update-notice-muted')) $('set-update-notice-muted').checked = !!s.update_notice_muted;
+    window.NOSCustomUI?.sync(s, state.snapshot);
     if ($('card-retention')) $('card-retention').hidden = s.stat_retention === false;
     if ($('card-pace')) $('card-pace').hidden = s.stat_pace === false;
     if ($('card-time')) $('card-time').hidden = s.stat_time === false;
@@ -731,20 +788,30 @@
 
   function renderStats() {
     const data = state.snapshot, stats = data.stats;
+    const waiting = !!data.partial;
     const goal = Math.max(1, Number(state.settings.goal) || 200);
     const percent = Math.round(stats.reviews / goal * 100);
     const initials = data.profile.trim().split(/\s+/).slice(-2).map(word => [...word][0]).join('').toUpperCase();
     $('avatar-initials').textContent = $('profile-initials').textContent = initials || 'A';
     $('profile-name').textContent = data.profile;
     const now = new Date(), hour = now.getHours();
-    const salutation = hour < 11 ? 'Chào buổi sáng' : hour < 14 ? 'Chào buổi trưa' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
-    $('greeting-title').innerHTML = `${salutation}, ${escape(data.profile)} <span class="greeting-spark">✦</span>`;
+    const customGreeting = typeof state.settings.custom_greeting === 'string' ? state.settings.custom_greeting.trim() : '';
+    const greetingTitle = $('greeting-title');
+    if (customGreeting) {
+      greetingTitle.setAttribute('data-i18n-skip', '');
+      greetingTitle.innerHTML = `${escape(customGreeting.replace(/\{name\}/gi, data.profile))} <span class="greeting-spark">✦</span>`;
+    } else {
+      const salutation = hour < 11 ? 'Chào buổi sáng' : hour < 14 ? 'Chào buổi trưa' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+      greetingTitle.removeAttribute('data-i18n-skip');
+      greetingTitle.innerHTML = `${salutation}, ${escape(data.profile)} <span class="greeting-spark">✦</span>`;
+    }
     $('today-label').textContent = window.NOSI18n.dateFormat({weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(now).toUpperCase();
-    $('greeting-caption').textContent = data.due ? `${n(data.due)} thẻ đang chờ bạn. Bắt đầu một chút, nhớ thêm thật nhiều.` : 'Một khoảng lặng để học, một bước nhỏ để tiến xa.';
+    const loading = 'Đang tải dữ liệu Anki…';
+    $('greeting-caption').textContent = data.due == null ? loading : data.due ? `${n(data.due)} thẻ đang chờ bạn. Bắt đầu một chút, nhớ thêm thật nhiều.` : 'Một khoảng lặng để học, một bước nhỏ để tiến xa.';
     $('goal-ring').style.setProperty('--progress', `${Math.min(100, percent)}%`);
-    $('goal-percent').textContent = `${percent}%`;
-    $('goal-copy').textContent = `${n(stats.reviews)} / ${n(goal)} lượt ôn`;
-    $('profile-goal-text').textContent = `${n(stats.reviews)} / ${n(goal)}`;
+    $('goal-percent').textContent = waiting ? '—' : `${percent}%`;
+    $('goal-copy').textContent = waiting ? loading : `${n(stats.reviews)} / ${n(goal)} lượt ôn`;
+    $('profile-goal-text').textContent = waiting ? '—' : `${n(stats.reviews)} / ${n(goal)}`;
     $('profile-goal-fill').style.width = `${Math.min(100, percent)}%`;
     const retention = stats.retention == null ? '—' : `${n(stats.retention)}%`;
     $('stat-retention').textContent = $('profile-retention').textContent = retention;
@@ -753,7 +820,7 @@
       ? stats.correct
       : (stats.retention != null && todayReviews ? Math.round(todayReviews * stats.retention / 100) : 0);
     const trueRet = stats.true_retention;
-    $('retention-detail').textContent = todayReviews
+    $('retention-detail').textContent = waiting ? loading : todayReviews
       ? (trueRet != null
         ? `Hôm nay · ${n(todayCorrect)}/${n(todayReviews)} lượt đúng · True Retention ${n(trueRet)}%`
         : `Hôm nay · ${n(todayCorrect)}/${n(todayReviews)} lượt đúng`)
@@ -761,16 +828,18 @@
     $('stat-pace').innerHTML = `${stats.pace == null ? '—' : n(stats.pace)} <small>lượt/phút</small>`;
     if ($('pace-detail')) {
       const avgSec = todayReviews > 0 ? Math.round((stats.milliseconds / 1000 / todayReviews) * 10) / 10 : 0;
-      $('pace-detail').textContent = todayReviews
+      $('pace-detail').textContent = waiting ? loading : todayReviews
         ? `Hôm nay · ${n(avgSec)} giây/thẻ · ${n(todayReviews)} lượt`
         : 'Hôm nay chưa ôn thẻ nào';
     }
-    $('stat-time').innerHTML = duration(stats.milliseconds);
-    $('stat-studied').innerHTML = `${n(stats.reviews)} <small>lượt</small>`;
-    $('studied-detail').textContent = `${n(data.total_cards)} thẻ trong bộ sưu tập`;
-    $('streak-copy').textContent = `${n(stats.streak)} ngày liên tiếp`;
-    $('profile-streak').textContent = `${n(stats.streak)} ngày`;
-    $('profile-total').textContent = `${n(data.total_cards)} thẻ`;
+    $('stat-time').innerHTML = waiting ? '—' : duration(stats.milliseconds);
+    $('stat-studied').innerHTML = waiting ? '—' : `${n(stats.reviews)} <small>lượt</small>`;
+    $('studied-detail').textContent = data.total_cards == null ? loading : `${n(data.total_cards)} thẻ trong bộ sưu tập`;
+    $('streak-copy').textContent = waiting ? '—' : `${n(stats.streak)} ngày liên tiếp`;
+    $('profile-streak').textContent = waiting ? '—' : `${n(stats.streak)} ngày`;
+    $('profile-total').textContent = data.total_cards == null ? '—' : `${n(data.total_cards)} thẻ`;
+    window.NOSCustomUI?.sync(state.settings, state.snapshot);
+    if (waiting) return;
     const recent = Array.from({length:14}, (_, i) => {
       const date = iso(addDays(parseDate(data.today), i - 13));
       return {date, ...(data.days[date] || {reviews:0, milliseconds:0, correct:null, tested:0, passed:0})};
@@ -878,7 +947,7 @@
   }
 
   function heatCell(date, year, month = null) {
-    const waiting=!state.snapshot||needsHistory(date.getFullYear());
+    const waiting=!state.snapshot||state.snapshot.partial||needsHistory(date.getFullYear());
     const key = iso(date), data = waiting?null:state.snapshot.days[key];
     const reviews = data?.reviews || 0;
     const level = reviews >= 200 ? 4 : reviews >= 100 ? 3 : reviews >= 40 ? 2 : reviews ? 1 : 0;
@@ -889,6 +958,11 @@
   }
 
   function renderHeatmap() {
+    if (state.snapshot?.partial) {
+      $('heatmap').setAttribute('aria-busy', 'true');
+      $('activity-summary').textContent = 'Đang tải lịch sử ôn tập…';
+      return;
+    }
     const data=state.snapshot||{days:{},today:loadingToday};
     // O(1) invalidation instead of serializing 365+ historical day objects.
     const key=JSON.stringify([heatmapRevision,!!state.snapshot,data.today,
@@ -991,7 +1065,13 @@
     return palette[Math.abs(hash) % palette.length];
   }
   const due = deck => deck.new + deck.learn + deck.review;
-  const flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  function flatten(nodes, result = []) {
+    for (const node of nodes) {
+      result.push(node);
+      if (node.children?.length) flatten(node.children, result);
+    }
+    return result;
+  }
   const deckOrder = new Intl.Collator('vi',{numeric:true,sensitivity:'base'});
   const searchText = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
 
@@ -1008,14 +1088,20 @@
     if(key===libraryDataKey)return;
     libraryDataKey=key;
     libraryRevision++;
+    syncLibraryFooter();
   }
 
-  function filterTree(nodes,query=searchText(state.query.trim())) {
+  function syncLibraryFooter() {
+    const total = state.snapshot.total_cards;
+    $('library-footer-copy').textContent = `${n(allDecks.length)} bộ thẻ · ${n(state.settings.resources?.length || 0)} tài nguyên · ${total == null ? '—' : n(total)} thẻ`;
+  }
+
+  function filterTree(nodes, query, favorites) {
     return nodes.map(node => {
-      const children = filterTree(node.children || [],query);
-      let match = searchText(node.full_name).includes(query);
+      const children = node.children?.length ? filterTree(node.children, query, favorites) : [];
+      let match = !query || searchText(node.full_name).includes(query);
       if (state.filter === 'resources') match = false;
-      if (state.filter === 'favorites') match = match && (state.settings.favorites || []).includes(node.id);
+      if (state.filter === 'favorites') match = match && favorites.has(node.id);
       if (state.filter === 'due') match = match && due(node) > 0;
       if (state.color) match = match && deckColor(node) === state.color;
       if (!match && !children.length) return null;
@@ -1029,10 +1115,10 @@
     const favorite = (state.settings.favorites || []).includes(deck.id);
     const buttonId = escape(deck.id);
     const hasChildren = children.length > 0;
-    const gathered = deck.gathered ?? (deck.new + deck.learn + deck.review);
+    const gathered = deck.gathered ?? (state.snapshot.partial ? null : due(deck));
     const countCopy = deck.filtered
-      ? `${n(gathered)} thẻ đang gom`
-      : `${n(deck.total)} thẻ${deck.children.length?` · ${n(deck.children.length)} bộ con`:''}`;
+      ? `${gathered == null ? '—' : n(gathered)} thẻ đang gom`
+      : `${deck.total == null ? '—' : n(deck.total)} thẻ${deck.children.length?` · ${n(deck.children.length)} bộ con`:''}`;
     return `<div class="deck-group ${deck.children.length?'deck-parent':'deck-leaf'}" data-deck-id="${buttonId}" data-parent-id="${escape(deck.parent_id||'')}">
       <div class="deck-row">
         ${hasChildren ? `<button class="deck-expand" data-action="expand" data-id="${buttonId}" aria-label="${expanded?'Thu gọn':'Mở rộng'} ${escape(deck.name)}" aria-expanded="${!!expanded}" aria-controls="children-${buttonId}">${icon('chevron')}</button>` : '<span class="deck-expand-spacer"></span>'}
@@ -1053,11 +1139,8 @@
 
   function renderLibrary(branch=null) {
     if (!state.snapshot) return;
-    if (!$('library-dialog').open && libraryRenderedOnce) {
-      // Keep the hidden tree intact. Rebuild once when it is next opened.
-      libraryRenderKey = '';
-      return;
-    }
+    // Native startup only indexes the data. Build rows when the library is opened.
+    if (!$('library-dialog').open && (native || libraryRenderedOnce)) return;
     const treeKey=JSON.stringify([libraryRevision,state.filter,state.color,state.query,state.sort]);
     const renderKey=JSON.stringify([treeKey,state.settings.view,[...state.expanded],[...state.collapsed]]);
     if(renderKey===libraryRenderKey)return;
@@ -1065,7 +1148,7 @@
     const sameTree=treeKey===libraryTreeKey;
     if(!sameTree){
       libraryTreeKey=treeKey;
-      libraryTree=filterTree(state.snapshot.decks);
+      libraryTree=filterTree(state.snapshot.decks, searchText(state.query.trim()), new Set(state.settings.favorites || []));
       filteredIndex=new Map(flattenFiltered(libraryTree).map(deck=>[deck.id,deck]));
     }
     // Expanding one branch must not replace every sibling (or its focus/scroll).
@@ -1103,8 +1186,8 @@
     $('resource-result-count').textContent = n(matches.length);
     $('resource-list').innerHTML = matches.length ? matches.map(resource => `<div class="resource-card"><button class="resource-open" data-action="open_resource" data-id="${escape(resource.id)}" title="${escape(resource.path)}"><span class="file-icon ${resource.kind === 'pdf' ? 'pdf' : resource.kind === 'link' ? 'link' : ''}">${icon(resource.kind === 'link' ? 'link' : 'file')}</span><span class="resource-info"><span class="resource-name" data-i18n-skip>${escape(resource.name)}</span><span class="resource-detail">${escape(resource.kind.toUpperCase())} · ${escape(resource.detail)}</span></span></button><button class="more-button" data-action="resource_menu" data-id="${escape(resource.id)}" aria-label="Tùy chọn ${escape(resource.name)}">${icon('more')}</button></div>`).join('') : `<div class="resource-empty">${icon('file')}<span>Gắn PDF, tài liệu hoặc liên kết để học cùng bộ thẻ.</span><button class="text-button" data-action="add_file">Thêm file ${icon('plus','small')}</button></div>`;
     $('empty-state').hidden = decks.length > 0 || (showResources && (matches.length > 0 || !state.query));
-    $('library-footer-copy').textContent = `${n(all.length)} bộ thẻ · ${n(resources.length)} tài nguyên · ${n(state.snapshot.total_cards)} thẻ`;
-    if (!all.length && state.filter !== 'resources' && !state.query && !state.color) {
+    syncLibraryFooter();
+    if (!state.snapshot.partial && !all.length && state.filter !== 'resources' && !state.query && !state.color) {
       $('deck-section').hidden = false;
       $('deck-list').innerHTML = `<div class="resource-empty">${icon('folder')}<span>Bộ sưu tập chưa có bộ thẻ.</span><button class="subtle-button" data-action="create_deck">Tạo bộ thẻ</button></div>`;
     }
@@ -1115,17 +1198,34 @@
     return nodes.flatMap(node=>[node,...flattenFiltered(node.visibleChildren||[])]);
   }
 
-  let pageEnterTimer = 0;
-  function animatePageEnter(node) {
-    if (!node || app.classList.contains('reduce-motion') || app.classList.contains('lite-mode')) return;
-    node.classList.remove('nos-page-enter');
-    void node.offsetWidth;
-    node.classList.add('nos-page-enter');
-    clearTimeout(pageEnterTimer);
-    pageEnterTimer = setTimeout(() => node.classList.remove('nos-page-enter'), 460);
+  const reducedPageMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const pageMotions = {
+    fade: [{opacity: 0}, {opacity: 1}],
+    rise: [{opacity: 0, transform: 'translateY(14px)'}, {opacity: 1, transform: 'translateY(0)'}],
+    slide: [{opacity: 0, transform: 'translateX(18px)'}, {opacity: 1, transform: 'translateX(0)'}],
+    zoom: [{opacity: 0, transform: 'scale(.975)'}, {opacity: 1, transform: 'scale(1)'}],
+    spring: [
+      {opacity: 0, transform: 'translateY(12px) scale(.98)'},
+      {opacity: 1, transform: 'translateY(-2px) scale(1.005)', offset: .72},
+      {opacity: 1, transform: 'translateY(0) scale(1)'}
+    ],
+  };
+  const motionDuration = s => Number.isInteger(s.motion_duration) && s.motion_duration >= 120 && s.motion_duration <= 480
+    ? s.motion_duration : 220;
+  let pageAnimation, previewAnimation;
+  function animatePageEnter(node, s = state.settings) {
+    if (s.animations === false || s.lite_mode || reducedPageMotion.matches || s.motion_preset === 'none') return;
+    const frames = Object.hasOwn(pageMotions, s.motion_preset) ? pageMotions[s.motion_preset] : pageMotions.fade;
+    return node?.animate(frames, {duration: motionDuration(s), easing: 'cubic-bezier(.22,1,.36,1)'});
   }
+  reducedPageMotion.addEventListener('change', () => {
+    pageAnimation?.cancel();
+    previewAnimation?.cancel();
+    if (settingsEditor) syncSettingsForm();
+  });
 
   function changePage(page) {
+    if (page !== 'home' && window.NOSCustomUI?.isLiveEditing()) return;
     if(page==='library'){openLibrary();return;}
     const wasLibraryOpen = $('library-dialog').open;
     closeLibrary(false);
@@ -1141,7 +1241,10 @@
     statsNode.hidden = page !== 'stats';
     dailyNode.hidden = page !== 'daily';
     app.scrollTop=0;
-    if (changed) animatePageEnter(page === 'stats' ? statsNode : page === 'daily' ? dailyNode : homeNode);
+    if (changed) {
+      pageAnimation?.cancel();
+      pageAnimation = animatePageEnter(page === 'stats' ? statsNode : page === 'daily' ? dailyNode : homeNode);
+    }
     if (page === 'stats') { window.NOSStats?.open(); window.NOSFocusHistory?.open(); }
     if (page === 'daily') window.NOSDaily?.open();
     app.querySelectorAll('.rail-main [data-action="page"]').forEach(button => {
@@ -1177,6 +1280,7 @@
       if(!payload.busy)toast(payload.message);return;
     }
     const previousGoal=state.settings.goal;
+    const previousGreeting=state.settings.custom_greeting;
     const previousHeatmapDay=state.settings.heatmap_day;
     const previousLibrarySettings = JSON.stringify([
       state.settings.favorites, state.settings.colors, state.settings.resources,
@@ -1238,9 +1342,10 @@
     if(event==='snapshot'){
       window.NOSStudy?.sync(payload);
       if (state.page === 'daily') window.NOSDaily?.sync();
+      window.NOSStats?.syncRevision(payload.support_revision, payload.today);
     }
     if (event === 'settings' || event === 'snapshot') window.NOSStudio?.sync();
-    if(event==='snapshot'||state.settings.goal!==previousGoal) {
+    if(event==='snapshot'||state.settings.goal!==previousGoal||state.settings.custom_greeting!==previousGreeting) {
       renderStats();
       if (state.page === 'stats') window.NOSStats?.refreshMetrics();
     }
@@ -1265,6 +1370,8 @@
   }
   window.AnkiNOS = {
     receive,
+    saveUI,
+    toast,
     getSettings: () => state.settings,
     getSnapshot: () => state.snapshot,
     dailyCommand: payload => command('daily', payload),
@@ -1281,6 +1388,24 @@
     if (navBtn) { switchSettingsTab(navBtn.dataset.settingsTab); return; }
     const guideTabBtn = event.target.closest('.guide-tab[data-guide-select]');
     if (guideTabBtn) { switchGuideTab(guideTabBtn.dataset.guideSelect); return; }
+    const changelogTabBtn = event.target.closest('[data-changelog-tab]');
+    if (changelogTabBtn) { switchChangelogTab(changelogTabBtn.dataset.changelogTab); return; }
+    const changelogJump = event.target.closest('[data-changelog-jump]');
+    if (changelogJump) {
+      const target = changelogJump.dataset.changelogJump;
+      closeChangelog(false);
+      if (target === 'motion') {
+        openSettings($('appearance-dialog'));
+        if (settingsEditor === $('appearance-dialog')) switchSettingsTab('layout');
+        return;
+      }
+      if (target === 'studio') return window.NOSStudio?.open();
+      if (target === 'custom_ui') {
+        if (state.page !== 'home') changePage('home');
+        window.NOSCustomUI?.open();
+      }
+      return;
+    }
     const languageBtn = event.target.closest('.language-card[data-set-language]');
     if (languageBtn) {
       const pref = languageBtn.dataset.setLanguage;
@@ -1340,11 +1465,30 @@
     if (action === 'preferences') return openSettings($('settings-dialog'), button);
     if (action === 'about') return $('about-dialog')?.open ? closeAbout() : openAbout();
     if (action === 'close_about') return closeAbout();
+    if (action === 'changelog') return $('changelog-dialog')?.open ? closeChangelog() : openChangelog('highlights');
+    if (action === 'close_changelog') return closeChangelog();
+    if (action === 'dismiss_update_pill') return saveUI({whats_new_seen_version: state.settings.addon_version || '1.0.1-beta.2'});
+    if (action === 'open_custom_ui') {
+      closePopups();
+      if (settingsEditor) closeSettings(false);
+      if (state.page !== 'home') changePage('home');
+      return window.NOSCustomUI?.open();
+    }
+    if (action === 'close_custom_ui') return window.NOSCustomUI?.close();
+    if (action === 'custom_ui_live_start') {
+      closePopups();
+      if (settingsEditor) closeSettings(false);
+      if (state.page !== 'home') changePage('home');
+      return window.NOSCustomUI?.startLiveEdit(false);
+    }
+    if (action === 'custom_ui_open_studio') return window.NOSCustomUI?.openFromLive();
+    if (action === 'custom_ui_live_cancel') return window.NOSCustomUI?.finishLiveEdit(false);
+    if (action === 'custom_ui_live_save') return window.NOSCustomUI?.finishLiveEdit(true);
     if (action === 'guide') return openGuide(button.dataset.guideTab || 'start');
     if (action === 'close_guide') return closeGuide();
     if (action === 'layout_menu') return togglePopup('layout-menu', 'layout-toggle');
     if (action === 'set_layout') {
-      if (button.dataset.layoutCard) return saveUI({layout: button.dataset.layoutCard});
+      if (button.dataset.layoutCard) return saveUI({layout: button.dataset.layoutCard, custom_ui_active: ''});
       closePopups(true);
       return window.NOSLayout?.choose(button.dataset.layoutId, saveLayout);
     }
@@ -1402,13 +1546,13 @@
       toast(next ? 'Đã bật hiệu ứng mượt mà' : 'Đã tắt hiệu ứng mượt mà');
       return;
     }
-    if (action === 'dismiss_welcome') return saveUI({welcome_dismissed: true});
+    if (action === 'dismiss_welcome') return saveUI({welcome_dismissed: true, ...(state.settings.addon_version ? {whats_new_seen_version: state.settings.addon_version} : {})});
     if (action === 'welcome_guide') {
-      saveUI({welcome_dismissed: true});
+      saveUI({welcome_dismissed: true, ...(state.settings.addon_version ? {whats_new_seen_version: state.settings.addon_version} : {})});
       return openGuide('start');
     }
     if (action === 'welcome_settings') {
-      saveUI({welcome_dismissed: true});
+      saveUI({welcome_dismissed: true, ...(state.settings.addon_version ? {whats_new_seen_version: state.settings.addon_version} : {})});
       return openSettings();
     }
     if (action === 'copy_diagnostics') {
@@ -1453,6 +1597,7 @@
 
   document.addEventListener('click', event => {
     for (const [id,toggle] of popups) {
+      if (id === 'launcher' && event.target.closest('[data-action="launcher"]')) continue;
       if (!$(id).contains(event.target) && !$(toggle).contains(event.target)) setPopup(id,toggle,false);
     }
   });
@@ -1487,6 +1632,9 @@
       if($('welcome-overlay') && !$('welcome-overlay').hidden){event.preventDefault();saveUI({welcome_dismissed:true});}
       if($('image-lightbox-dialog')?.open){event.preventDefault();closeLightbox();}
       if($('about-dialog')?.open){event.preventDefault();closeAbout();}
+      if($('changelog-dialog')?.open){event.preventDefault();closeChangelog();}
+      if($('custom-ui-dialog')?.open){event.preventDefault();window.NOSCustomUI?.close();}
+      if(window.NOSCustomUI?.isLiveEditing?.()){event.preventDefault();window.NOSCustomUI.finishLiveEdit(false);}
       if($('guide-dialog')?.open){event.preventDefault();closeGuide();}
       if(settingsEditor){event.preventDefault();closeSettings();}
       if($('library-dialog').open){event.preventDefault();if(!nestedMenu)closeLibrary();}
@@ -1570,6 +1718,13 @@
       if (event.target === event.currentTarget) closeAbout();
     });
   }
+  if ($('changelog-dialog')) {
+    $('changelog-dialog').addEventListener('cancel', event => { event.preventDefault(); closeChangelog(); });
+    $('changelog-dialog').addEventListener('click', event => {
+      if (event.target === event.currentTarget) closeChangelog();
+    });
+  }
+  $('set-update-notice-muted')?.addEventListener('change', e => saveUI({update_notice_muted: e.target.checked}));
   if ($('guide-dialog')) {
     $('guide-dialog').addEventListener('cancel', event => { event.preventDefault(); closeGuide(); });
     $('guide-dialog').addEventListener('click', event => {
@@ -1593,11 +1748,23 @@
     if ($('glass-opacity-val')) $('glass-opacity-val').textContent = `${val}%`;
     saveUI({glass_opacity: val});
   });
+  $('set-surface-style').addEventListener('change', e => saveUI({surface_style: e.target.value}));
+  $('set-motion-preset').addEventListener('change', e => {
+    saveUI({motion_preset: e.target.value});
+    previewAnimation?.cancel();
+    previewAnimation = animatePageEnter($('motion-sample'), settingsDraft || state.settings);
+  });
+  $('set-motion-duration').addEventListener('input', e => saveUI({motion_duration: Number(e.target.value)}));
+  $('motion-preview').addEventListener('click', () => {
+    previewAnimation?.cancel();
+    previewAnimation = animatePageEnter($('motion-sample'), settingsDraft || state.settings);
+  });
   $('set-animations')?.addEventListener('change', e => saveUI({animations: e.target.checked}));
   $('set-stat-retention')?.addEventListener('change', e => saveUI({stat_retention: e.target.checked}));
   $('set-stat-pace')?.addEventListener('change', e => saveUI({stat_pace: e.target.checked}));
   $('set-stat-time')?.addEventListener('change', e => saveUI({stat_time: e.target.checked}));
   $('set-stat-studied')?.addEventListener('change', e => saveUI({stat_studied: e.target.checked}));
+  $('set-custom-greeting')?.addEventListener('input', e => saveUI({custom_greeting: e.target.value}));
   $('set-lite-mode')?.addEventListener('change', e => saveUI({lite_mode: e.target.checked}));
   $('set-heatmap-day')?.addEventListener('change', e => saveUI({heatmap_day: e.target.value}));
   $('set-custom-accent')?.addEventListener('input',e=>saveUI({accent:'custom',custom_accent:e.target.value}));
@@ -1685,7 +1852,7 @@
       trends:{retention:trend(92.5,Math.min(89.9, yRet),'hôm qua'),pace:trend(tPace,Math.max(tPace + 0.8, yPace),'cùng giờ hôm qua'),milliseconds:trend(2232000,yesterday.milliseconds,'cùng giờ hôm qua'),reviews:trend(186,yesterday.reviews,'cùng giờ hôm qua')},
       stats:{retention:92.5,true_retention:92.4,correct:172,tested:170,pace:tPace,milliseconds:2232000,reviews:186,streak:27},
       decks:[deck('101','Tiếng Anh — Từ vựng',4872,'blue',[deck('111','Từ vựng theo chủ đề',1520,'blue'),deck('112','Collocations & Phrasal Verbs',2180,'purple'),deck('113','Idioms',1172,'purple')]),deck('102','Tiếng Nhật — N5',1986,'pink'),deck('103','Y học cơ sở',1204,'green'),deck('104','Lịch sử Việt Nam',642,'amber')],
-      settings:{goal:200,theme_overrides:{},layout:state.settings.layout || defaultLayout,theme:'dusk',language:new URLSearchParams(location.search).get('lang')||'vi',language_pref:new URLSearchParams(location.search).get('lang')||'vi',welcome_dismissed:true,view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
+      settings:{goal:200,custom_greeting:'',addon_version:'1.0.1-beta.2',whats_new_seen_version:'1.0.1-beta.2',update_notice_muted:false,custom_ui_presets:[],custom_ui_active:'',theme_overrides:{},layout:state.settings.layout || defaultLayout,theme:'dusk',language:new URLSearchParams(location.search).get('lang')||'vi',language_pref:new URLSearchParams(location.search).get('lang')||'vi',welcome_dismissed:true,view:'list',last_study_deck:'101',study_budget:30,favorites:['101'],colors:{'101':'blue','102':'pink','103':'green','104':'amber','111':'blue','112':'purple','113':'purple'},resources:[{id:'r1',name:'500 Idioms thông dụng',kind:'pdf',detail:'12,4 MB',path:'Tài nguyên minh họa'},{id:'r2',name:'Từ vựng TOEIC',kind:'link',detail:'quizlet.com',path:'Liên kết minh họa'},{id:'r3',name:'Ngữ pháp tiếng Anh',kind:'epub',detail:'5,1 MB',path:'Tài nguyên minh họa'}]}};
   }
   // Paint immediately from inline bootstrap when hosted in Anki so startup
   // feels instantaneous, then pull the prefetched full revlog snapshot if partial.

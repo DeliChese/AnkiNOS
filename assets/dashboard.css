@@ -293,8 +293,6 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .sidebar-hidden .library-body { grid-template-columns: minmax(0,1fr); }
 #nos-app .sidebar-hidden .library-sidebar { display: none; }
 #nos-app .activity-panel.collapsed #activity-body { display: none; }
-#nos-app ::-webkit-scrollbar { width: 5px; height: 5px; }
-#nos-app ::-webkit-scrollbar-thumb { background: #d4e4ff40; border-radius: 10px; }
 @media (max-width: 1200px) {
   #nos-app .workspace { margin-left: 104px; width: calc(100% - 126px); }
   #nos-app .rail { left: 15px; width: 68px; }
@@ -413,7 +411,7 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 @media (prefers-reduced-motion: reduce) { #nos-app:not([data-animations="on"]) *, #nos-app:not([data-animations="on"]) *::before, #nos-app:not([data-animations="on"]) *::after { animation: none !important; transition: none !important; } }
 
 /* The dashboard owns the full Anki WebView; only its content scrolls. */
-#nos-app { height: 100vh; height: calc(100dvh / var(--nos-zoom, 1)); min-height: 0; width: 100%; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d4e4ff40 transparent; }
+#nos-app { height: 100vh; height: calc(100dvh / var(--nos-zoom, 1)); min-height: 0; width: 100%; overflow-x: hidden; overflow-y: auto; }
 #nos-app .rail { left: 14px; top: 16px; bottom: 16px; width: 70px; }
 #nos-app .rail-main { margin-top: 36px; }
 #nos-app .rail-bottom { gap: 12px; }
@@ -531,6 +529,7 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .settings-group-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid rgba(220, 233, 255, 0.08); }
 #nos-app .settings-group-title:first-child { margin-top: 0; }
 #nos-app .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid rgba(220, 233, 255, 0.05); }
+#nos-app .settings-row-stack { flex-direction: column; align-items: stretch; gap: 8px; }
 #nos-app .settings-row:last-child { border-bottom: none; }
 #nos-app .settings-row strong { font-size: 13px; font-weight: 600; display: block; color: var(--text); }
 #nos-app .settings-row p { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
@@ -561,6 +560,9 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app .nos-select { background: rgba(220, 235, 255, 0.08); border: 1px solid rgba(220, 233, 255, 0.2); border-radius: 8px; padding: 6px 10px; color: var(--text); font-size: 12px; outline: none; }
 #nos-app .nos-select option { background: #324466; color: #fff; }
 #nos-app .nos-number-input { background: rgba(220, 235, 255, 0.08); border: 1px solid rgba(220, 233, 255, 0.2); border-radius: 8px; padding: 6px 10px; color: var(--text); font-size: 13px; font-weight: 600; width: 76px; text-align: center; }
+#nos-app .nos-text-input { width: 100%; background: rgba(220, 235, 255, 0.08); border: 1px solid rgba(220, 233, 255, 0.2); border-radius: 8px; padding: 8px 11px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s, background 0.15s; }
+#nos-app .nos-text-input::placeholder { color: var(--faint); }
+#nos-app .nos-text-input:focus { border-color: var(--blue); background: rgba(220, 235, 255, 0.12); }
 #nos-app .goal-input-wrap { display: flex; align-items: center; gap: 8px; }
 #nos-app .goal-input-wrap .unit-label { font-size: 11px; color: var(--muted); }
 #nos-app .nos-range { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: rgba(220, 235, 255, 0.16); outline: none; margin: 10px 0 4px; }
@@ -617,11 +619,9 @@ html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 1
 #nos-app.reduce-motion *, #nos-app.reduce-motion *::before, #nos-app.reduce-motion *::after { animation: none !important; transition: none !important; }
 
 /* Smooth GPU-composited tab, page, and panel open/close transitions (toggled via Animations setting). */
-@keyframes nos-page-in { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.992); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
 @keyframes nos-tab-in { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
 @keyframes nos-dialog-in { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.965); } to { opacity: 1; transform: none; } }
 @keyframes nos-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
-#nos-app:not(.reduce-motion):not(.lite-mode) .nos-page-enter { animation: nos-page-in 420ms cubic-bezier(.22,1,.36,1) both; }
 #nos-app:not(.reduce-motion):not(.lite-mode) .settings-tab-pane:not([hidden]) { animation: nos-tab-in 340ms cubic-bezier(.22,1,.36,1) both; }
 #nos-app:not(.reduce-motion):not(.lite-mode) .settings-popover[open] .settings-panel { animation: nos-dialog-in 380ms cubic-bezier(.22,1.12,.36,1) both; }
 #nos-app:not(.reduce-motion):not(.lite-mode) .settings-popover[open]::backdrop { animation: nos-backdrop-in 320ms ease both; }

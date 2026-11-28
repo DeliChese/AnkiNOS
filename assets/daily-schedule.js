@@ -969,17 +969,9 @@
 
   function open() {
     const rev = currentRevision();
-    if (state && loadedRevision === rev) {
-      render();
-      return;
-    }
-    if (state) {
-      // Keep cached schedule visible while refreshing silently in the background.
-      render();
-      runAction('', () => request('load'));
-      return;
-    }
-    runAction('Đang tải Lịch ôn…', () => request('load'));
+    if (busy || (state && loadedRevision === rev)) return;
+    // Reuse the rendered schedule while the latest revision loads.
+    runAction(state ? '' : 'Đang tải Lịch ôn…', () => request('load'));
   }
 
   function sync() {
